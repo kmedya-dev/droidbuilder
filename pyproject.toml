@@ -1,0 +1,12 @@
+[project]
+name = "droidbuilder"
+version = "0.1.0"
+description = "A user-friendly, cross-platform command-line tool for building applications."
+authors = [{ name = "Gemini", email = "gemini@google.com" }]
+dependencies = [
+    "click",
+    "toml",
+    "requests",
+]
+[project.scripts]
+droidbuilder = "droidbuilder.main:cli"

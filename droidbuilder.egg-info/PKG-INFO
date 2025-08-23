@@ -1,0 +1,8 @@
+Metadata-Version: 2.4
+Name: droidbuilder
+Version: 0.1.0
+Summary: A user-friendly, cross-platform command-line tool for building applications.
+Author-email: Gemini <gemini@google.com>
+Requires-Dist: click
+Requires-Dist: toml
+Requires-Dist: requests
