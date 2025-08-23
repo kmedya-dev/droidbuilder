@@ -2,7 +2,7 @@
 name = "droidbuilder"
 version = "0.1.0"
 description = "A user-friendly, cross-platform command-line tool for building applications."
-authors = [{ name = "Gemini", email = "gemini@google.com" }]
+authors = [{ name = "kmedya", email = "koustavamedya.2000@gmail.com" }]
 dependencies = [
     "click",
     "toml",
