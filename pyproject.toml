@@ -7,7 +7,6 @@ dependencies = [
     "click",
     "toml",
     "requests",
-    # "python-for-android",
 ]
 [project.scripts]
 droidbuilder = "droidbuilder.main:cli"
