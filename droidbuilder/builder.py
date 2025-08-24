@@ -59,7 +59,7 @@ def build_android(config):
         p4a = PythonForAndroid()
         p4a.command("apk", *p4a_args)
         click.echo("  - Android APK build complete via python-for-android.")
-        click.echo(f"  - APK should be in {os.path.join(os.getcwd(), project_name.lower().replace(' ', '')}_dist/bin/)}")
+        click.echo(f"  - APK should be in {os.path.join(os.getcwd(), project_name.lower().replace(' ', ''))}_dist/bin/")}
     except Exception as e:
         click.echo(f"Error building Android APK with python-for-android: {e}")
         click.echo("Please ensure all required tools are installed and configured correctly.")
