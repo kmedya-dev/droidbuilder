@@ -119,7 +119,10 @@ def install_tools(ci):
 @click.option('--ndk-version', help='Override Android NDK version.')
 @click.option('--jdk-version', help='Override Java JDK version.')
 @click.option('--build-type', type=click.Choice(['debug', 'release']), help='Override build type (debug or release).')
-def build(platform, sdk_version, ndk_version, jdk_version, build_type):
+@click.option("--verbose", is_flag=True, help="Enable verbose logs")
+def build(platform, sdk_version, ndk_version, jdk_version, build_type, verbose):
+    if verbose:
+        os.environ["DB_VERBOSE"] = "1"
     """Build the application for a specified platform.
 
     PLATFORM: The target platform (e.g., android, ios, desktop).

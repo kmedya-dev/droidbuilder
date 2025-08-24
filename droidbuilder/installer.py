@@ -62,24 +62,31 @@ def install_sdk(version, cmdline_tools_version):
     _download_and_extract(sdk_url, sdk_install_dir)
 
     # After extraction, the content is typically in a 'cmdline-tools' directory
-    # within sdk_install_dir.
-    extracted_cmdline_tools_root = os.path.join(sdk_install_dir, "cmdline-tools")
-
-    # If the zip extracted directly into sdk_install_dir, then the root is sdk_install_dir itself.
-    if not os.path.exists(extracted_cmdline_tools_root):
-        extracted_cmdline_tools_root = sdk_install_dir
+    # within sdk_install_dir. However, sometimes the extracted zip creates
+    # an outer 'cmdline-tools' directory that contains the actual tools.
+    
+    # Find the actual root of the command-line tools (the directory containing 'bin')
+    actual_tools_root = sdk_install_dir
+    
+    # Check for the common case: sdk_install_dir/cmdline-tools/bin
+    if os.path.exists(os.path.join(sdk_install_dir, "cmdline-tools", "bin")):
+        actual_tools_root = os.path.join(sdk_install_dir, "cmdline-tools")
+    else:
+        # Check for the nested case: sdk_install_dir/cmdline-tools/cmdline-tools/bin
+        if os.path.exists(os.path.join(sdk_install_dir, "cmdline-tools", "cmdline-tools", "bin")):
+            actual_tools_root = os.path.join(sdk_install_dir, "cmdline-tools", "cmdline-tools")
 
     # Create the 'latest' directory where the tools will reside
     final_cmdline_tools_path = os.path.join(sdk_install_dir, "cmdline-tools", "latest")
     os.makedirs(final_cmdline_tools_path, exist_ok=True)
 
-    # Move the *contents* of the extracted_cmdline_tools_root into the 'latest' directory
-    for item in os.listdir(extracted_cmdline_tools_root):
-        shutil.move(os.path.join(extracted_cmdline_tools_root, item), final_cmdline_tools_path)
+    # Move the *contents* of the actual_tools_root into the 'latest' directory
+    for item in os.listdir(actual_tools_root):
+        shutil.move(os.path.join(actual_tools_root, item), final_cmdline_tools_path)
 
     # Remove the original extracted directory if it's not the sdk_install_dir itself
-    if extracted_cmdline_tools_root != sdk_install_dir:
-        shutil.rmtree(extracted_cmdline_tools_root)
+    if actual_tools_root != sdk_install_dir:
+        shutil.rmtree(actual_tools_root)
 
     sdk_manager = os.path.join(sdk_install_dir, "cmdline-tools", "latest", "bin", "sdkmanager")
     if not os.path.exists(sdk_manager):
