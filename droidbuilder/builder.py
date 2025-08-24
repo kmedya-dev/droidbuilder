@@ -30,8 +30,8 @@ def build_android(config):
         "--version", app_version,
         "--package", f"org.test.{project_name.lower().replace(' ', '')}", # Example package name
         "--bootstrap", "sdl2", # Common bootstrap for Kivy/SDL2 apps
-        "--requirements", "python3,kivy", # Example requirements. py2jib would be here if it's a p4a recipe
-        "--arch", "arm64-v8a", # Example architecture. Could be dynamic based on config
+        "--requirements", "python3", # Example requirements. py2jib would be here if it's a p4a recipe
+        "--arch", "arm64-v8a","armeabi-v7a", # Example architecture. Could be dynamic based on config
         "--sdk", str(sdk_version), # Pass SDK version
         "--ndk", str(ndk_version), # Pass NDK version
         "--java-home", os.environ.get("JAVA_HOME", ""), # Use JAVA_HOME set by installer
@@ -59,7 +59,7 @@ def build_android(config):
         p4a = PythonForAndroid()
         p4a.command("apk", *p4a_args)
         click.echo("  - Android APK build complete via python-for-android.")
-        click.echo(f"  - APK should be in {os.path.join(os.getcwd(), project_name.lower().replace(' ', ''))}_dist/bin/")}
+        click.echo(f"  - APK should be in {os.path.join(os.getcwd(), project_name.lower().replace(' ', '') + '_dist/bin/')}")
     except Exception as e:
         click.echo(f"Error building Android APK with python-for-android: {e}")
         click.echo("Please ensure all required tools are installed and configured correctly.")
