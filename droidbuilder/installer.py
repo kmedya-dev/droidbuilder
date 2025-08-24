@@ -55,33 +55,31 @@ def _get_latest_temurin_jdk_url(version):
         click.echo(f"Error parsing GitHub API response for Temurin {version}.")
         return None
 
-def install_sdk(version):
+def install_sdk(version, cmdline_tools_version):
     click.echo(f"  - Installing Android SDK version {version}...")
-    sdk_url = "https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip"
+    sdk_url = f"https://dl.google.com/android/repository/commandlinetools-linux-{cmdline_tools_version}_latest.zip"
     sdk_install_dir = os.path.join(INSTALL_DIR, "android-sdk")
     _download_and_extract(sdk_url, sdk_install_dir)
 
-    # The extracted content might be in a 'cmdline-tools' directory, and then 'latest' inside it
-    # We need to find the actual tools directory
-    cmdline_tools_path = os.path.join(sdk_install_dir, "cmdline-tools")
-    if not os.path.exists(cmdline_tools_path):
-        # Sometimes it extracts directly into sdk_install_dir
-        cmdline_tools_path = sdk_install_dir
+    # After extraction, the content is typically in a 'cmdline-tools' directory
+    # within sdk_install_dir.
+    extracted_cmdline_tools_root = os.path.join(sdk_install_dir, "cmdline-tools")
 
-    # Find the 'latest' or versioned directory within cmdline-tools
-    actual_tools_path = None
-    for item in os.listdir(cmdline_tools_path):
-        if os.path.isdir(os.path.join(cmdline_tools_path, item)):
-            actual_tools_path = os.path.join(cmdline_tools_path, item)
-            break
+    # If the zip extracted directly into sdk_install_dir, then the root is sdk_install_dir itself.
+    if not os.path.exists(extracted_cmdline_tools_root):
+        extracted_cmdline_tools_root = sdk_install_dir
 
-    if actual_tools_path:
-        # Move the contents of the actual_tools_path to cmdline-tools/latest
-        final_cmdline_tools_path = os.path.join(sdk_install_dir, "cmdline-tools", "latest")
-        os.makedirs(final_cmdline_tools_path, exist_ok=True)
-        for item in os.listdir(actual_tools_path):
-            shutil.move(os.path.join(actual_tools_path, item), final_cmdline_tools_path)
-        shutil.rmtree(actual_tools_path) # Remove the old directory
+    # Create the 'latest' directory where the tools will reside
+    final_cmdline_tools_path = os.path.join(sdk_install_dir, "cmdline-tools", "latest")
+    os.makedirs(final_cmdline_tools_path, exist_ok=True)
+
+    # Move the *contents* of the extracted_cmdline_tools_root into the 'latest' directory
+    for item in os.listdir(extracted_cmdline_tools_root):
+        shutil.move(os.path.join(extracted_cmdline_tools_root, item), final_cmdline_tools_path)
+
+    # Remove the original extracted directory if it's not the sdk_install_dir itself
+    if extracted_cmdline_tools_root != sdk_install_dir:
+        shutil.rmtree(extracted_cmdline_tools_root)
 
     sdk_manager = os.path.join(sdk_install_dir, "cmdline-tools", "latest", "bin", "sdkmanager")
     if not os.path.exists(sdk_manager):
@@ -100,26 +98,24 @@ def install_sdk(version):
         click.echo(f"Error installing SDK components: {e.stderr}")
         click.echo("Please ensure the SDK version is valid and try again.")
 
-def install_ndk(version):
+def install_ndk(version, sdk_install_dir):
     click.echo(f"  - Installing Android NDK version {version}...")
-    # Placeholder URL for NDK. Find specific version from official Android NDK archives.
-    ndk_url = f"https://dl.google.com/android/repository/android-ndk-r{version}-linux.zip" # Example: r25b
-    ndk_install_dir = os.path.join(INSTALL_DIR, "android-ndk")
-    _download_and_extract(ndk_url, ndk_install_dir)
-
-    # NDK usually extracts into a folder like 'android-ndk-rXX'
-    extracted_ndk_dir = None
-    for item in os.listdir(ndk_install_dir):
-        if item.startswith("android-ndk-r") and os.path.isdir(os.path.join(ndk_install_dir, item)):
-            extracted_ndk_dir = os.path.join(ndk_install_dir, item)
-            break
     
-    if extracted_ndk_dir:
-        os.environ["ANDROID_NDK_HOME"] = extracted_ndk_dir
-        os.environ["PATH"] += os.pathsep + extracted_ndk_dir
-        click.echo(f"  - NDK installed to {extracted_ndk_dir}")
-    else:
-        click.echo("Warning: Could not find extracted NDK directory.")
+    sdk_manager = os.path.join(sdk_install_dir, "cmdline-tools", "latest", "bin", "sdkmanager")
+    if not os.path.exists(sdk_manager):
+        click.echo(f"Error: sdkmanager not found at {sdk_manager}. Cannot install NDK.")
+        return
+
+    try:
+        subprocess.run([sdk_manager, f"ndk;{version}"], check=True, capture_output=True, text=True)
+        click.echo("  - Android NDK components installed.")
+        # Set ANDROID_NDK_HOME and PATH
+        ndk_path = os.path.join(sdk_install_dir, "ndk", version) # NDK is installed under ndk/<version>
+        os.environ["ANDROID_NDK_HOME"] = ndk_path
+        os.environ["PATH"] += os.pathsep + ndk_path
+    except subprocess.CalledProcessError as e:
+        click.echo(f"Error installing NDK components: {e.stderr}")
+        click.echo("Please ensure the NDK version is valid and try again.")
 
 def install_jdk(version):
     click.echo(f"  - Installing JDK version {version}...")
@@ -171,11 +167,13 @@ def setup_tools(config, ci_mode=False):
     sdk_version = config.get("android", {}).get("sdk_version")
     ndk_version = config.get("android", {}).get("ndk_version")
     jdk_version = config.get("java", {}).get("jdk_version")
+    cmdline_tools_version = config.get("android", {}).get("cmdline_tools_version")
+    sdk_install_dir = os.path.join(INSTALL_DIR, "android-sdk")
 
     if sdk_version:
-        install_sdk(sdk_version)
+        install_sdk(sdk_version, cmdline_tools_version)
     if ndk_version:
-        install_ndk(ndk_version)
+        install_ndk(ndk_version, sdk_install_dir)
     if jdk_version:
         install_jdk(jdk_version)
 
