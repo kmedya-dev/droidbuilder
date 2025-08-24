@@ -6,4 +6,4 @@ Author-email: kmedya <koustavamedya.2000@gmail.com>
 Requires-Dist: click
 Requires-Dist: toml
 Requires-Dist: requests
-Requires-Dist: python-for-android
+Requires-Dist: python-for-android@ git+https://github.com/kmedya-dev/python-for-android.git@main

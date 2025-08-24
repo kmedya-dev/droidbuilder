@@ -15,7 +15,7 @@ def init():
 
     try:
         project_name = click.prompt("Project Name", default="MyDroidApp")
-        project_version = click.prompt("Project Version", default="0.1.0")
+        project_version = click.prompt("Project Version", default="0.1")
         main_file = click.prompt("Main Python File (e.g., main.py)", default="main.py")
 
         while True:
@@ -26,6 +26,29 @@ def init():
                 break
             else:
                 click.echo(f"Invalid platform(s) detected. Please choose from: {', '.join(valid_platforms)}")
+
+        # New prompts
+        package_domain = click.prompt("Package Domain (e.g., org.example)", default="org.test")
+        build_type = click.prompt("Build Type", type=click.Choice(['debug', 'release']), default="debug")
+
+        while True:
+            archs_str = click.prompt("Target Architectures (comma-separated: e.g., arm64-v8a,armeabi-v7a)", default="arm64-v8a,armeabi-v7a")
+            archs = [a.strip() for a in archs_str.split(',') if a.strip()]
+            # No specific validation for archs, just take as string list
+            break # Exit loop after getting input
+
+        manifest_file = click.prompt("Path to custom AndroidManifest.xml (leave empty for default)", default="")
+
+        while True:
+            cmdline_tools_tag = click.prompt("Android Command Line Tools Tag (e.g., 9123335)", default="9123335")
+            if cmdline_tools_tag.isdigit():
+                break
+            else:
+                click.echo("Command Line Tools Tag must be a number.")
+
+        requirements_str = click.prompt("Python Requirements for p4a (comma-separated: e.g., python3,kivy)", default="python3")
+        requirements = [r.strip() for r in requirements_str.split(',') if r.strip()]
+
 
         while True:
             android_sdk_version = click.prompt("Android SDK Version (e.g., 34)", default="34")
@@ -49,10 +72,16 @@ def init():
                 "version": project_version,
                 "main_file": main_file,
                 "target_platforms": target_platforms,
+                "package_domain": package_domain, # New
+                "build_type": build_type,         # New
+                "requirements": requirements,     # New
             },
             "android": {
                 "sdk_version": android_sdk_version,
                 "ndk_version": android_ndk_version,
+                "archs": archs,                   # New
+                "cmdline_tools_version": cmdline_tools_tag, # New, maps to cmdline_tools_tag
+                "manifest_file": manifest_file,   # New
             },
             "java": {
                 "jdk_version": java_jdk_version,
@@ -67,6 +96,7 @@ def init():
         click.echo("\nProject initialization aborted by user.")
     except Exception as e:
         click.echo(f"\nAn unexpected error occurred during initialization: {e}")
+
 
 
 @cli.command()
