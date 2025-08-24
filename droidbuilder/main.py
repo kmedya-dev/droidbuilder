@@ -1,4 +1,6 @@
 import click
+import shutil
+import os
 from . import config
 from . import installer
 from . import builder
@@ -142,6 +144,14 @@ def build(platform, sdk_version, ndk_version, jdk_version, build_type):
         builder.build_desktop(conf)
     else:
         click.echo(f"Error: Unsupported platform '{platform}'. Supported platforms are 'android', 'ios', 'desktop'.")
+
+@cli.command()
+def clean():
+    """Remove build, dist, and temp files."""
+    for folder in ["build", "dist", ".droidbuilder"]:
+        if os.path.exists(folder):
+            shutil.rmtree(folder)
+            print(f"Removed {folder}")
 
 if __name__ == '__main__':
     cli()

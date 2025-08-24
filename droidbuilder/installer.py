@@ -57,7 +57,7 @@ def _get_latest_temurin_jdk_url(version):
 
 def install_sdk(version):
     click.echo(f"  - Installing Android SDK version {version}...")
-    sdk_url = "https://dl.google.com/android/repository/commandlinetools-linux-{13114758}_latest.zip" # Placeholder URL
+    sdk_url = "https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip"
     sdk_install_dir = os.path.join(INSTALL_DIR, "android-sdk")
     _download_and_extract(sdk_url, sdk_install_dir)
 
