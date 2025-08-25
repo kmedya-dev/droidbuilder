@@ -61,6 +61,13 @@ def init():
             else:
                 logger.warning("Android SDK Version must be a number.")
 
+        while True: # New prompt for min_sdk_version
+            android_min_sdk_version = click.prompt("Android Minimum SDK Version (e.g., 21)", default="21")
+            if android_min_sdk_version.isdigit():
+                break
+            else:
+                logger.warning("Android Minimum SDK Version must be a number.")
+
         android_ndk_version = click.prompt("Android NDK Version (e.g., 25.2.9519653)", default="25.2.9519653")
 
         while True:
@@ -83,6 +90,7 @@ def init():
             "android": {
                 "sdk_version": android_sdk_version,
                 "ndk_version": android_ndk_version,
+                "min_sdk_version": android_min_sdk_version, # New
                 "archs": archs,                   # New
                 "cmdline_tools_version": cmdline_tools_tag, # New, maps to cmdline_tools_tag
                 "manifest_file": manifest_file,   # New
@@ -93,8 +101,7 @@ def init():
         }
 
         config.save_config(conf)
-        logger.success(f"
-DroidBuilder project initialized successfully! Configuration saved to {config.CONFIG_FILE}")
+        logger.success(f"DroidBuilder project initialized successfully! Configuration saved to {config.CONFIG_FILE}")
         logger.info("Next steps: Run 'droidbuilder install-tools' to set up your development environment.")
 
     except click.Abort:

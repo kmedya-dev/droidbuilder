@@ -31,6 +31,7 @@ def build_android(config):
     # Get Android specific configurations
     sdk_version = config.get("android", {}).get("sdk_version")
     ndk_version = config.get("android", {}).get("ndk_version")
+    min_sdk_version = config.get("android", {}).get("min_sdk_version") # New
     jdk_version = config.get("java", {}).get("jdk_version")
     # build_type is now from project config, removed redundant line
 
@@ -54,6 +55,9 @@ def build_android(config):
 
     if manifest_file: # Add manifest file if provided
         p4a_args.extend(["--manifest", manifest_file])
+
+    if min_sdk_version: # Add min-sdk if provided
+        p4a_args.extend(["--min-sdk", str(min_sdk_version)])
 
     if build_type == "release": # Use build_type from config
         logger.warning("Warning: Release builds require signing. This prototype does not handle signing keys.")

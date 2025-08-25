@@ -1,6 +1,6 @@
 [project]
 name = "MyDroidApp"
-version = "0.1.0"
+version = "0.1"
 main_file = "main.py"
 target_platforms = [ "android",]
 package_domain = "org.test"
@@ -10,6 +10,7 @@ requirements = [ "python3",]
 [android]
 sdk_version = "34"
 ndk_version = "25.2.9519653"
+min_sdk_version = "21"
 archs = [ "arm64-v8a", "armeabi-v7a",]
 cmdline_tools_version = "9123335"
 manifest_file = ""
