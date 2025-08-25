@@ -1,9 +1,11 @@
 import click
 import shutil
 import os
+import sys
 from . import config
 from . import installer
 from . import builder
+from .cli_logger import logger
 
 @click.group()
 def cli():
@@ -13,7 +15,7 @@ def cli():
 @cli.command()
 def init():
     """Initialize a new DroidBuilder project."""
-    click.echo("Initializing a new DroidBuilder project. Please provide the following details:")
+    logger.info("Initializing a new DroidBuilder project. Please provide the following details:")
 
     try:
         project_name = click.prompt("Project Name", default="MyDroidApp")
@@ -27,7 +29,7 @@ def init():
             if all(p in valid_platforms for p in target_platforms):
                 break
             else:
-                click.echo(f"Invalid platform(s) detected. Please choose from: {', '.join(valid_platforms)}")
+                logger.warning(f"Invalid platform(s) detected. Please choose from: {', '.join(valid_platforms)}")
 
         # New prompts
         package_domain = click.prompt("Package Domain (e.g., org.example)", default="org.test")
@@ -46,7 +48,7 @@ def init():
             if cmdline_tools_tag.isdigit():
                 break
             else:
-                click.echo("Command Line Tools Tag must be a number.")
+                logger.warning("Command Line Tools Tag must be a number.")
 
         requirements_str = click.prompt("Python Requirements for p4a (comma-separated: e.g., python3,kivy)", default="python3")
         requirements = [r.strip() for r in requirements_str.split(',') if r.strip()]
@@ -57,7 +59,7 @@ def init():
             if android_sdk_version.isdigit():
                 break
             else:
-                click.echo("Android SDK Version must be a number.")
+                logger.warning("Android SDK Version must be a number.")
 
         android_ndk_version = click.prompt("Android NDK Version (e.g., 25.2.9519653)", default="25.2.9519653")
 
@@ -66,7 +68,7 @@ def init():
             if java_jdk_version.isdigit():
                 break
             else:
-                click.echo("Java JDK Version must be a number.")
+                logger.warning("Java JDK Version must be a number.")
 
         conf = {
             "project": {
@@ -91,13 +93,15 @@ def init():
         }
 
         config.save_config(conf)
-        click.echo(f"\nDroidBuilder project initialized successfully! Configuration saved to {config.CONFIG_FILE}")
-        click.echo("Next steps: Run 'droidbuilder install-tools' to set up your development environment.")
+        logger.success(f"
+DroidBuilder project initialized successfully! Configuration saved to {config.CONFIG_FILE}")
+        logger.info("Next steps: Run 'droidbuilder install-tools' to set up your development environment.")
 
     except click.Abort:
-        click.echo("\nProject initialization aborted by user.")
+        logger.warning("\nProject initialization aborted by user.")
     except Exception as e:
-        click.echo(f"\nAn unexpected error occurred during initialization: {e}")
+        logger.error(f"\nAn unexpected error occurred during initialization: {e}")
+        logger.exception(*sys.exc_info())
 
 
 
@@ -105,13 +109,13 @@ def init():
 @click.option('--ci', is_flag=True, help='Run in CI mode (non-interactive, accept licenses).')
 def install_tools(ci):
     """Install required SDK, NDK, and JDK versions."""
-    click.echo("Installing DroidBuilder tools...")
+    logger.info("Installing DroidBuilder tools...")
     conf = config.load_config()
     if not conf:
-        click.echo("Error: No droidbuilder.toml found. Please run 'droidbuilder init' first.")
+        logger.error("Error: No droidbuilder.toml found. Please run 'droidbuilder init' first.")
         return
     installer.setup_tools(conf, ci_mode=ci)
-    click.echo("Tool installation complete.")
+    logger.success("Tool installation complete.")
 
 @cli.command()
 @click.argument('platform')
@@ -124,10 +128,10 @@ def build(platform, sdk_version, ndk_version, jdk_version, build_type, verbose):
 
     PLATFORM: The target platform (e.g., android, ios, desktop).
     """
-    click.echo(f"Building for {platform}...")
+    logger.info(f"Building for {platform}...")
     conf = config.load_config()
     if not conf:
-        click.echo("Error: No droidbuilder.toml found. Please run 'droidbuilder init' first.")
+        logger.error("Error: No droidbuilder.toml found. Please run 'droidbuilder init' first.")
         return
 
     # Override config values with command-line arguments if provided
@@ -143,7 +147,7 @@ def build(platform, sdk_version, ndk_version, jdk_version, build_type, verbose):
     elif platform == "desktop":
         builder.build_desktop(conf)
     else:
-        click.echo(f"Error: Unsupported platform '{platform}'. Supported platforms are 'android', 'ios', 'desktop'.")
+        logger.error(f"Error: Unsupported platform '{platform}'. Supported platforms are 'android', 'ios', 'desktop'.")
 
 @cli.command()
 def clean():
@@ -151,7 +155,7 @@ def clean():
     for folder in ["build", "dist", ".droidbuilder"]:
         if os.path.exists(folder):
             shutil.rmtree(folder)
-            print(f"Removed {folder}")
+            logger.info(f"Removed {folder}")
 
 if __name__ == '__main__':
     cli()

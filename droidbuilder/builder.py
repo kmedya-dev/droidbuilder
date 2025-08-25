@@ -2,12 +2,14 @@ import click
 import os
 import subprocess
 import shutil
+import sys
 from pythonforandroid.toolchain import ToolchainCL
+from .cli_logger import logger
 
 BUILD_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder_build")
 
 def build_android(config):
-    click.echo("Building Android application using python-for-android...")
+    logger.info("Building Android application using python-for-android...")
     project_name = config.get("project", {}).get("name", "Unnamed Project")
     main_file = config.get("project", {}).get("main_file", "main.py")
     app_version = config.get("project", {}).get("version", "1.0")
@@ -23,7 +25,7 @@ def build_android(config):
 
     # Ensure Android is a target platform
     if "android" not in target_platforms:
-        click.echo("Error: Android is not specified as a target platform in droidbuilder.toml.")
+        logger.error("Error: Android is not specified as a target platform in droidbuilder.toml.")
         return
 
     # Get Android specific configurations
@@ -54,16 +56,16 @@ def build_android(config):
         p4a_args.extend(["--manifest", manifest_file])
 
     if build_type == "release": # Use build_type from config
-        click.echo("Warning: Release builds require signing. This prototype does not handle signing keys.")
+        logger.warning("Warning: Release builds require signing. This prototype does not handle signing keys.")
         # p4a_args.extend(["--release", "--keystore", "path/to/keystore", "--keyalias", "your_alias", "--keypass", "your_key_pass", "--storepass", "your_store_pass"])
 
     # Clean up previous p4a build directory if it exists
     p4a_build_dir = os.path.join(os.path.expanduser("~"), ".p4a_build")
     if os.path.exists(p4a_build_dir):
-        click.echo(f"  - Cleaning up previous p4a build directory: {p4a_build_dir}")
+        logger.info(f"  - Cleaning up previous p4a build directory: {p4a_build_dir}")
         shutil.rmtree(p4a_build_dir)
 
-    click.echo(f"  - Running p4a command: build apk {' '.join(p4a_args)}")
+    logger.info(f"  - Running p4a command: build apk {' '.join(p4a_args)}")
     try:
         import sys
         original_argv = sys.argv[:] # Save original sys.argv
@@ -75,26 +77,27 @@ def build_android(config):
         try:
             toolchain_instance = ToolchainCL()
             toolchain_instance.apk(toolchain_instance.args) # Pass the parsed args object
-            click.echo("  - Android APK build complete via python-for-android.")
-            click.echo(f"  - APK should be in {os.path.join(os.getcwd(), project_name.lower().replace(' ', '') + '_dist/bin/')}")
+            logger.success("  - Android APK build complete via python-for-android.")
+            logger.info(f"  - APK should be in {os.path.join(os.getcwd(), project_name.lower().replace(' ', '') + '_dist/bin/')}")
         finally:
             sys.argv = original_argv # Restore original sys.argv
     except Exception as e:
-        click.echo(f"Error building Android APK with python-for-android: {e}")
-        click.echo("Please ensure all required tools are installed and configured correctly.")
+        logger.error(f"Error building Android APK with python-for-android: {e}")
+        logger.info("Please ensure all required tools are installed and configured correctly.")
+        logger.exception(*sys.exc_info())
 
 def build_ios(config):
-    click.echo("Building iOS application...")
+    logger.info("Building iOS application...")
     project_name = config.get("project", {}).get("name", "Unnamed Project")
-    click.echo(f"  - Project: {project_name}")
-    click.echo("  - iOS build requires Xcode and specific iOS development tools.")
-    click.echo("  - This functionality is a placeholder and needs full implementation.")
-    click.echo("  - iOS build complete (placeholder).")
+    logger.info(f"  - Project: {project_name}")
+    logger.info("  - iOS build requires Xcode and specific iOS development tools.")
+    logger.info("  - This functionality is a placeholder and needs full implementation.")
+    logger.info("  - iOS build complete (placeholder).")
 
 def build_desktop(config):
-    click.echo("Building Desktop application...")
+    logger.info("Building Desktop application...")
     project_name = config.get("project", {}).get("name", "Unnamed Project")
-    click.echo(f"  - Project: {project_name}")
-    click.echo("  - Desktop build depends on the chosen framework (e.g., Electron, PyInstaller, Kivy desktop). ")
-    click.echo("  - This functionality is a placeholder and needs full implementation.")
-    click.echo("  - Desktop build complete (placeholder).")
+    logger.info(f"  - Project: {project_name}")
+    logger.info("  - Desktop build depends on the chosen framework (e.g., Electron, PyInstaller, Kivy desktop). ")
+    logger.info("  - This functionality is a placeholder and needs full implementation.")
+    logger.info("  - Desktop build complete (placeholder).")
