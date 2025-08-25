@@ -19,17 +19,34 @@ def _download_and_extract(url, dest_dir, filename=None):
     logger.info(f"  - Downloading {filename}...")
     with requests.get(url, stream=True) as r:
         r.raise_for_status()
+        total_size = int(r.headers.get('content-length', 0))
+        downloaded_size = 0
+        start_time = time.time()
         with open(filepath, 'wb') as f:
             for chunk in r.iter_content(chunk_size=8192):
                 f.write(chunk)
+                downloaded_size += len(chunk)
+                # Update progress bar
+                done = int(50 * downloaded_size / total_size) if total_size else 0
+                percentage = int(100 * downloaded_size / total_size) if total_size else 0
+                elapsed_time = time.time() - start_time
+                speed = downloaded_size / elapsed_time if elapsed_time > 0 else 0
+                speed_str = f"{speed / (1024 * 1024):.2f} MB/s" if speed > (1024 * 1024) else f"{speed / 1024:.2f} KB/s"
+                sys.stdout.write(f"\r  [{'=' * done}{' ' * (50 - done)}] {percentage}% {downloaded_size / (1024 * 1024):.2f}/{total_size / (1024 * 1024):.2f} MB ({speed_str})")
+                sys.stdout.flush()
+            sys.stdout.write("\n") # New line after download completes
 
-    logger.info(f"  - Extracting {filename}...")
+    logger.info(f"  - Extracting {filename} to {dest_dir}...")
     if filename.endswith(".zip"):
         with zipfile.ZipFile(filepath, 'r') as zip_ref:
-            zip_ref.extractall(dest_dir)
+            for member in zip_ref.infolist():
+                logger.info(f"    inflating: {member.filename}")
+                zip_ref.extract(member, dest_dir)
     elif filename.endswith(".tar.gz") or filename.endswith(".tgz"):
         with tarfile.open(filepath, 'r:gz') as tar_ref:
-            tar_ref.extractall(dest_dir)
+            for member in tar_ref.getmembers():
+                logger.info(f"    extracting: {member.name}")
+                tar_ref.extract(member, dest_dir)
     else:
         logger.warning(f"Warning: Unknown archive type for {filename}. Skipping extraction.")
     os.remove(filepath)
