@@ -6,6 +6,7 @@ import tarfile
 import subprocess
 import shutil
 import sys
+import time
 from .cli_logger import logger
 
 INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
