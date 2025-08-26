@@ -17,42 +17,64 @@ def _download_and_extract(url, dest_dir, filename=None):
         filename = url.split('/')[-1]
     filepath = os.path.join(dest_dir, filename)
 
-    sys.stdout.write(f"  - Downloading {filename}...\n")
-    sys.stdout.flush()
-    with requests.get(url, stream=True) as r:
-        r.raise_for_status()
-        total_size = int(r.headers.get('content-length', 0))
-        downloaded_size = 0
-        start_time = time.time()
-        with open(filepath, 'wb') as f:
-            for chunk in r.iter_content(chunk_size=8192):
-                f.write(chunk)
-                downloaded_size += len(chunk)
-                # Update progress bar
-                done = int(50 * downloaded_size / total_size) if total_size else 0
-                percentage = int(100 * downloaded_size / total_size) if total_size else 0
-                elapsed_time = time.time() - start_time
-                speed = downloaded_size / elapsed_time if elapsed_time > 0 else 0
-                speed_str = f"{speed / (1024 * 1024):.2f} MB/s" if speed > (1024 * 1024) else f"{speed / 1024:.2f} KB/s"
-                sys.stdout.write(f"\r  [{'=' * done}{' ' * (50 - done)}] {percentage}% {downloaded_size / (1024 * 1024):.2f}/{total_size / (1024 * 1024):.2f} MB ({speed_str})")
-                sys.stdout.flush()
-            sys.stdout.write("\n") # New line after download completes
+    try:
+        with requests.get(url, stream=True) as r:
+            r.raise_for_status()
+            total_size = int(r.headers.get('content-length', 0))
+            
+            temp_filepath = filepath + ".tmp"
+            with open(temp_filepath, 'wb') as f:
+                chunks = r.iter_content(chunk_size=8192)
+                iterable = logger.progress(
+                    chunks,
+                    description=f"Downloading {filename}",
+                    total=total_size,
+                    unit="b"
+                )
+                for chunk in iterable:
+                    f.write(chunk)
+            
+            os.rename(temp_filepath, filepath)
 
-    logger.info(f"  - Extracting {filename} to {dest_dir}...")
-    if filename.endswith(".zip"):
-        with zipfile.ZipFile(filepath, 'r') as zip_ref:
-            for member in zip_ref.infolist():
-                logger.info(f"    inflating: {member.filename}")
-                zip_ref.extract(member, dest_dir)
-    elif filename.endswith(".tar.gz") or filename.endswith(".tgz"):
-        with tarfile.open(filepath, 'r:gz') as tar_ref:
-            for member in tar_ref.getmembers():
-                logger.info(f"    extracting: {member.name}")
-                tar_ref.extract(member, dest_dir)
-    else:
-        logger.warning(f"Warning: Unknown archive type for {filename}. Skipping extraction.")
-    os.remove(filepath)
-    logger.info(f"  - Extracted to {dest_dir}")
+        logger.step_info(f"Archive:  {filename}")
+        if filename.endswith(".zip"):
+            with zipfile.ZipFile(filepath, 'r') as zip_ref:
+                infolist = zip_ref.infolist()
+                for member in infolist:
+                    target_path = os.path.join(dest_dir, member.filename)
+                    if member.is_dir():
+                        logger.step_info(f"creating: {member.filename}", indent=3)
+                    elif os.path.exists(target_path):
+                        logger.step_info(f" replace: {member.filename}", indent=2)
+                    else:
+                        logger.step_info(f"inflating: {member.filename}", indent=2)
+                    zip_ref.extract(member, dest_dir)
+        elif filename.endswith((".tar.gz", ".tgz")):
+            with tarfile.open(filepath, 'r:gz') as tar_ref:
+                members = tar_ref.getmembers()
+                for member in members:
+                    target_path = os.path.join(dest_dir, member.name)
+                    if member.isdir():
+                        logger.step_info(f"creating: {member.name}", indent=3)
+                    elif os.path.exists(target_path):
+                        logger.step_info(f" replace: {member.name}", indent=2)
+                    else:
+                        logger.step_info(f"extracting: {member.name}", indent=2)
+                    tar_ref.extract(member, dest_dir)
+        else:
+            logger.warning(f"Unsupported archive type for {filename}. Skipping extraction.")
+            return
+
+        os.remove(filepath)
+        logger.success(f"Successfully extracted to {dest_dir}")
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error downloading the file: {e}")
+    except (zipfile.BadZipFile, tarfile.TarError, IOError) as e:
+        logger.error(f"Error during extraction: {e}")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred: {e}")
+        logger.exception(*sys.exc_info())
 
 
 def _get_latest_temurin_jdk_url(version):
