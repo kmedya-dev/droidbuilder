@@ -17,8 +17,7 @@ def _download_and_extract(url, dest_dir, filename=None):
         filename = url.split('/')[-1]
     filepath = os.path.join(dest_dir, filename)
 
-    sys.stdout.write(f"  - Downloading {filename}...
-")
+    sys.stdout.write(f"  - Downloading {filename}...\n")
     sys.stdout.flush()
     with requests.get(url, stream=True) as r:
         r.raise_for_status()
