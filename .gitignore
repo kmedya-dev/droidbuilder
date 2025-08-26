@@ -1,2 +1,29 @@
+# Python
 venv/
 __pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+*.egg-info/
+htmlcov/
+.env
+
+# Android
+.gradle/
+local.properties
+captures/
+*.apk
+*.aab
+*.keystore
+bin/
+tests/
+.droidbuilder/
+python-for-android/
+
+# IDE
+.vscode/
+.idea/
