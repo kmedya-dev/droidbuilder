@@ -20,7 +20,7 @@ captures/
 *.aab
 *.keystore
 bin/
-tests/
+
 .droidbuilder/
 python-for-android/
 

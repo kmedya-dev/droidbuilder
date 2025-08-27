@@ -69,6 +69,32 @@ A user-friendly, cross-platform command-line tool designed to simplify the proce
     *   Builds the application for the specified platform.
     *   `<platform>`: `android`, `ios`, or `desktop`.
 
+*   `droidbuilder list-installed`
+    *   Lists all installed droids (SDK, NDK, JDK versions).
+
+*   `droidbuilder uninstall <tool_name>`
+    *   Uninstalls a specified tool (e.g., `jdk-11`).
+
+*   `droidbuilder update <tool_name>`
+    *   Updates a specified tool to the latest version (e.g., `jdk`).
+
+*   `droidbuilder search <tool_name>`
+    *   Searches for available versions of a specified tool (e.g., `jdk`).
+
+*   `droidbuilder doctor`
+    *   Checks if all required tools are installed and the environment is set up correctly.
+
+*   `droidbuilder config`
+    *   View or edit the `droidbuilder.toml` configuration file.
+    *   `view`: View the contents of the `droidbuilder.toml` file.
+    *   `edit`: Edit the `droidbuilder.toml` file in your default editor.
+
+*   `droidbuilder version`
+    *   Prints the version of the DroidBuilder tool.
+
+*   `droidbuilder log`
+    *   Displays the latest log file.
+
 ## Configuration (`droidbuilder.toml`)
 
 The `droidbuilder.toml` file stores your project's configuration. An example structure:

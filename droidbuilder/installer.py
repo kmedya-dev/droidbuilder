@@ -8,6 +8,7 @@ import shutil
 import sys
 import time
 from .cli_logger import logger
+from . import config
 
 INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
 
@@ -232,3 +233,140 @@ def setup_tools(config, ci_mode=False):
     if ci_mode:
         sdk_install_dir = os.path.join(INSTALL_DIR, "android-sdk")
         _accept_sdk_licenses(sdk_install_dir)
+
+def list_installed_tools():
+    """Scan the installation directory and list installed tools and versions."""
+    installed = {
+        "android_sdk": [],
+        "android_ndk": [],
+        "java_jdk": [],
+    }
+
+    if not os.path.exists(INSTALL_DIR):
+        return installed
+
+    # Check for Android SDK
+    sdk_dir = os.path.join(INSTALL_DIR, "android-sdk", "platforms")
+    if os.path.exists(sdk_dir):
+        installed["android_sdk"] = [p.replace("android-", "") for p in os.listdir(sdk_dir) if p.startswith("android-")]
+
+    # Check for Android NDK
+    ndk_dir = os.path.join(INSTALL_DIR, "android-sdk", "ndk")
+    if os.path.exists(ndk_dir):
+        installed["android_ndk"] = os.listdir(ndk_dir)
+
+    # Check for Java JDK
+    for item in os.listdir(INSTALL_DIR):
+        if item.startswith("jdk-"):
+            installed["java_jdk"].append(item.replace("jdk-", ""))
+
+    return installed
+
+
+def list_installed_droids():
+    """Scan the installation directory and list installed droids."""
+    droids_dir = os.path.join(INSTALL_DIR, "droids")
+    if not os.path.exists(droids_dir):
+        return []
+    return os.listdir(droids_dir)
+
+def uninstall_tool(tool_name):
+    """Uninstall a specified tool by removing its directory."""
+    logger.info(f"Attempting to uninstall {tool_name}...")
+
+    tool_path = os.path.join(INSTALL_DIR, tool_name)
+
+    if not os.path.exists(tool_path):
+        logger.error(f"Error: {tool_name} is not installed.")
+        return
+
+    try:
+        shutil.rmtree(tool_path)
+        logger.success(f"{tool_name} has been successfully uninstalled.")
+    except OSError as e:
+        logger.error(f"Error uninstalling {tool_name}: {e}")
+
+def update_tool(tool_name):
+    """Update a specified tool to the latest version."""
+    logger.info(f"Attempting to update {tool_name}...")
+
+    installed_tools = list_installed_tools()
+
+    if tool_name.lower() == 'jdk':
+        if installed_tools["java_jdk"]:
+            for jdk_version in installed_tools["java_jdk"]:
+                uninstall_tool(f"jdk-{jdk_version}")
+            install_jdk("17") # Assuming 17 is the latest version
+        else:
+            logger.info("JDK is not installed. Installing the latest version...")
+            install_jdk("17")
+    elif tool_name.lower() == 'android-sdk':
+        if installed_tools["android_sdk"]:
+            logger.info("Android SDK is already installed. Updating components...")
+            # The install_sdk function seems to handle updates implicitly
+            conf = config.load_config()
+            install_sdk(conf.get("android", {}).get("sdk_version"), conf.get("android", {}).get("cmdline_tools_version"))
+        else:
+            logger.info("Android SDK is not installed. Installing the latest version...")
+            conf = config.load_config()
+            install_sdk(conf.get("android", {}).get("sdk_version"), conf.get("android", {}).get("cmdline_tools_version"))
+    else:
+        logger.error(f"Error: {tool_name} is not a valid tool to update.")
+
+def search_tool(tool_name):
+    """Search for available versions of a specified tool."""
+    logger.info(f"Searching for available versions of {tool_name}...")
+
+    if tool_name.lower() == 'jdk':
+        for version in ["11", "17", "21"]: # Common LTS versions
+            url = _get_latest_temurin_jdk_url(version)
+            if url:
+                logger.info(f"Found JDK {version}: {url}")
+            else:
+                logger.info(f"Could not find JDK {version}")
+    elif tool_name.lower() == 'android-sdk':
+        logger.info("Android SDK versions can be found on the Android developer website:")
+        logger.info("https://developer.android.com/studio/releases/sdk-tools")
+    elif tool_name.lower() == 'android-ndk':
+        logger.info("Android NDK versions can be found on the Android developer website:")
+        logger.info("https://developer.android.com/ndk/downloads")
+    else:
+        logger.error(f"Error: {tool_name} is not a valid tool to search for.")
+
+def check_environment():
+    """Check if all required tools are installed and environment variables are set."""
+    logger.info("Checking DroidBuilder environment...")
+    conf = config.load_config()
+    if not conf:
+        logger.error("Error: No droidbuilder.toml found. Please run 'droidbuilder init' first.")
+        return
+
+    installed_tools = list_installed_tools()
+    all_ok = True
+
+    # Check for required tools
+    if not installed_tools["android_sdk"]:
+        logger.warning("Android SDK is not installed. Run 'droidbuilder install-tools'.")
+        all_ok = False
+    if not installed_tools["android_ndk"]:
+        logger.warning("Android NDK is not installed. Run 'droidbuilder install-tools'.")
+        all_ok = False
+    if not installed_tools["java_jdk"]:
+        logger.warning("Java JDK is not installed. Run 'droidbuilder install-tools'.")
+        all_ok = False
+
+    # Check environment variables
+    if "ANDROID_HOME" not in os.environ:
+        logger.warning("ANDROID_HOME environment variable is not set.")
+        all_ok = False
+    if "ANDROID_NDK_HOME" not in os.environ:
+        logger.warning("ANDROID_NDK_HOME environment variable is not set.")
+        all_ok = False
+    if "JAVA_HOME" not in os.environ:
+        logger.warning("JAVA_HOME environment variable is not set.")
+        all_ok = False
+
+    if all_ok:
+        logger.success("DroidBuilder environment is set up correctly!")
+    else:
+        logger.error("DroidBuilder environment has issues. Please fix them and run 'droidbuilder doctor' again.")

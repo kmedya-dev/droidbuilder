@@ -2,10 +2,11 @@ import click
 import shutil
 import os
 import sys
-from . import config
+from . import config as config_module
 from . import installer
 from . import builder
-from .cli_logger import logger
+from .cli_logger import logger, get_latest_log_file
+import importlib.metadata
 
 @click.group()
 def cli():
@@ -100,8 +101,8 @@ def init():
             }
         }
 
-        config.save_config(conf)
-        logger.success(f"DroidBuilder project initialized successfully! Configuration saved to {config.CONFIG_FILE}")
+        config_module.save_config(conf)
+        logger.success(f"DroidBuilder project initialized successfully! Configuration saved to {config_module.CONFIG_FILE}")
         logger.info("Next steps: Run 'droidbuilder install-tools' to set up your development environment.")
 
     except click.Abort:
@@ -117,7 +118,7 @@ def init():
 def install_tools(ci):
     """Install required SDK, NDK, and JDK versions."""
     logger.info("Installing DroidBuilder tools...")
-    conf = config.load_config()
+    conf = config_module.load_config()
     if not conf:
         logger.error("Error: No droidbuilder.toml found. Please run 'droidbuilder init' first.")
         return
@@ -136,7 +137,7 @@ def build(platform, sdk_version, ndk_version, jdk_version, build_type, verbose):
     PLATFORM: The target platform (e.g., android, ios, desktop).
     """
     logger.info(f"Building for {platform}...")
-    conf = config.load_config()
+    conf = config_module.load_config()
     if not conf:
         logger.error("Error: No droidbuilder.toml found. Please run 'droidbuilder init' first.")
         return
@@ -163,6 +164,105 @@ def clean():
         if os.path.exists(folder):
             shutil.rmtree(folder)
             logger.info(f"Removed {folder}")
+
+@cli.command(name="list-tools")
+def list_tools():
+    """List all installed tools (SDK, NDK, JDK versions)."""
+    logger.info("Listing installed tools...")
+    installed_tools = installer.list_installed_tools()
+    if not installed_tools:
+        logger.info("No tools installed yet. Run 'droidbuilder install-tools' to begin.")
+        return
+
+    for tool, versions in installed_tools.items():
+        if versions:
+            logger.info(f"{tool.replace('_', ' ').title()}:")
+            for version in versions:
+                logger.info(f"  - {version}")
+        else:
+            logger.info(f"{tool.replace('_', ' ').title()}: Not installed")
+
+
+@cli.command(name="list-droids")
+def list_droids():
+    """List all installed droids."""
+    logger.info("Listing installed droids...")
+    installed_droids = installer.list_installed_droids()
+    if not installed_droids:
+        logger.info("No droids installed yet.")
+        return
+
+    logger.info("Installed droids:")
+    for droid in installed_droids:
+        logger.info(f"  - {droid}")
+
+@cli.command()
+@click.argument('tool_name')
+def uninstall(tool_name):
+    """Uninstall a specified tool (e.g., jdk-11)."""
+    installer.uninstall_tool(tool_name)
+
+@cli.command()
+@click.argument('tool_name')
+def update(tool_name):
+    """Update a specified tool to the latest version (e.g., jdk)."""
+    installer.update_tool(tool_name)
+
+@cli.command()
+@click.argument('tool_name')
+def search(tool_name):
+    """Search for available versions of a specified tool (e.g., jdk)."""
+    installer.search_tool(tool_name)
+
+@cli.command()
+def doctor():
+    """Check if all required tools are installed and the environment is set up correctly."""
+    installer.check_environment()
+
+@cli.group()
+def config():
+    """View or edit the droidbuilder.toml configuration file."""
+    pass
+
+@config.command()
+def view():
+    """View the contents of the droidbuilder.toml file."""
+    conf = config_module.load_config()
+    if not conf:
+        logger.error("Error: No droidbuilder.toml found. Please run 'droidbuilder init' first.")
+        return
+    with open(config_module.CONFIG_FILE, 'r') as f:
+        logger.info(f.read())
+
+@config.command()
+def edit():
+    """Edit the droidbuilder.toml file in your default editor."""
+    conf = config_module.load_config()
+    if not conf:
+        logger.error("Error: No droidbuilder.toml found. Please run 'droidbuilder init' first.")
+        return
+    click.edit(filename=config_module.CONFIG_FILE)
+
+@cli.command()
+def version():
+    """Print the version of the DroidBuilder tool."""
+    try:
+        ver = importlib.metadata.version("droidbuilder")
+        logger.info(f"DroidBuilder version {ver}")
+    except importlib.metadata.PackageNotFoundError:
+        logger.error("Error: Could not determine the version of DroidBuilder.")
+
+@cli.command()
+def log():
+    """Display the latest log file."""
+    latest_log = get_latest_log_file()
+    if not latest_log:
+        logger.error("No log files found.")
+        return
+
+    logger.info(f"Displaying log file: {latest_log}")
+    with open(latest_log, 'r') as f:
+        print(f.read())
 
 if __name__ == '__main__':
     cli()

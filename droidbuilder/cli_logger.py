@@ -2,14 +2,18 @@ import datetime
 import sys
 import time
 import traceback
+import os
 from colorama import Fore, Style, init
 
 # Initialize Colorama for cross-platform compatibility
 init()
 
+LOG_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder", "logs")
+os.makedirs(LOG_DIR, exist_ok=True)
+
 class Logger:
     def __init__(self):
-        pass
+        self.log_file = os.path.join(LOG_DIR, f"droidbuilder_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.log")
 
     def _get_timestamp(self):
         return datetime.datetime.now().strftime("%H:%M:%S")
@@ -17,9 +21,14 @@ class Logger:
     def _log(self, level, message, color, stream=sys.stdout, prefix="", show_timestamp=True):
         if show_timestamp:
             timestamp = self._get_timestamp()
+            log_message = f"[{timestamp}] [{level}] {prefix}{message}\n"
             print(f"{color}{Style.BRIGHT}[{timestamp}]{Style.RESET_ALL} {prefix}{message}{Style.RESET_ALL}", file=stream)
         else:
+            log_message = f"[{level}] {prefix}{message}\n"
             print(f"{color}{prefix}{message}{Style.RESET_ALL}", file=stream)
+        
+        with open(self.log_file, "a") as f:
+            f.write(log_message)
 
     def info(self, message):
         self._log("INFO", message, Fore.CYAN)
@@ -136,3 +145,10 @@ class Logger:
                     self._log("TRACEBACK", f">> {sub_line}", Fore.RED, stream=sys.stderr)
 
 logger = Logger()
+
+def get_latest_log_file():
+    """Return the path to the latest log file."""
+    log_files = [os.path.join(LOG_DIR, f) for f in os.listdir(LOG_DIR) if f.endswith(".log")]
+    if not log_files:
+        return None
+    return max(log_files, key=os.path.getctime)
