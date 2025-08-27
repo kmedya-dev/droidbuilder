@@ -1,29 +1,59 @@
+# ===============================
 # Python
-venv/
-__pycache__/
-*.pyc
+# ===============================
+**/__pycache__/
+*.py[cod]
 *.pyo
 *.pyd
+*.pdb
+*.so
+*.dll
+*.lib
+*.a
+*.o
+*.log
+venv/
+.env
+htmlcov/
+.tox/
+.mypy_cache/
 .pytest_cache/
 .ruff_cache/
+.coverage
+*.cover
+*.egg-info/
 build/
 dist/
-*.egg-info/
-htmlcov/
-.env
 
+# ===============================
 # Android
+# ===============================
 .gradle/
 local.properties
 captures/
 *.apk
 *.aab
 *.keystore
+*.jks
 bin/
+gen/
+out/
+obj/
 
+# Droidbuilder / p4a
 .droidbuilder/
 python-for-android/
 
-# IDE
+# ===============================
+# IDE / Editors
+# ===============================
 .vscode/
 .idea/
+*.iml
+
+# ===============================
+# OS junk files
+# ===============================
+.DS_Store
+Thumbs.db
+desktop.ini
