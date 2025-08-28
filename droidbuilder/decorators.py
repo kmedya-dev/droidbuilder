@@ -14,5 +14,5 @@ def handle_exceptions(func):
             logger.error(f"Error: File not found - {e}")
         except Exception as e:
             logger.error(f"\nAn unexpected error occurred: {e}")
-            logger.exception(e)
+            logger.exception(*sys.exc_info())
     return wrapper
