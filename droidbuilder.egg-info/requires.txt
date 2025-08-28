@@ -1,4 +1,0 @@
-click
-toml
-requests
-python-for-android@ git+https://github.com/kmedya-dev/python-for-android.git@main
