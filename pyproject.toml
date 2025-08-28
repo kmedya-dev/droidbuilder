@@ -7,7 +7,7 @@ dependencies = [
     "click",
     "toml",
     "requests",
-    "colorma",
+    "colorama",
     "python-for-android@ git+https://github.com/kmedya-dev/python-for-android.git@main",
 ]
 [project.scripts]
