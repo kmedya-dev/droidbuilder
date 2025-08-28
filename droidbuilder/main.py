@@ -77,6 +77,8 @@ def init():
                 break
             else:
                 logger.warning("Java JDK Version must be a number.")
+        
+        accept_sdk_license = click.prompt("Accept SDK licenses automatically?", type=click.Choice(['interactive', 'non-interactive']), default="interactive")
 
         conf = {
             "project": {
@@ -95,6 +97,7 @@ def init():
                 "archs": archs,                   # New
                 "cmdline_tools_version": cmdline_tools_tag, # New, maps to cmdline_tools_tag
                 "manifest_file": manifest_file,   # New
+                "accept_sdk_license": accept_sdk_license
             },
             "java": {
                 "jdk_version": java_jdk_version,
@@ -113,16 +116,16 @@ def init():
 
 
 
+
 @cli.command()
-@click.option('--ci', is_flag=True, help='Run in CI mode (non-interactive, accept licenses).')
-def install_tools(ci):
+def install_tools():
     """Install required SDK, NDK, and JDK versions."""
     logger.info("Installing DroidBuilder tools...")
     conf = config_module.load_config()
     if not conf:
         logger.error("Error: No droidbuilder.toml found. Please run 'droidbuilder init' first.")
         return
-    installer.setup_tools(conf, ci_mode=ci)
+    installer.setup_tools(conf)
     logger.success("Tool installation complete.")
 
 @cli.command()

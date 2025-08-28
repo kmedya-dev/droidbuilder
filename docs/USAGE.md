@@ -43,7 +43,7 @@ source venv/bin/activate # Or your OS-specific activation command
 # Run the initialization command
 droidbuilder init
 ```
-*   **Action:** The tool will prompt you for various details like Project Name, Version, Main Python File, Target Platforms (e.g., `android,ios,desktop`), Android SDK/NDK versions, and Java JDK version.
+*   **Action:** The tool will prompt you for various details like Project Name, Version, Main Python File, Target Platforms (e.g., `android,ios,desktop`), Android SDK/NDK versions, Java JDK version, and whether to accept SDK licenses automatically.
 *   **Output:** A `droidbuilder.toml` file will be created in your project's root directory, storing your chosen configurations.
 
 ### Step 3: Install Development Tools (`droidbuilder install-tools`)
@@ -152,7 +152,8 @@ jobs:
             "android": {
                 "sdk_version": os.getenv("ANDROID_SDK_VERSION", "34"),
                 "ndk_version": os.getenv("ANDROID_NDK_VERSION", "25.2.9519653"),
-                "build_type": os.getenv("BUILD_TYPE", "debug")
+                "build_type": os.getenv("BUILD_TYPE", "debug"),
+                "accept_sdk_license": "non-interactive"
             },
             "java": {
                 "jdk_version": os.getenv("JAVA_JDK_VERSION", "11")
@@ -169,10 +170,10 @@ jobs:
         JAVA_JDK_VERSION: 11
         BUILD_TYPE: debug # Example: Can be 'release' based on branch
 
-    - name: Install DroidBuilder tools (CI mode)
+    - name: Install DroidBuilder tools
       run: |
         source venv/bin/activate
-        droidbuilder install-tools --ci # The --ci flag automates license acceptance
+        droidbuilder install-tools
 
     - name: Build Android Application
       run: |

@@ -327,18 +327,19 @@ def _accept_sdk_licenses(sdk_install_dir):
 
 # -------------------- Orchestrators --------------------
 
-def setup_tools(conf, ci_mode=False):
+def setup_tools(conf):
     logger.info("Setting up development tools...")
     sdk_version = conf.get("android", {}).get("sdk_version")
     ndk_version = conf.get("android", {}).get("ndk_version")
     jdk_version = conf.get("java", {}).get("jdk_version")
     cmdline_tools_version = conf.get("android", {}).get("cmdline_tools_version")
+    accept_sdk_license = conf.get("android", {}).get("accept_sdk_license", "interactive")
     sdk_install_dir = os.path.join(INSTALL_DIR, "android-sdk")
 
     if cmdline_tools_version:
         install_cmdline_tools(cmdline_tools_version)
 
-    if ci_mode:
+    if accept_sdk_license == "non-interactive":
         _accept_sdk_licenses(sdk_install_dir)
 
     if sdk_version:
