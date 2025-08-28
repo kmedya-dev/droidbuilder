@@ -37,7 +37,7 @@ def _safe_extract_zip(zip_ref: zipfile.ZipFile, dest_dir: str, log_each=True):
                 if os.path.exists(target_path):
                     logger.step_info(f" replace: {member.filename}", indent=2)
                 else:
-                    logger.step_info(f"inflating: {member.filename}", indent=2)
+                    logger.step_info(f"extracting: {member.filename}", indent=2)
             with zip_ref.open(member, 'r') as src, open(target_path, 'wb') as out:
                 shutil.copyfileobj(src, out)
 
@@ -217,6 +217,9 @@ def install_sdk(version, cmdline_tools_version):
         logger.error(f"Error: sdkmanager not found at {sdk_manager}. SDK installation failed.")
         return
 
+    # Grant execute permissions to sdkmanager
+    os.chmod(sdk_manager, 0o755)
+
     os.environ["ANDROID_HOME"] = sdk_install_dir
     os.environ["PATH"] += os.pathsep + os.path.join(sdk_install_dir, "platform-tools")
     os.environ["PATH"] += os.pathsep + os.path.join(sdk_install_dir, "cmdline-tools", "latest", "bin")
@@ -244,6 +247,9 @@ def install_ndk(version, sdk_install_dir):
     if not os.path.exists(sdk_manager):
         logger.error(f"Error: sdkmanager not found at {sdk_manager}. Cannot install NDK.")
         return
+
+    # Grant execute permissions to sdkmanager
+    os.chmod(sdk_manager, 0o755)
 
     try:
         subprocess.run([sdk_manager, f"ndk;{version}"], check=True, capture_output=True, text=True)
@@ -293,6 +299,9 @@ def _accept_sdk_licenses(sdk_install_dir):
     if not os.path.exists(sdk_manager):
         logger.error(f"Error: sdkmanager not found at {sdk_manager}. Cannot accept licenses.")
         return
+
+    # Grant execute permissions to sdkmanager
+    os.chmod(sdk_manager, 0o755)
 
     try:
         p = subprocess.Popen([sdk_manager, "--licenses"],
@@ -361,9 +370,7 @@ def list_installed_tools():
     # Java JDK
     for item in os.listdir(INSTALL_DIR):
         if item.startswith("jdk-") and os.path.isdir(os.path.join(INSTALL_DIR, item)):
-            installed["java_jdk"].append(item.replace("jdk-", ""))
-
-    return installed
+            installed["java_jdk"].append(item.replace("jdk-", "")
 
 
 def list_installed_droids():

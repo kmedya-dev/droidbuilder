@@ -1,12 +1,13 @@
 [project]
 name = "droidbuilder"
-version = "0.1.0"
+version = "0.1"
 description = "A user-friendly, cross-platform command-line tool for building applications."
 authors = [{ name = "kmedya", email = "koustavamedya.2000@gmail.com" }]
 dependencies = [
     "click",
     "toml",
     "requests",
+    "colorma",
     "python-for-android@ git+https://github.com/kmedya-dev/python-for-android.git@main",
 ]
 [project.scripts]
