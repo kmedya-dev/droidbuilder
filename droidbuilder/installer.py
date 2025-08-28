@@ -7,6 +7,8 @@ import subprocess
 import shutil
 import sys
 import time
+import contextlib
+import json
 from .cli_logger import logger
 from . import config
 
@@ -16,6 +18,7 @@ INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
 # -------------------- Helpers: safe paths & extraction --------------------
 
 def _safe_join(base, *paths):
+    """Safely join paths, preventing path traversal attacks."""
     base = os.path.abspath(base)
     final = os.path.abspath(os.path.join(base, *paths))
     if not final.startswith(base + os.sep) and final != base:
@@ -23,6 +26,7 @@ def _safe_join(base, *paths):
     return final
 
 def _safe_extract_zip(zip_ref: zipfile.ZipFile, dest_dir: str, log_each=True):
+    """Safely extract a zip file, preventing zip slip attacks."""
     for member in zip_ref.infolist():
         # protect against zip slip
         target_path = _safe_join(dest_dir, member.filename)
@@ -42,6 +46,7 @@ def _safe_extract_zip(zip_ref: zipfile.ZipFile, dest_dir: str, log_each=True):
                 shutil.copyfileobj(src, out)
 
 def _safe_extract_tar(tar_ref: tarfile.TarFile, dest_dir: str, log_each=True):
+    """Safely extract a tar file, preventing path traversal attacks."""
     for member in tar_ref.getmembers():
         # deny absolute or parent traversal
         member_path = _safe_join(dest_dir, member.name)
@@ -67,6 +72,7 @@ def _safe_extract_tar(tar_ref: tarfile.TarFile, dest_dir: str, log_each=True):
 # -------------------- Download & Extract --------------------
 
 def _download_and_extract(url, dest_dir, filename=None, timeout=60):
+    """Download and extract a file to a destination directory."""
     os.makedirs(dest_dir, exist_ok=True)
     if filename is None:
         filename = url.split('/')[-1]
@@ -130,7 +136,23 @@ def _download_and_extract(url, dest_dir, filename=None, timeout=60):
 
 # -------------------- JDK (Temurin) --------------------
 
+def _get_available_jdk_versions():
+    """Get available JDK versions from Adoptium API."""
+    api_url = "https://api.adoptium.net/v3/info/available_releases"
+    try:
+        resp = requests.get(api_url, timeout=30)
+        resp.raise_for_status()
+        release_info = resp.json()
+        return release_info.get("available_lts_releases", [])
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching available JDK versions: {e}")
+        return []
+    except (KeyError, ValueError):
+        logger.error("Error parsing GitHub API response for available JDK versions.")
+        return []
+
 def _get_latest_temurin_jdk_url(version):
+    """Get the latest Temurin JDK URL for a specific version."""
     api_url = f"https://api.github.com/repos/adoptium/temurin{version}-binaries/releases/latest"
     try:
         resp = requests.get(api_url, timeout=30)
@@ -157,7 +179,17 @@ def _get_latest_temurin_jdk_url(version):
 
 # -------------------- Android SDK --------------------
 
+def _get_sdk_manager(sdk_install_dir):
+    """Get the path to the sdkmanager executable."""
+    sdk_manager = os.path.join(sdk_install_dir, "cmdline-tools", "latest", "bin", "sdkmanager")
+    if not os.path.exists(sdk_manager):
+        logger.error(f"Error: sdkmanager not found at {sdk_manager}. SDK installation failed.")
+        return None
+    os.chmod(sdk_manager, 0o755)
+    return sdk_manager
+
 def install_cmdline_tools(cmdline_tools_version):
+    """Install the Android command-line tools."""
     logger.info(f"  - Installing Android command-line tools version {cmdline_tools_version}...")
     sdk_url = f"https://dl.google.com/android/repository/commandlinetools-linux-{cmdline_tools_version}_latest.zip"
     sdk_install_dir = os.path.join(INSTALL_DIR, "android-sdk")
@@ -209,23 +241,19 @@ def install_cmdline_tools(cmdline_tools_version):
         with contextlib.suppress(Exception):
             shutil.rmtree(actual_tools_root, ignore_errors=True)
 
-    sdk_manager = os.path.join(sdk_install_dir, "cmdline-tools", "latest", "bin", "sdkmanager")
-    if not os.path.exists(sdk_manager):
-        logger.error(f"Error: sdkmanager not found at {sdk_manager}. SDK installation failed.")
+    sdk_manager = _get_sdk_manager(sdk_install_dir)
+    if not sdk_manager:
         return
-
-    # Grant execute permissions to sdkmanager
-    os.chmod(sdk_manager, 0o755)
 
     os.environ["ANDROID_HOME"] = sdk_install_dir
     os.environ["PATH"] += os.pathsep + os.path.join(sdk_install_dir, "platform-tools")
     os.environ["PATH"] += os.pathsep + os.path.join(sdk_install_dir, "cmdline-tools", "latest", "bin")
 
 def install_sdk_packages(version):
+    """Install Android SDK packages."""
     sdk_install_dir = os.path.join(INSTALL_DIR, "android-sdk")
-    sdk_manager = os.path.join(sdk_install_dir, "cmdline-tools", "latest", "bin", "sdkmanager")
-    if not os.path.exists(sdk_manager):
-        logger.error(f"Error: sdkmanager not found at {sdk_manager}. SDK installation failed.")
+    sdk_manager = _get_sdk_manager(sdk_install_dir)
+    if not sdk_manager:
         return
     logger.info(f"  - Installing Android SDK Platform {version} and build-tools...")
     try:
@@ -244,15 +272,12 @@ def install_sdk_packages(version):
 # -------------------- Android NDK --------------------
 
 def install_ndk(version, sdk_install_dir):
+    """Install Android NDK."""
     logger.info(f"  - Installing Android NDK version {version}...")
 
-    sdk_manager = os.path.join(sdk_install_dir, "cmdline-tools", "latest", "bin", "sdkmanager")
-    if not os.path.exists(sdk_manager):
-        logger.error(f"Error: sdkmanager not found at {sdk_manager}. Cannot install NDK.")
+    sdk_manager = _get_sdk_manager(sdk_install_dir)
+    if not sdk_manager:
         return
-
-    # Grant execute permissions to sdkmanager
-    os.chmod(sdk_manager, 0o755)
 
     try:
         subprocess.run([sdk_manager, f"ndk;{version}"], check=True, capture_output=True, text=True)
@@ -269,6 +294,7 @@ def install_ndk(version, sdk_install_dir):
 # -------------------- JDK --------------------
 
 def install_jdk(version):
+    """Install Java Development Kit (JDK)."""
     logger.info(f"  - Installing JDK version {version}...")
 
     jdk_url = _get_latest_temurin_jdk_url(version)
@@ -295,19 +321,14 @@ def install_jdk(version):
 
 
 
-
-
 # -------------------- Licenses --------------------
 
 def _accept_sdk_licenses(sdk_install_dir):
+    """Accept Android SDK licenses."""
     logger.info("  - Accepting Android SDK licenses...")
-    sdk_manager = os.path.join(sdk_install_dir, "cmdline-tools", "latest", "bin", "sdkmanager")
-    if not os.path.exists(sdk_manager):
-        logger.error(f"Error: sdkmanager not found at {sdk_manager}. Cannot accept licenses.")
+    sdk_manager = _get_sdk_manager(sdk_install_dir)
+    if not sdk_manager:
         return
-
-    # Grant execute permissions to sdkmanager
-    os.chmod(sdk_manager, 0o755)
 
     try:
         p = subprocess.Popen([sdk_manager, "--licenses"],
@@ -328,6 +349,7 @@ def _accept_sdk_licenses(sdk_install_dir):
 # -------------------- Orchestrators --------------------
 
 def setup_tools(conf):
+    """Install all the required tools."""
     logger.info("Setting up development tools...")
     sdk_version = conf.get("android", {}).get("sdk_version")
     ndk_version = conf.get("android", {}).get("ndk_version")
@@ -351,7 +373,6 @@ def setup_tools(conf):
         install_jdk(jdk_version)
 
     
-
 
 def list_installed_tools():
     """Scan the installation directory and list installed tools and versions."""
@@ -418,10 +439,8 @@ def update_tool(tool_name):
         if installed_tools["java_jdk"]:
             for jdk_version in installed_tools["java_jdk"]:
                 uninstall_tool(f"jdk-{jdk_version}")
-            install_jdk("17")  # LTS default
-        else:
-            logger.info("JDK is not installed. Installing the latest version (17)...")
-            install_jdk("17")
+        latest_jdk = _get_available_jdk_versions()[0]
+        install_jdk(latest_jdk)
     elif tool_name.lower() == 'android-sdk':
         conf = config.load_config()
         if installed_tools["android_sdk"]:
@@ -441,12 +460,12 @@ def search_tool(tool_name):
     logger.info(f"Searching for available versions of {tool_name}...")
 
     if tool_name.lower() == 'jdk':
-        for version in ["11", "17", "21"]:  # common LTS
-            url = _get_latest_temurin_jdk_url(version)
-            if url:
-                logger.info(f"Found JDK {version}: {url}")
-            else:
-                logger.info(f"Could not find JDK {version}")
+        versions = _get_available_jdk_versions()
+        if versions:
+            for version in versions:
+                logger.info(f"Found JDK {version}")
+        else:
+            logger.info("Could not find any JDK versions.")
     elif tool_name.lower() == 'android-sdk':
         logger.info("Android SDK versions can be found on the Android developer website:")
         logger.info("https://developer.android.com/studio/releases/sdk-tools")

@@ -14,6 +14,7 @@ min_sdk_version = "21"
 archs = [ "arm64-v8a", "armeabi-v7a",]
 cmdline_tools_version = "13114758"
 manifest_file = ""
+accept_sdk_license = "interactive"
 
 [java]
 jdk_version = "17"

@@ -12,3 +12,13 @@ dependencies = [
 ]
 [project.scripts]
 droidbuilder = "droidbuilder.main:cli"
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pytest-cov",
+]
+
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"

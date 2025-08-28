@@ -8,7 +8,8 @@ from .cli_logger import logger
 
 BUILD_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder_build")
 
-def build_android(config):
+def build_android(config, verbose=False):
+    """Build the Android application using python-for-android."""
     logger.info("Building Android application using python-for-android...")
     project_name = config.get("project", {}).get("name", "Unnamed Project")
     main_file = config.get("project", {}).get("main_file", "main.py")
@@ -53,6 +54,9 @@ def build_android(config):
         "--main", main_file,
     ]
 
+    if verbose:
+        p4a_args.append("--verbose")
+
     if manifest_file: # Add manifest file if provided
         p4a_args.extend(["--manifest", manifest_file])
 
@@ -90,18 +94,24 @@ def build_android(config):
         logger.info("Please ensure all required tools are installed and configured correctly.")
         logger.exception(*sys.exc_info())
 
-def build_ios(config):
+def build_ios(config, verbose=False):
+    """Build the iOS application."""
     logger.info("Building iOS application...")
     project_name = config.get("project", {}).get("name", "Unnamed Project")
     logger.info(f"  - Project: {project_name}")
     logger.info("  - iOS build requires Xcode and specific iOS development tools.")
     logger.info("  - This functionality is a placeholder and needs full implementation.")
+    if verbose:
+        logger.info("  - Verbose mode enabled.")
     logger.info("  - iOS build complete (placeholder).")
 
-def build_desktop(config):
+def build_desktop(config, verbose=False):
+    """Build the Desktop application."""
     logger.info("Building Desktop application...")
     project_name = config.get("project", {}).get("name", "Unnamed Project")
     logger.info(f"  - Project: {project_name}")
     logger.info("  - Desktop build depends on the chosen framework (e.g., Electron, PyInstaller, Kivy desktop). ")
     logger.info("  - This functionality is a placeholder and needs full implementation.")
+    if verbose:
+        logger.info("  - Verbose mode enabled.")
     logger.info("  - Desktop build complete (placeholder).")

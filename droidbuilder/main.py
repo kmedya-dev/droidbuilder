@@ -9,12 +9,15 @@ from .cli_logger import logger, get_latest_log_file
 import importlib.metadata
 
 @click.group()
-def cli():
+@click.option("--path", "-p", default=".", help="Path to the project directory.")
+@click.pass_context
+def cli(ctx, path):
     """DroidBuilder CLI tool."""
-    pass
+    ctx.obj = {"path": path}
 
 @cli.command()
-def init():
+@click.pass_context
+def init(ctx):
     """Initialize a new DroidBuilder project."""
     logger.info("Initializing a new DroidBuilder project. Please provide the following details:")
 
@@ -104,8 +107,8 @@ def init():
             }
         }
 
-        config_module.save_config(conf)
-        logger.success(f"DroidBuilder project initialized successfully! Configuration saved to {config_module.CONFIG_FILE}")
+        config_module.save_config(conf, path=ctx.obj["path"])
+        logger.success(f"DroidBuilder project initialized successfully! Configuration saved to {os.path.join(ctx.obj['path'], config_module.CONFIG_FILE)}")
         logger.info("Next steps: Run 'droidbuilder install-tools' to set up your development environment.")
 
     except click.Abort:
@@ -118,10 +121,11 @@ def init():
 
 
 @cli.command()
-def install_tools():
+@click.pass_context
+def install_tools(ctx):
     """Install required SDK, NDK, and JDK versions."""
     logger.info("Installing DroidBuilder tools...")
-    conf = config_module.load_config()
+    conf = config_module.load_config(path=ctx.obj["path"])
     if not conf:
         logger.error("Error: No droidbuilder.toml found. Please run 'droidbuilder init' first.")
         return
@@ -134,13 +138,15 @@ def install_tools():
 @click.option('--ndk-version', help='Override Android NDK version.')
 @click.option('--jdk-version', help='Override Java JDK version.')
 @click.option('--build-type', type=click.Choice(['debug', 'release']), help='Override build type (debug or release).')
-def build(platform, sdk_version, ndk_version, jdk_version, build_type, verbose):
+@click.option('--verbose', '-v', is_flag=True, help='Enable verbose output.')
+@click.pass_context
+def build(ctx, platform, sdk_version, ndk_version, jdk_version, build_type, verbose):
     """Build the application for a specified platform.
 
     PLATFORM: The target platform (e.g., android, ios, desktop).
     """
     logger.info(f"Building for {platform}...")
-    conf = config_module.load_config()
+    conf = config_module.load_config(path=ctx.obj["path"])
     if not conf:
         logger.error("Error: No droidbuilder.toml found. Please run 'droidbuilder init' first.")
         return
@@ -152,16 +158,17 @@ def build(platform, sdk_version, ndk_version, jdk_version, build_type, verbose):
     if build_type: conf.setdefault("project", {})["build_type"] = build_type
 
     if platform == "android":
-        builder.build_android(conf)
+        builder.build_android(conf, verbose)
     elif platform == "ios":
-        builder.build_ios(conf)
+        builder.build_ios(conf, verbose)
     elif platform == "desktop":
-        builder.build_desktop(conf)
+        builder.build_desktop(conf, verbose)
     else:
         logger.error(f"Error: Unsupported platform '{platform}'. Supported platforms are 'android', 'ios', 'desktop'.")
 
 @cli.command()
-def clean():
+@click.pass_context
+def clean(ctx):
     """Remove build, dist, and temp files."""
     for folder in ["build", "dist", ".droidbuilder"]:
         if os.path.exists(folder):
@@ -169,7 +176,8 @@ def clean():
             logger.info(f"Removed {folder}")
 
 @cli.command(name="list-tools")
-def list_tools():
+@click.pass_context
+def list_tools(ctx):
     """List all installed tools (SDK, NDK, JDK versions)."""
     logger.info("Listing installed tools...")
     installed_tools = installer.list_installed_tools()
@@ -187,7 +195,8 @@ def list_tools():
 
 
 @cli.command(name="list-droids")
-def list_droids():
+@click.pass_context
+def list_droids(ctx):
     """List all installed droids."""
     logger.info("Listing installed droids...")
     installed_droids = installer.list_installed_droids()
@@ -201,50 +210,57 @@ def list_droids():
 
 @cli.command()
 @click.argument('tool_name')
-def uninstall(tool_name):
+@click.pass_context
+def uninstall(ctx, tool_name):
     """Uninstall a specified tool (e.g., jdk-11)."""
     installer.uninstall_tool(tool_name)
 
 @cli.command()
 @click.argument('tool_name')
-def update(tool_name):
+@click.pass_context
+def update(ctx, tool_name):
     """Update a specified tool to the latest version (e.g., jdk)."""
     installer.update_tool(tool_name)
 
 @cli.command()
 @click.argument('tool_name')
-def search(tool_name):
+@click.pass_context
+def search(ctx, tool_name):
     """Search for available versions of a specified tool (e.g., jdk)."""
     installer.search_tool(tool_name)
 
 @cli.command()
-def doctor():
+@click.pass_context
+def doctor(ctx):
     """Check if all required tools are installed and the environment is set up correctly."""
     installer.check_environment()
 
 @cli.group()
-def config():
+@click.pass_context
+def config(ctx):
     """View or edit the droidbuilder.toml configuration file."""
     pass
 
 @config.command()
-def view():
+@click.pass_context
+def view(ctx):
     """View the contents of the droidbuilder.toml file."""
-    conf = config_module.load_config()
+    conf = config_module.load_config(path=ctx.obj["path"])
     if not conf:
         logger.error("Error: No droidbuilder.toml found. Please run 'droidbuilder init' first.")
         return
-    with open(config_module.CONFIG_FILE, 'r') as f:
-        logger.info(f.read())
+    with open(os.path.join(ctx.obj["path"], config_module.CONFIG_FILE), 'r') as f:
+        click.echo(f.read())
 
 @config.command()
-def edit():
+@click.pass_context
+def edit(ctx):
     """Edit the droidbuilder.toml file in your default editor."""
-    conf = config_module.load_config()
+    conf = config_module.load_config(path=ctx.obj["path"])
     if not conf:
         logger.error("Error: No droidbuilder.toml found. Please run 'droidbuilder init' first.")
         return
-    click.edit(filename=config_module.CONFIG_FILE)
+    click.edit(filename=os.path.join(ctx.obj["path"], config_module.CONFIG_FILE))
 
 @cli.command()
 def version():
@@ -265,7 +281,7 @@ def log():
 
     logger.info(f"Displaying log file: {latest_log}")
     with open(latest_log, 'r') as f:
-        print(f.read())
+        logger.info(f.read())
 
 if __name__ == '__main__':
     cli()
