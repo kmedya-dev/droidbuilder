@@ -370,7 +370,7 @@ def list_installed_tools():
     # Java JDK
     for item in os.listdir(INSTALL_DIR):
         if item.startswith("jdk-") and os.path.isdir(os.path.join(INSTALL_DIR, item)):
-            installed["java_jdk"].append(item.replace("jdk-", "")
+            installed["java_jdk"].append(item.replace("jdk-", ""))
 
 
 def list_installed_droids():
