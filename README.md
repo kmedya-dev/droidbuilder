@@ -43,10 +43,6 @@ A user-friendly, cross-platform command-line tool designed to simplify the proce
     ```bash
     droidbuilder install-tools
     ```
-    For CI/CD environments, use the `--ci` flag to accept licenses automatically:
-    ```bash
-    droidbuilder install-tools --ci
-    ```
 
 3.  **Build your application:**
     Build your application for a target platform (e.g., `android`):
@@ -59,11 +55,10 @@ A user-friendly, cross-platform command-line tool designed to simplify the proce
 
 *   `droidbuilder init`
     *   Initializes a new DroidBuilder project and creates `droidbuilder.toml`.
-    *   Prompts for project name, version, main file, target platforms, SDK/NDK/JDK versions.
+    *   Prompts for project name, version, main file, target platforms, SDK/NDK/Java Distribution versions, and license acceptance preference.
 
-*   `droidbuilder install-tools [--ci]`
+*   `droidbuilder install-tools`
     *   Installs Android SDK, NDK, JDK, and `py2jib` based on `droidbuilder.toml`.
-    *   `--ci`: Runs in CI mode, automatically accepting licenses.
 
 *   `droidbuilder build <platform>`
     *   Builds the application for the specified platform.
@@ -109,6 +104,7 @@ target_platforms = ["android", "ios"]
 [android]
 sdk_version = "34"
 ndk_version = "25.2.9519653"
+accept_sdk_license = "interactive" # or "non-interactive"
 
 [java]
 jdk_version = "11"
