@@ -157,16 +157,13 @@ def _get_latest_temurin_jdk_url(version):
 
 # -------------------- Android SDK --------------------
 
-def install_sdk(version, cmdline_tools_version):
-    logger.info(f"  - Installing Android SDK version {version}...")
+def install_cmdline_tools(cmdline_tools_version):
+    logger.info(f"  - Installing Android command-line tools version {cmdline_tools_version}...")
     sdk_url = f"https://dl.google.com/android/repository/commandlinetools-linux-{cmdline_tools_version}_latest.zip"
     sdk_install_dir = os.path.join(INSTALL_DIR, "android-sdk")
-
     _download_and_extract(sdk_url, sdk_install_dir)
 
     # Resolve actual cmdline-tools root (cases: nested cmdline-tools/)
-    # Expected: <sdk_install_dir>/cmdline-tools/<bin>
-    # Some zips: cmdline-tools/cmdline-tools/<bin>
     root = sdk_install_dir
     ct = os.path.join(root, "cmdline-tools")
 
@@ -224,6 +221,12 @@ def install_sdk(version, cmdline_tools_version):
     os.environ["PATH"] += os.pathsep + os.path.join(sdk_install_dir, "platform-tools")
     os.environ["PATH"] += os.pathsep + os.path.join(sdk_install_dir, "cmdline-tools", "latest", "bin")
 
+def install_sdk_packages(version):
+    sdk_install_dir = os.path.join(INSTALL_DIR, "android-sdk")
+    sdk_manager = os.path.join(sdk_install_dir, "cmdline-tools", "latest", "bin", "sdkmanager")
+    if not os.path.exists(sdk_manager):
+        logger.error(f"Error: sdkmanager not found at {sdk_manager}. SDK installation failed.")
+        return
     logger.info(f"  - Installing Android SDK Platform {version} and build-tools...")
     try:
         subprocess.run(
@@ -291,6 +294,9 @@ def install_jdk(version):
         logger.warning("Warning: Could not find extracted JDK directory.")
 
 
+
+
+
 # -------------------- Licenses --------------------
 
 def _accept_sdk_licenses(sdk_install_dir):
@@ -329,18 +335,21 @@ def setup_tools(conf, ci_mode=False):
     cmdline_tools_version = conf.get("android", {}).get("cmdline_tools_version")
     sdk_install_dir = os.path.join(INSTALL_DIR, "android-sdk")
 
-    if sdk_version and cmdline_tools_version:
-        install_sdk(sdk_version, cmdline_tools_version)
-    elif sdk_version and not cmdline_tools_version:
-        logger.warning("cmdline_tools_version missing in config; cannot install SDK command-line tools.")
+    if cmdline_tools_version:
+        install_cmdline_tools(cmdline_tools_version)
+
+    if ci_mode:
+        _accept_sdk_licenses(sdk_install_dir)
+
+    if sdk_version:
+        install_sdk_packages(sdk_version)
 
     if ndk_version:
         install_ndk(ndk_version, sdk_install_dir)
     if jdk_version:
         install_jdk(jdk_version)
 
-    if ci_mode:
-        _accept_sdk_licenses(sdk_install_dir)
+    
 
 
 def list_installed_tools():
@@ -416,10 +425,12 @@ def update_tool(tool_name):
         conf = config.load_config()
         if installed_tools["android_sdk"]:
             logger.info("Android SDK is already installed. Updating components...")
-            install_sdk(conf.get("android", {}).get("sdk_version"), conf.get("android", {}).get("cmdline_tools_version"))
+            install_cmdline_tools(conf.get("android", {}).get("cmdline_tools_version"))
+            install_sdk_packages(conf.get("android", {}).get("sdk_version"))
         else:
             logger.info("Android SDK is not installed. Installing...")
-            install_sdk(conf.get("android", {}).get("sdk_version"), conf.get("android", {}).get("cmdline_tools_version"))
+            install_cmdline_tools(conf.get("android", {}).get("cmdline_tools_version"))
+            install_sdk_packages(conf.get("android", {}).get("sdk_version"))
     else:
         logger.error(f"Error: {tool_name} is not a valid tool to update.")
 
