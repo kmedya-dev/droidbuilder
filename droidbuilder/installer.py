@@ -44,6 +44,10 @@ def _safe_extract_zip(zip_ref: zipfile.ZipFile, dest_dir: str, log_each=True):
                     logger.step_info(f"extracting: {member.filename}", indent=2)
             with zip_ref.open(member, 'r') as src, open(target_path, 'wb') as out:
                 shutil.copyfileobj(src, out)
+            # Preserve file permissions
+            mode = member.external_attr >> 16
+            if mode:
+                os.chmod(target_path, mode)
 
 def _safe_extract_tar(tar_ref: tarfile.TarFile, dest_dir: str, log_each=True):
     """Safely extract a tar file, preventing path traversal attacks."""
