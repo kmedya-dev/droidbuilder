@@ -45,7 +45,7 @@ def build_android(config, verbose=False):
         "--requirements", ",".join(requirements), # Use requirements from config
         "--arch", *archs, # Use archs from config, unpack list
         "--sdk-dir", os.environ.get("ANDROID_HOME", ""), # Pass SDK version
-        "--ndk-dir", os.environ.get("NDK_HOME", "") , # Pass NDK version
+        "--ndk-dir", os.environ.get("ANDROID_NDK_HOME", "") , # Pass NDK version
         "--java-home", os.environ.get("JAVA_HOME", ""), # Use JAVA_HOME set by installer
         "--android-api", str(sdk_version), # Target Android API
 	"--android-minapi", str(min_sdk_version), # Minimum Android API
