@@ -6,6 +6,7 @@ import sys
 from pythonforandroid.toolchain import ToolchainCL
 from .cli_logger import logger
 
+INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
 BUILD_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder_build")
 
 def build_android(config, verbose=False):
@@ -33,8 +34,14 @@ def build_android(config, verbose=False):
     sdk_version = config.get("android", {}).get("sdk_version")
     ndk_version = config.get("android", {}).get("ndk_version")
     min_sdk_version = config.get("android", {}).get("min_sdk_version") # New
+    ndk_api = config.get("android", {}).get("ndk_api")
     jdk_version = config.get("java", {}).get("jdk_version")
     # build_type is now from project config, removed redundant line
+
+    logger.info(f"INSTALL_DIR: {INSTALL_DIR}")
+    logger.info(f"ndk_version from config: {ndk_version}")
+    ndk_dir_path = os.path.join(INSTALL_DIR, "android-sdk", "ndk", ndk_version)
+    logger.info(f"Constructed ndk_dir path: {ndk_dir_path}")
 
     # Construct p4a arguments
     p4a_args = [
@@ -44,11 +51,12 @@ def build_android(config, verbose=False):
         "--bootstrap", "sdl2", # Common bootstrap for Kivy/SDL2 apps
         "--requirements", ",".join(requirements), # Use requirements from config
         "--arch", *archs, # Use archs from config, unpack list
-        "--sdk-dir", os.environ.get("ANDROID_HOME", ""), # Pass SDK version
-        "--ndk-dir", os.environ.get("ANDROID_NDK_HOME", "") , # Pass NDK version
-        "--java-home", os.environ.get("JAVA_HOME", ""), # Use JAVA_HOME set by installer
+        "--sdk-dir", os.path.join(INSTALL_DIR, "android-sdk"), # Pass SDK version
+        "--ndk-dir", os.path.join(INSTALL_DIR, "android-sdk", "ndk", ndk_version), # Pass NDK version
+        "--java-home", os.path.join(INSTALL_DIR, f"jdk-{jdk_version}"), # Use JAVA_HOME set by installer
         "--android-api", str(sdk_version), # Target Android API
 	"--android-minapi", str(min_sdk_version), # Minimum Android API
+        "--ndk-api", str(ndk_api),
         "--dist-name", f"{project_name.lower().replace(' ', '')}_dist",
         "--orientation", "all",
         "--add-source", os.getcwd(), # Add current working directory as source

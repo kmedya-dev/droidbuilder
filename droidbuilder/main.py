@@ -7,6 +7,7 @@ from . import installer
 from . import builder
 from .cli_logger import logger, get_latest_log_file
 import importlib.metadata
+from .commands.list_files import list_files
 
 @click.group()
 @click.option("--path", "-p", default=".", help="Path to the project directory.")
@@ -14,6 +15,8 @@ import importlib.metadata
 def cli(ctx, path):
     """DroidBuilder CLI tool."""
     ctx.obj = {"path": path}
+
+cli.add_command(list_files)
 
 @cli.command()
 @click.pass_context
@@ -72,6 +75,13 @@ def init(ctx):
             else:
                 logger.warning("Android Minimum SDK Version must be a number.")
 
+        while True:
+            android_ndk_api = click.prompt("Android NDK API (e.g., 24)", default="24")
+            if android_ndk_api.isdigit():
+                break
+            else:
+                logger.warning("Android NDK API must be a number.")
+
         android_ndk_version = click.prompt("Android NDK Version (e.g., 25.2.9519653)", default="25.2.9519653")
 
         while True:
@@ -97,6 +107,7 @@ def init(ctx):
                 "sdk_version": android_sdk_version,
                 "ndk_version": android_ndk_version,
                 "min_sdk_version": android_min_sdk_version, # New
+                "ndk_api": android_ndk_api,
                 "archs": archs,                   # New
                 "cmdline_tools_version": cmdline_tools_tag, # New, maps to cmdline_tools_tag
                 "manifest_file": manifest_file,   # New
