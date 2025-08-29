@@ -44,10 +44,11 @@ def build_android(config, verbose=False):
         "--bootstrap", "sdl2", # Common bootstrap for Kivy/SDL2 apps
         "--requirements", ",".join(requirements), # Use requirements from config
         "--arch", *archs, # Use archs from config, unpack list
-        "--sdk", str(sdk_version), # Pass SDK version
-        "--ndk", str(ndk_version), # Pass NDK version
+        "--sdk-dir", os.environ.get("ANDROID_HOME", ""), # Pass SDK version
+        "--ndk-dir", os.environ.get("NDK_HOME", "") , # Pass NDK version
         "--java-home", os.environ.get("JAVA_HOME", ""), # Use JAVA_HOME set by installer
         "--android-api", str(sdk_version), # Target Android API
+	"--android-minapi", str(min_sdk_version), # Minimum Android API
         "--dist-name", f"{project_name.lower().replace(' ', '')}_dist",
         "--orientation", "all",
         "--add-source", os.getcwd(), # Add current working directory as source
