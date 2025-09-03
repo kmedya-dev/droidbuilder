@@ -39,10 +39,11 @@ bin/
 gen/
 out/
 obj/
+**/templates/
 
 # Droidbuilder / p4a
 .droidbuilder/
-python-for-android/
+
 
 # ===============================
 # IDE / Editors
@@ -57,3 +58,10 @@ python-for-android/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# ===============================
+# Extras
+# ===============================
+extras/
+deps/
+browser/

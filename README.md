@@ -5,7 +5,7 @@ A user-friendly, cross-platform command-line tool designed to simplify the proce
 ## Features
 
 *   **Interactive Setup**: Guides users through initial project configuration.
-*   **Automated Tool Installation**: Installs Android SDK, NDK, JDK, and integrates `py2jib`.
+*   **Automated Tool Installation**: Installs Android SDK, NDK, and JDK.
 *   **Cross-Platform Builds**: Supports building for Android, iOS, and Desktop (with planned expansion).
 *   **CI/CD Friendly**: Designed for automation in Continuous Integration environments.
 *   **User Control**: Dynamic configuration via `droidbuilder.toml` for full control over versions and settings.
@@ -58,7 +58,7 @@ A user-friendly, cross-platform command-line tool designed to simplify the proce
     *   Prompts for project name, version, main file, target platforms, SDK/NDK/Java Distribution versions, and license acceptance preference.
 
 *   `droidbuilder install-tools`
-    *   Installs Android SDK, NDK, JDK, and `py2jib` based on `droidbuilder.toml`.
+    *   Installs Android SDK, NDK, and JDK based on `droidbuilder.toml`.
 
 *   `droidbuilder build <platform>`
     *   Builds the application for the specified platform.

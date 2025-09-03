@@ -18,4 +18,4 @@ manifest_file = ""
 accept_sdk_license = "interactive"
 
 [java]
-jdk_version = "17"
+jdk_version = "11"

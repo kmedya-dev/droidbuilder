@@ -1,0 +1,6 @@
+[submodule "deps/py2jib"]
+	path = deps/py2jib
+	url = https://github.com/kmedya-dev/py2jib
+[submodule "browser"]
+	path = browser
+	url = https://github.com/kmedya-dev/browser

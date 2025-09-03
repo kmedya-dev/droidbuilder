@@ -9,6 +9,7 @@ import sys
 import time
 import contextlib
 import json
+import importlib.util
 from .cli_logger import logger
 from . import config
 
@@ -66,11 +67,12 @@ def _safe_extract_tar(tar_ref: tarfile.TarFile, dest_dir: str, log_each=True):
                 logger.step_info(f" replace: {member.name}", indent=2)
             else:
                 logger.step_info(f"extracting: {member.name}", indent=2)
-        with tar_ref.extractfile(member) as src, open(member_path, "wb") as out:
+        with tar_ref.extractfile(member) as src:
             if src is None:
                 # could be special file; skip silently
                 continue
-            shutil.copyfileobj(src, out)
+            with open(member_path, "wb") as out:
+                shutil.copyfileobj(src, out)
 
 
 # -------------------- Download & Extract --------------------
@@ -284,7 +286,7 @@ def install_ndk(version, sdk_install_dir):
         return
 
     try:
-        subprocess.run([sdk_manager, f"ndk;{version}"], check=True, capture_output=True, text=True)
+        subprocess.run([sdk_manager, f"ndk;{version}"], input=b"y\n", check=True, capture_output=True)
         logger.info("  - Android NDK components installed.")
         # Set ANDROID_NDK_HOME and PATH
         ndk_path = os.path.join(sdk_install_dir, "ndk", version)  # NDK is installed under ndk/<version>
@@ -325,6 +327,11 @@ def install_jdk(version):
 
 
 
+
+
+
+
+
 # -------------------- Licenses --------------------
 
 def _accept_sdk_licenses(sdk_install_dir):
@@ -338,16 +345,30 @@ def _accept_sdk_licenses(sdk_install_dir):
         p = subprocess.Popen([sdk_manager, "--licenses"],
                              stdin=subprocess.PIPE,
                              stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE,
-                             text=True)
-        stdout, stderr = p.communicate(input='y\n' * 50)  # generous yes
+                             stderr=subprocess.PIPE)
+        stdout, stderr = p.communicate(input=b'y\n' * 100)  # generous yes
         if p.returncode == 0:
             logger.info("  - Android SDK licenses accepted.")
         else:
-            logger.error(f"Error accepting licenses: {stderr}")
+            logger.error(f"Error accepting licenses: {stderr.decode()}")
     except Exception as e:
         logger.error(f"An error occurred during license acceptance: {e}")
         logger.exception(*sys.exc_info())
+
+
+# -------------------- Python Requirements --------------------
+
+def install_python_requirements(requirements):
+    """Install python requirements using pip."""
+    if not requirements:
+        return
+
+    logger.info("Installing python requirements...")
+    try:
+        subprocess.run([sys.executable, "-m", "pip", "install"] + requirements, check=True)
+        logger.success("Python requirements installed successfully.")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error installing python requirements: {e}")
 
 
 # -------------------- Orchestrators --------------------
@@ -360,6 +381,7 @@ def setup_tools(conf):
     jdk_version = conf.get("java", {}).get("jdk_version")
     cmdline_tools_version = conf.get("android", {}).get("cmdline_tools_version")
     accept_sdk_license = conf.get("android", {}).get("accept_sdk_license", "interactive")
+    requirements = conf.get("project", {}).get("requirements")
     sdk_install_dir = os.path.join(INSTALL_DIR, "android-sdk")
 
     if cmdline_tools_version:
@@ -375,6 +397,10 @@ def setup_tools(conf):
         install_ndk(ndk_version, sdk_install_dir)
     if jdk_version:
         install_jdk(jdk_version)
+    if requirements:
+        install_python_requirements(requirements)
+
+    
 
     
 
@@ -483,34 +509,50 @@ def search_tool(tool_name):
 def check_environment():
     """Check if all required tools are installed and environment variables are set."""
     logger.info("Checking DroidBuilder environment...")
-    conf = config.load_config()
-    if not conf:
+    
+    try:
+        conf = config.load_config()
+        if not conf:
+            logger.error("Error: No droidbuilder.toml found. Please run 'droidbuilder init' first.")
+            return
+    except FileNotFoundError:
         logger.error("Error: No droidbuilder.toml found. Please run 'droidbuilder init' first.")
         return
 
     installed_tools = list_installed_tools()
     all_ok = True
 
+    # Check for main file
+    main_file = conf.get("project", {}).get("main_file", "main.py")
+    if not os.path.exists(main_file):
+        logger.warning(f"Main file '{main_file}' not found. Please create it or update your droidbuilder.toml.")
+        all_ok = False
+
     # Required tools
-    if not installed_tools["android_sdk"]:
-        logger.warning("Android SDK is not installed. Run 'droidbuilder install-tools'.")
+    sdk_version = conf.get("android", {}).get("sdk_version")
+    if sdk_version and sdk_version not in installed_tools["android_sdk"]:
+        logger.warning(f"Android SDK version {sdk_version} is not installed. Run 'droidbuilder install-tools'.")
         all_ok = False
-    if not installed_tools["android_ndk"]:
-        logger.warning("Android NDK is not installed. Run 'droidbuilder install-tools'.")
+
+    ndk_version = conf.get("android", {}).get("ndk_version")
+    if ndk_version and ndk_version not in installed_tools["android_ndk"]:
+        logger.warning(f"Android NDK version {ndk_version} is not installed. Run 'droidbuilder install-tools'.")
         all_ok = False
-    if not installed_tools["java_jdk"]:
-        logger.warning("Java JDK is not installed. Run 'droidbuilder install-tools'.")
+
+    jdk_version = conf.get("java", {}).get("jdk_version")
+    if jdk_version and jdk_version not in installed_tools["java_jdk"]:
+        logger.warning(f"Java JDK version {jdk_version} is not installed. Run 'droidbuilder install-tools'.")
         all_ok = False
 
     # Environment variables
     if "ANDROID_HOME" not in os.environ:
-        logger.warning("ANDROID_HOME environment variable is not set.")
+        logger.warning("ANDROID_HOME environment variable is not set. Run 'source .droidbuilder/env.sh' or restart your shell.")
         all_ok = False
     if "ANDROID_NDK_HOME" not in os.environ:
-        logger.warning("ANDROID_NDK_HOME environment variable is not set.")
+        logger.warning("ANDROID_NDK_HOME environment variable is not set. Run 'source .droidbuilder/env.sh' or restart your shell.")
         all_ok = False
     if "JAVA_HOME" not in os.environ:
-        logger.warning("JAVA_HOME environment variable is not set.")
+        logger.warning("JAVA_HOME environment variable is not set. Run 'source .droidbuilder/env.sh' or restart your shell.")
         all_ok = False
 
     if all_ok:

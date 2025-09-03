@@ -193,9 +193,3 @@ jobs:
         path: ~/.droidbuilder_build/${{ github.event.repository.name }}_android/app/build/outputs/apk/debug/*.apk # Adjust path dynamically
 ```
 
-## 3. Advanced Topics (To be expanded)
-
-*   **Integrating Python Code:** How to bundle your Python application with DroidBuilder.
-*   **`py2jib` and `PyJNIus`:** Advanced Python-Java interoperability.
-*   **Customizing Builds:** More detailed control over Gradle and platform-specific settings.
-*   **Troubleshooting:** Common issues and solutions.
