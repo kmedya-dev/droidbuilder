@@ -8,7 +8,7 @@ dependencies = [
     "toml",
     "requests",
     "colorama",
-    
+    "git+python-for-android@ https://github.com/kmedya-dev/python-for-android.git@main
 ]
 [project.scripts]
 droidbuilder = "droidbuilder.main:cli"
