@@ -365,8 +365,10 @@ def install_python_requirements(requirements):
 
     logger.info("Installing python requirements...")
     try:
-        subprocess.run([sys.executable, "-m", "pip", "install"] + requirements, check=True)
-        logger.success("Python requirements installed successfully.")
+        # Install python requirements
+        # This is where the error is coming from
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "click", "toml", "requests", "colorama"])
+        self.logger.info("Python requirements installed successfully.")
     except subprocess.CalledProcessError as e:
         logger.error(f"Error installing python requirements: {e}")
 
