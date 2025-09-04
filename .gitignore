@@ -41,9 +41,9 @@ out/
 obj/
 **/templates/
 
-# Droidbuilder / p4a
+# Droidbuilder
 .droidbuilder/
-
+.gitmodules/
 
 # ===============================
 # IDE / Editors
@@ -63,5 +63,5 @@ desktop.ini
 # Extras
 # ===============================
 extras/
-deps/
+deps/py2jib
 browser/
