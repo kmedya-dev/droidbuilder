@@ -15,6 +15,9 @@ def _prompt_for_input(prompt, default, validation_func=None, **kwargs):
 def _prompt_for_list_input(prompt, default):
     while True:
         value_str = click.prompt(prompt, default=default)
+        # Allow empty list if the input string was empty
+        if not value_str.strip():
+            return []
         values = [v.strip() for v in value_str.split(',') if v.strip()]
         if values:
             return values

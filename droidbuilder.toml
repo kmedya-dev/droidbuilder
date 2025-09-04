@@ -6,6 +6,7 @@ target_platforms = [ "android",]
 package_domain = "org.test"
 build_type = "debug"
 requirements = []
+system_packages = []
 
 [android]
 sdk_version = "34"
