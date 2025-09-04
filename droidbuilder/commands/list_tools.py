@@ -20,7 +20,7 @@ def list_tools(ctx):
         logger.info("Android SDK: Not installed")
 
     if installed_tools["android_ndk"]:
-        logger.info("Android NDK:
+        logger.info("Android NDK:")
         for version in installed_tools["android_ndk"]:
             logger.info(f"  - {version}")
     else:
