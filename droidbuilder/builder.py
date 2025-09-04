@@ -14,7 +14,7 @@ def build_android(config, verbose):
     logger.info("Building Android application...")
 
     if verbose:
-        logger.info(f"Configuration: {conf}")
+        logger.info(f"Configuration: {config}")
 
     # Project configs
     project = config.get("project", {})
