@@ -9,9 +9,12 @@ INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
 BUILD_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder_build")
 
 
-def build_android(config, verbose=False):
+def build_android(config, verbose):
     """Build the Android application."""
     logger.info("Building Android application...")
+
+    if verbose:
+        logger.info(f"Configuration: {conf}")
 
     # Project configs
     project = config.get("project", {})
