@@ -43,6 +43,7 @@ obj/
 
 # Droidbuilder
 .droidbuilder/
+droidbuilder/.builder.py
 .gitmodules
 
 # ===============================
