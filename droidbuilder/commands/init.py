@@ -38,7 +38,6 @@ def init(ctx):
         
         archs = _prompt_for_list_input("Target Architectures (comma-separated: e.g., arm64-v8a,armeabi-v7a)", "arm64-v8a,armeabi-v7a")
         manifest_file = _prompt_for_input("Path to custom AndroidManifest.xml (leave empty for default)", "")
-        # native_libs = _prompt_for_list_input("Native Libraries (comma-separated: e.g., python3,openssl)", "python3")
         cmdline_tools_tag = _prompt_for_input("Android Command Line Tools Tag (e.g., 9123335)", "9123335", validation_func=str.isdigit)
         requirements = _prompt_for_list_input("Python Requirements (comma-separated: e.g., py2jib)", "")
         
@@ -49,6 +48,7 @@ def init(ctx):
         
         java_jdk_version = _prompt_for_input("Java JDK Version (e.g., 11)", "11", validation_func=str.isdigit)
         accept_sdk_license = _prompt_for_input("Accept SDK licenses automatically?", "interactive", type=click.Choice(['interactive', 'non-interactive']))
+        system_packages = _prompt_for_list_input("System Packages (comma-separated: e.g., openssl, sdl2)", "")
 
         conf = {
             "project": {
@@ -59,6 +59,7 @@ def init(ctx):
                 "package_domain": package_domain,
                 "build_type": build_type,
                 "requirements": requirements,
+                "system_packages": system_packages,
             },
             "android": {
                 "sdk_version": android_sdk_version,
@@ -69,7 +70,6 @@ def init(ctx):
                 "cmdline_tools_version": cmdline_tools_tag,
                 "manifest_file": manifest_file,
                 "accept_sdk_license": accept_sdk_license,
-                # "native_libs": native_libs
             },
             "java": {
                 "jdk_version": java_jdk_version,
