@@ -73,6 +73,9 @@ def _safe_extract_tar(tar_ref: tarfile.TarFile, dest_dir: str, log_each=True):
                 continue
             with open(member_path, "wb") as out:
                 shutil.copyfileobj(src, out)
+            # Preserve file permissions
+            if member.mode:
+                os.chmod(member_path, member.mode)
 
 
 # -------------------- Download & Extract --------------------
