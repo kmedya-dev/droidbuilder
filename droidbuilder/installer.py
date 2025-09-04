@@ -371,7 +371,7 @@ def install_python_requirements(requirements):
         # Install python requirements
         # This is where the error is coming from
         subprocess.check_call([sys.executable, "-m", "pip", "install", *requirements])
-        self.logger.info("Python requirements installed successfully.")
+        logger.info("Python requirements installed successfully.")
     except subprocess.CalledProcessError as e:
         logger.error(f"Error installing python requirements: {e}")
 
@@ -443,6 +443,8 @@ def list_installed_tools():
     cmdline_tools_path = os.path.join(INSTALL_DIR, "android-sdk", "cmdline-tools", "latest", "bin", "sdkmanager")
     if os.path.exists(cmdline_tools_path):
         installed["android_cmdline_tools"] = True
+
+    return installed
 
 
 def list_installed_droids():
