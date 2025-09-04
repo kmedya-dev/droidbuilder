@@ -43,7 +43,7 @@ obj/
 
 # Droidbuilder
 .droidbuilder/
-.gitmodules/
+.gitmodules
 
 # ===============================
 # IDE / Editors
