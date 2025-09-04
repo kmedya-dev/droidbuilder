@@ -33,23 +33,27 @@ class TestInstallerHelpers(unittest.TestCase):
         mock_copy.assert_called_once()
 
     @patch('droidbuilder.installer.logger')
+    @patch('os.path.exists', return_value=False)
+    @patch('os.chmod')
     @patch('os.makedirs')
     @patch('builtins.open')
     @patch('shutil.copyfileobj')
-    def test_safe_extract_tar(self, mock_copy, mock_open, mock_makedirs, mock_logger):
+    def test_safe_extract_tar(self, mock_copy, mock_open, mock_makedirs, mock_chmod, mock_exists, mock_logger):
         tar_ref = MagicMock(spec=tarfile.TarFile)
         tar_member_dir = tarfile.TarInfo('dir/')
         tar_member_dir.type = tarfile.DIRTYPE
         tar_member_file = tarfile.TarInfo('dir/file.txt')
         tar_member_file.type = tarfile.REGTYPE
+        tar_member_file.mode = 0o644
         tar_ref.getmembers.return_value = [tar_member_dir, tar_member_file]
-        tar_ref.extractfile.return_value = MagicMock()
+        tar_ref.extractfile.return_value.__enter__.return_value = MagicMock()
 
         _safe_extract_tar(tar_ref, '/tmp')
 
         mock_makedirs.assert_any_call('/tmp/dir', exist_ok=True)
         mock_open.assert_called_once_with('/tmp/dir/file.txt', 'wb')
         mock_copy.assert_called_once()
+        mock_chmod.assert_called_once_with('/tmp/dir/file.txt', 0o644)
 
 if __name__ == '__main__':
     unittest.main()

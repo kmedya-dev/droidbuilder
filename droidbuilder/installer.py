@@ -421,85 +421,58 @@ def _install_system_packages(packages):
 
     logger.info("Installing system packages...")
 
-    if sys.platform == "linux":
-        # Check for apt
-        if shutil.which("apt-get"):
-            cmd = ["sudo", "apt-get", "install", "-y"] + packages
+    package_managers = {
+        "linux": [
+            {"name": "apt-get", "command": ["sudo", "apt-get", "install", "-y"], "update_command": ["sudo", "apt-get", "update"]},
+            {"name": "dnf", "command": ["sudo", "dnf", "install", "-y"]},
+            {"name": "yum", "command": ["sudo", "yum", "install", "-y"]},
+            {"name": "pacman", "command": ["sudo", "pacman", "-S", "--noconfirm"]},
+            {"name": "zypper", "command": ["sudo", "zypper", "install", "-y"]},
+        ],
+        "darwin": [
+            {"name": "brew", "command": ["brew", "install"], "update_command": ["brew", "update"]},
+        ],
+        "win32": [
+            {"name": "choco", "command": ["choco", "install", "-y"]},
+            {"name": "winget", "command": ["winget", "install", "--accept-source-agreements", "--accept-package-agreements"]},
+        ]
+    }
+
+    platform = sys.platform
+    if platform not in package_managers:
+        logger.warning(f"Unsupported operating system: {platform}. Cannot install system packages automatically.")
+        logger.info(f"Please install the following packages manually: {', '.join(packages)}")
+        return
+
+    installed_successfully = False
+    for pm in package_managers[platform]:
+        if shutil.which(pm["name"]):
+            logger.info(f"Attempting to use {pm['name']} to install packages...")
+
+            # Some package managers require an update before installing packages
+            if "update_command" in pm:
+                logger.info(f"  - Running: {' '.join(pm['update_command'])}")
+                try:
+                    subprocess.run(pm["update_command"], check=True, capture_output=True, text=True)
+                except subprocess.CalledProcessError as e:
+                    logger.warning(f"  - Failed to update {pm['name']}: {e.stderr}")
+                    # Continue anyway, maybe the packages are already in cache
+
+            cmd = pm["command"] + packages
             logger.info(f"  - Running: {' '.join(cmd)}")
             try:
-                subprocess.run(cmd, check=True)
-                logger.success("  - System packages installed successfully (apt).")
+                subprocess.run(cmd, check=True, capture_output=True, text=True)
+                logger.success(f"  - System packages installed successfully with {pm['name']}.")
+                installed_successfully = True
+                break  # Exit after first successful installation
             except subprocess.CalledProcessError as e:
-                logger.error(f"  - Error installing system packages with apt: {e}")
-                logger.info("  - Please ensure you have sudo privileges or install manually.")
-        # Check for dnf
-        elif shutil.which("dnf"):
-            cmd = ["sudo", "dnf", "install", "-y"] + packages
-            logger.info(f"  - Running: {' '.join(cmd)}")
-            try:
-                subprocess.run(cmd, check=True)
-                logger.success("  - System packages installed successfully (dnf).")
-            except subprocess.CalledProcessError as e:
-                logger.error(f"  - Error installing system packages with dnf: {e}")
-                logger.info("  - Please ensure you have sudo privileges or install manually.")
-        # Check for yum
-        elif shutil.which("yum"):
-            cmd = ["sudo", "yum", "install", "-y"] + packages
-            logger.info(f"  - Running: {' '.join(cmd)}")
-            try:
-                subprocess.run(cmd, check=True)
-                logger.success("  - System packages installed successfully (yum).")
-            except subprocess.CalledProcessError as e:
-                logger.error(f"  - Error installing system packages with yum: {e}")
-                logger.info("  - Please ensure you have sudo privileges or install manually.")
-        # Check for pacman
-        elif shutil.which("pacman"):
-            cmd = ["sudo", "pacman", "-S", "--noconfirm"] + packages
-            logger.info(f"  - Running: {' '.join(cmd)}")
-            try:
-                subprocess.run(cmd, check=True)
-                logger.success("  - System packages installed successfully (pacman).")
-            except subprocess.CalledProcessError as e:
-                logger.error(f"  - Error installing system packages with pacman: {e}")
-                logger.info("  - Please ensure you have sudo privileges or install manually.")
-        else:
-            logger.warning("  - No supported package manager (apt, dnf, yum, pacman) found on Linux.")
-            logger.info(f"  - Please install the following packages manually: {', '.join(packages)}")
-    elif sys.platform == "darwin":
-        if shutil.which("brew"):
-            cmd = ["brew", "install"] + packages
-            logger.info(f"  - Running: {' '.join(cmd)}")
-            try:
-                subprocess.run(cmd, check=True)
-                logger.success("  - System packages installed successfully (Homebrew).")
-            except subprocess.CalledProcessError as e:
-                logger.error(f"  - Error installing system packages with Homebrew: {e}")
-                logger.info("  - Please ensure Homebrew is installed and configured correctly.")
-        else:
-            logger.warning("  - Homebrew (brew) not found on macOS. Please install it or install packages manually.")
-            logger.info(f"  - Please install the following packages manually: {', '.join(packages)}")
-    elif sys.platform == "win32":
-        if shutil.which("choco"):
-            cmd = ["choco", "install", "-y"] + packages
-            logger.info(f"  - Running: {' '.join(cmd)}")
-            try:
-                subprocess.run(cmd, check=True)
-                logger.success("  - System packages installed successfully (Chocolatey).")
-            except subprocess.CalledProcessError as e:
-                logger.error(f"  - Error installing system packages with Chocolatey: {e}")
-                logger.info("  - Please ensure Chocolatey is installed and configured correctly.")
-        elif shutil.which("winget"):
-            # winget install --id <package_id>
-            # This is more complex as winget requires package IDs, not just names.
-            # For simplicity, we'll just inform the user for now.
-            logger.warning("  - winget found, but direct package name installation is not straightforward.")
-            logger.info(f"  - Please install the following packages manually using winget: {', '.join(packages)}")
-        else:
-            logger.warning("  - No supported package manager (Chocolatey, winget) found on Windows.")
-            logger.info(f"  - Please install the following packages manually: {', '.join(packages)}")
-    else:
-        logger.warning(f"  - Unsupported operating system: {sys.platform}. Cannot install system packages automatically.")
-        logger.info(f"  - Please install the following packages manually: {', '.join(packages)}")
+                logger.error(f"  - Error installing system packages with {pm['name']}: {e.stderr}")
+                logger.info("  - Please ensure you have the necessary privileges or install manually.")
+                # Continue to the next package manager
+
+    if not installed_successfully:
+        logger.warning(f"Could not install packages using any of the supported package managers for {platform}.")
+        logger.info(f"Please install the following packages manually: {', '.join(packages)}")
 
 
 def list_installed_tools():
