@@ -12,10 +12,28 @@ def list_tools(ctx):
         logger.info("No tools installed yet. Run 'droidbuilder install-tools' to begin.")
         return
 
-    for tool, versions in installed_tools.items():
-        if versions:
-            logger.info(f"{tool.replace('_', ' ').title()}:")
-            for version in versions:
-                logger.info(f"  - {version}")
-        else:
-            logger.info(f"{tool.replace('_', ' ').title()}: Not installed")
+    if installed_tools["android_sdk"]:
+        logger.info("Android SDK:")
+        for version in installed_tools["android_sdk"]:
+            logger.info(f"  - {version}")
+    else:
+        logger.info("Android SDK: Not installed")
+
+    if installed_tools["android_ndk"]:
+        logger.info("Android NDK:
+        for version in installed_tools["android_ndk"]:
+            logger.info(f"  - {version}")
+    else:
+        logger.info("Android NDK: Not installed")
+
+    if installed_tools["java_jdk"]:
+        logger.info("Java JDK:")
+        for version in installed_tools["java_jdk"]:
+            logger.info(f"  - {version}")
+    else:
+        logger.info("Java JDK: Not installed")
+
+    if installed_tools["android_cmdline_tools"]:
+        logger.info("Android Command-line Tools: Installed")
+    else:
+        logger.info("Android Command-line Tools: Not installed")

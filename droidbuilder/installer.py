@@ -415,6 +415,7 @@ def list_installed_tools():
         "android_sdk": [],
         "android_ndk": [],
         "java_jdk": [],
+        "android_cmdline_tools": False,
     }
 
     if not os.path.exists(INSTALL_DIR):
@@ -437,6 +438,11 @@ def list_installed_tools():
     for item in os.listdir(INSTALL_DIR):
         if item.startswith("jdk-") and os.path.isdir(os.path.join(INSTALL_DIR, item)):
             installed["java_jdk"].append(item.replace("jdk-", ""))
+
+    # Android Command-line Tools
+    cmdline_tools_path = os.path.join(INSTALL_DIR, "android-sdk", "cmdline-tools", "latest", "bin", "sdkmanager")
+    if os.path.exists(cmdline_tools_path):
+        installed["android_cmdline_tools"] = True
 
 
 def list_installed_droids():
