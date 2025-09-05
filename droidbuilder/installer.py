@@ -248,6 +248,11 @@ def download_python_source(version):
     
     python_url = f"https://www.python.org/ftp/python/{version}/Python-{version}.tgz"
     source_dir = os.path.join(INSTALL_DIR, "python-source")
+
+    # Clean up previous source
+    if os.path.exists(source_dir):
+        shutil.rmtree(source_dir)
+    os.makedirs(source_dir)
     
     utils.download_and_extract(python_url, source_dir, f"Python-{version}.tgz")
     
@@ -258,6 +263,11 @@ def download_python_source(version):
         for item in os.listdir(extracted_dir):
             shutil.move(os.path.join(extracted_dir, item), source_dir)
         os.rmdir(extracted_dir)
+
+    # Verify that configure script exists
+    if not os.path.exists(os.path.join(source_dir, "configure")):
+        logger.error("Error: 'configure' script not found in Python source. The download or extraction might have failed.")
+        return
 
     logger.info(f"  - Python source downloaded to {source_dir}")
 
