@@ -245,6 +245,11 @@ def install_gradle(version):
 def download_python_source(version):
     """Download Python source code."""
     logger.info(f"  - Downloading Python source code version {version}...")
+
+    # If the version is a minor version, ask the user to specify the full version
+    if len(version.split('.')) == 2:
+        logger.error(f"Error: Please specify the full Python version in your droidbuilder.toml, e.g., {version}.0")
+        return
     
     python_url = f"https://www.python.org/ftp/python/{version}/Python-{version}.tgz"
     source_dir = os.path.join(INSTALL_DIR, "python-source")

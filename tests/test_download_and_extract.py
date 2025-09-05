@@ -1,11 +1,11 @@
 import os
 import unittest
 from unittest.mock import patch, MagicMock
-from droidbuilder.installer import _download_and_extract
+from droidbuilder.utils import download_and_extract
 
 class TestDownloadAndExtract(unittest.TestCase):
 
-    @patch('droidbuilder.installer.logger')
+    @patch('droidbuilder.utils.logger')
     @patch('requests.get')
     @patch('zipfile.ZipFile')
     @patch('os.replace')
@@ -16,12 +16,12 @@ class TestDownloadAndExtract(unittest.TestCase):
         mock_requests_get.return_value.__enter__.return_value = mock_response
 
         with unittest.mock.patch('builtins.open', unittest.mock.mock_open()) as mock_open:
-            _download_and_extract('http://test.com/test.zip', '/tmp')
+            download_and_extract('http://test.com/test.zip', '/tmp')
             mock_open.assert_called_with('/tmp/test.zip.tmp', 'wb')
             mock_replace.assert_called_with('/tmp/test.zip.tmp', '/tmp/test.zip')
             mock_zipfile.assert_called_with('/tmp/test.zip', 'r')
 
-    @patch('droidbuilder.installer.logger')
+    @patch('droidbuilder.utils.logger')
     @patch('requests.get')
     @patch('tarfile.open')
     @patch('os.replace')
@@ -32,7 +32,7 @@ class TestDownloadAndExtract(unittest.TestCase):
         mock_requests_get.return_value.__enter__.return_value = mock_response
 
         with unittest.mock.patch('builtins.open', unittest.mock.mock_open()) as mock_open:
-            _download_and_extract('http://test.com/test.tar.gz', '/tmp')
+            download_and_extract('http://test.com/test.tar.gz', '/tmp')
             mock_open.assert_called_with('/tmp/test.tar.gz.tmp', 'wb')
             mock_replace.assert_called_with('/tmp/test.tar.gz.tmp', '/tmp/test.tar.gz')
             mock_tarfile.assert_called_with('/tmp/test.tar.gz', 'r:*')

@@ -3,7 +3,7 @@ import unittest
 import zipfile
 import tarfile
 from unittest.mock import patch, MagicMock
-from droidbuilder.installer import _safe_join, _safe_extract_zip, _safe_extract_tar
+from droidbuilder.utils import _safe_join, _safe_extract_zip, _safe_extract_tar
 
 class TestInstallerHelpers(unittest.TestCase):
 
@@ -13,7 +13,7 @@ class TestInstallerHelpers(unittest.TestCase):
         with self.assertRaises(IOError):
             _safe_join(base, '../foo')
 
-    @patch('droidbuilder.installer.logger')
+    @patch('droidbuilder.utils.logger')
     @patch('os.makedirs')
     @patch('builtins.open')
     @patch('shutil.copyfileobj')
@@ -32,7 +32,7 @@ class TestInstallerHelpers(unittest.TestCase):
         mock_open.assert_called_once_with('/tmp/dir/file.txt', 'wb')
         mock_copy.assert_called_once()
 
-    @patch('droidbuilder.installer.logger')
+    @patch('droidbuilder.utils.logger')
     @patch('os.path.exists', return_value=False)
     @patch('os.chmod')
     @patch('os.makedirs')
