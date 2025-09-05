@@ -16,132 +16,7 @@ from . import config
 INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
 
 
-# -------------------- Helpers: safe paths & extraction --------------------
-
-def _safe_join(base, *paths):
-    """Safely join paths, preventing path traversal attacks."""
-    base = os.path.abspath(base)
-    final = os.path.abspath(os.path.join(base, *paths))
-    if not final.startswith(base + os.sep) and final != base:
-        raise IOError(f"Unsafe path detected: {final}")
-    return final
-
-def _safe_extract_zip(zip_ref: zipfile.ZipFile, dest_dir: str, log_each=True):
-    """Safely extract a zip file, preventing zip slip attacks."""
-    for member in zip_ref.infolist():
-        # protect against zip slip
-        target_path = _safe_join(dest_dir, member.filename)
-        # logging like unzip
-        if member.is_dir():
-            if log_each:
-                logger.step_info(f"creating: {member.filename}", indent=3)
-            os.makedirs(target_path, exist_ok=True)
-        else:
-            os.makedirs(os.path.dirname(target_path), exist_ok=True)
-            if log_each:
-                if os.path.exists(target_path):
-                    logger.step_info(f" replace: {member.filename}", indent=2)
-                else:
-                    logger.step_info(f"extracting: {member.filename}", indent=2)
-            with zip_ref.open(member, 'r') as src, open(target_path, 'wb') as out:
-                shutil.copyfileobj(src, out)
-            # Preserve file permissions
-            mode = member.external_attr >> 16
-            if mode:
-                os.chmod(target_path, mode)
-
-def _safe_extract_tar(tar_ref: tarfile.TarFile, dest_dir: str, log_each=True):
-    """Safely extract a tar file, preventing path traversal attacks."""
-    for member in tar_ref.getmembers():
-        # deny absolute or parent traversal
-        member_path = _safe_join(dest_dir, member.name)
-        if member.isdir():
-            if log_each:
-                logger.step_info(f"creating: {member.name}", indent=3)
-            os.makedirs(member_path, exist_ok=True)
-            continue
-        # ensure parent exists
-        os.makedirs(os.path.dirname(member_path), exist_ok=True)
-        if log_each:
-            if os.path.exists(member_path):
-                logger.step_info(f" replace: {member.name}", indent=2)
-            else:
-                logger.step_info(f"extracting: {member.name}", indent=2)
-        with tar_ref.extractfile(member) as src:
-            if src is None:
-                # could be special file; skip silently
-                continue
-            with open(member_path, "wb") as out:
-                shutil.copyfileobj(src, out)
-            # Preserve file permissions
-            if member.mode:
-                os.chmod(member_path, member.mode)
-
-
-# -------------------- Download & Extract --------------------
-
-def _download_and_extract(url, dest_dir, filename=None, timeout=60):
-    """Download and extract a file to a destination directory."""
-    os.makedirs(dest_dir, exist_ok=True)
-    if filename is None:
-        filename = url.split('/')[-1]
-    filepath = os.path.join(dest_dir, filename)
-
-    temp_filepath = filepath + ".tmp"
-
-    try:
-        with requests.get(url, stream=True, timeout=timeout) as r:
-            r.raise_for_status()
-            total_size = int(r.headers.get('content-length', 0))
-
-            with open(temp_filepath, 'wb') as f:
-                chunks = r.iter_content(chunk_size=1024 * 256)  # 256KB chunks
-                iterable = logger.progress(
-                    chunks,
-                    description=f"Downloading {filename}",
-                    total=total_size,
-                    unit="b"
-                )
-                for chunk in iterable:
-                    if chunk:  # keep-alive chunks may be empty
-                        f.write(chunk)
-
-        # Atomic rename
-        os.replace(temp_filepath, filepath)
-
-        logger.step_info(f"Archive:  {filename}")
-
-        if filename.endswith(".zip"):
-            with zipfile.ZipFile(filepath, 'r') as zip_ref:
-                _safe_extract_zip(zip_ref, dest_dir)
-        elif filename.endswith((".tar.gz", ".tgz")):
-            # filter mode enforces gz; tarfile.open auto-detects too
-            with tarfile.open(filepath, 'r:*') as tar_ref:
-                _safe_extract_tar(tar_ref, dest_dir)
-        else:
-            logger.warning(f"Unsupported archive type for {filename}. Skipping extraction.")
-            return
-
-        # Remove archive after successful extraction
-        try:
-            os.remove(filepath)
-        except OSError:
-            pass
-
-        logger.success(f"Successfully extracted to {dest_dir}")
-
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error downloading the file: {e}")
-        # cleanup temp
-        with contextlib.suppress(Exception):
-            if os.path.exists(temp_filepath):
-                os.remove(temp_filepath)
-    except (zipfile.BadZipFile, tarfile.TarError, IOError) as e:
-        logger.error(f"Error during extraction: {e}")
-    except Exception as e:
-        logger.error(f"An unexpected error occurred: {e}")
-        logger.exception(*sys.exc_info())
-
+from . import utils
 
 # -------------------- JDK (Temurin) --------------------
 
@@ -202,7 +77,7 @@ def install_cmdline_tools(cmdline_tools_version):
     logger.info(f"  - Installing Android command-line tools version {cmdline_tools_version}...")
     sdk_url = f"https://dl.google.com/android/repository/commandlinetools-linux-{cmdline_tools_version}_latest.zip"
     sdk_install_dir = os.path.join(INSTALL_DIR, "android-sdk")
-    _download_and_extract(sdk_url, sdk_install_dir)
+    utils.download_and_extract(sdk_url, sdk_install_dir)
 
     # Resolve actual cmdline-tools root (cases: nested cmdline-tools/)
     root = sdk_install_dir
@@ -312,7 +187,7 @@ def install_jdk(version):
         return
 
     jdk_install_dir = os.path.join(INSTALL_DIR, f"jdk-{version}")
-    _download_and_extract(jdk_url, jdk_install_dir)
+    utils.download_and_extract(jdk_url, jdk_install_dir)
 
     # Find extracted jdk dir like jdk-XX.X.X+X
     extracted_jdk_dir = None
@@ -346,7 +221,7 @@ def install_gradle(version):
         return
 
     gradle_install_dir = os.path.join(INSTALL_DIR, f"gradle-{version}")
-    _download_and_extract(gradle_url, gradle_install_dir, f"gradle-{version}-bin.zip")
+    utils.download_and_extract(gradle_url, gradle_install_dir, f"gradle-{version}-bin.zip")
 
     # The archive extracts to a directory like 'gradle-8.7'. We want to move the contents up.
     extracted_dir = os.path.join(gradle_install_dir, f"gradle-{version}")
@@ -374,7 +249,7 @@ def download_python_source(version):
     python_url = f"https://www.python.org/ftp/python/{version}/Python-{version}.tgz"
     source_dir = os.path.join(INSTALL_DIR, "python-source")
     
-    _download_and_extract(python_url, source_dir, f"Python-{version}.tgz")
+    utils.download_and_extract(python_url, source_dir, f"Python-{version}.tgz")
     
     # The archive extracts to a directory like 'Python-3.9.13'. We want to move the contents up.
     extracted_dir = os.path.join(source_dir, f"Python-{version}")

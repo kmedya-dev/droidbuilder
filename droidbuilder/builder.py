@@ -4,6 +4,7 @@ import subprocess
 import shutil
 import sys
 from .cli_logger import logger
+from . import utils
 
 INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
 BUILD_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder_build")
@@ -233,6 +234,74 @@ def _copy_user_python_code(build_path, main_file):
 
     return True
 
+def _download_python_packages(requirements, build_path):
+    """Download Python packages for the Android app."""
+    logger.info("  - Downloading Python packages...")
+
+    packages_source_dir = os.path.join(build_path, "python-packages-source")
+    os.makedirs(packages_source_dir, exist_ok=True)
+
+    for req in requirements:
+        # For simplicity, assume direct download from PyPI for now
+        # This needs to be more robust (e.g., handling versions, dependencies)
+        # Example: "requests==2.28.1" -> "requests/requests-2.28.1.tar.gz"
+        package_name = req.split('==')[0]
+        package_version = req.split('==')[1] if '==' in req else None
+        
+        if package_version:
+            package_filename = f"{package_name}-{package_version}.tar.gz"
+            package_url = f"https://pypi.org/packages/source/{package_name[0]}/{package_name}/{package_filename}"
+        else:
+            # Try to find latest version (more complex, requires PyPI API)
+            # For now, assume a common version or require explicit version
+            logger.warning(f"  - No version specified for {package_name}. Skipping download.")
+            continue
+
+        try:
+            utils.download_and_extract(package_url, packages_source_dir, package_filename)
+            logger.info(f"    - Downloaded {req}")
+        except Exception as e:
+            logger.error(f"Error downloading {req}: {e}")
+            return False
+
+    logger.success("  - Python packages downloaded.")
+    return True
+
+def _compile_python_packages(requirements, build_path, ndk_version, ndk_api, archs):
+    """Cross-compile Python packages for Android."""
+    logger.info("  - Cross-compiling Python packages (placeholder)...")
+    logger.warning("    NOTE: Actual cross-compilation of Python packages is highly complex and not fully implemented.")
+    logger.warning("    This step would involve setting up build environments for each package and running their build systems with Android-specific flags.")
+    logger.warning("    Manual intervention or a dedicated cross-compilation toolchain for each package might be required.")
+    return True
+
+def _bundle_python_packages(requirements, build_path, archs):
+    """Bundle compiled Python packages into Android app assets."""
+    logger.info("  - Bundling Python packages (placeholder)...")
+    logger.warning("    NOTE: This step would involve copying compiled Python packages into the Android project's assets.")
+    return True
+
+def _download_system_packages(system_packages, build_path):
+    """Download system packages (native libraries)."""
+    logger.info("  - Downloading system packages (placeholder)...")
+    logger.warning("    NOTE: Actual download of system packages is highly complex and not fully implemented.")
+    logger.warning("    This step would involve finding appropriate download URLs for native libraries.")
+    return True
+
+def _compile_system_packages(system_packages, build_path, ndk_version, ndk_api, archs):
+    """Cross-compile system packages (native libraries)."""
+    logger.info("  - Cross-compiling system packages (placeholder)...")
+    logger.warning("    NOTE: Actual cross-compilation of native libraries is highly complex and not fully implemented.")
+    logger.warning("    This step would involve setting up build environments for each library and running their build systems with Android-specific flags.")
+    logger.warning("    Manual intervention or a dedicated cross-compilation toolchain for each library might be required.")
+    return True
+
+def _bundle_system_packages(system_packages, build_path, archs):
+    """Bundle compiled system packages (native libraries) into Android app jniLibs."""
+    logger.info("  - Bundling system packages (placeholder)...")
+    logger.warning("    NOTE: This step would involve copying compiled native libraries into the Android project's jniLibs.")
+    return True
+
 
 def build_android(config, verbose):
     """Build the Android application."""
@@ -314,7 +383,9 @@ def build_android(config, verbose):
         return False
 
     # Configure the Android project
-    if not _configure_android_project(build_path, project_name, package_domain, app_version, sdk_version, min_sdk_version, ndk_api):
+    if not _configure_android_project(build_path, project_name, package_domain, app_version, sdk_version, min_sdk_version, ndk_api, manifest_file):
+        logger.error("Failed to configure Android project. Aborting.")
+        return False
         logger.error("Failed to configure Android project. Aborting.")
         return False
 
@@ -327,6 +398,48 @@ def build_android(config, verbose):
     if not _copy_user_python_code(build_path, main_file):
         logger.error("Failed to copy user's Python code. Aborting.")
         return False
+
+    # Download Python packages
+    if requirements:
+        if not _download_python_packages(requirements, build_path):
+            logger.error("Failed to download Python packages. Aborting.")
+            return False
+        
+        # Compile Python packages
+        if not _compile_python_packages(requirements, build_path, ndk_version, ndk_api, archs):
+            logger.error("Failed to compile Python packages. Aborting.")
+            return False
+        
+        # Bundle Python packages
+        if not _bundle_python_packages(requirements, build_path, archs):
+            logger.error("Failed to bundle Python packages. Aborting.")
+            return False
+
+    # Download system packages
+    if system_packages:
+        if not _download_system_packages(system_packages, build_path):
+            logger.error("Failed to download system packages. Aborting.")
+            return False
+        
+        # Compile system packages
+        if not _compile_system_packages(system_packages, build_path, ndk_version, ndk_api, archs):
+            logger.error("Failed to compile system packages. Aborting.")
+            return False
+        
+        # Bundle system packages
+        if not _bundle_system_packages(system_packages, build_path, archs):
+            logger.error("Failed to bundle system packages. Aborting.")
+            return False
+        
+        # Bundle system packages
+        if not _bundle_system_packages(system_packages, build_path, archs):
+            logger.error("Failed to bundle system packages. Aborting.")
+            return False
+        
+        # Bundle system packages
+        if not _bundle_system_packages(system_packages, build_path, archs):
+            logger.error("Failed to bundle system packages. Aborting.")
+            return False
 
     logger.info(f"Starting build for {project_name} v{app_version} ({build_type})")
 

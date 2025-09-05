@@ -41,6 +41,7 @@ def init(ctx):
         
         archs = _prompt_for_list_input("Target Architectures (comma-separated: e.g., arm64-v8a,armeabi-v7a)", "arm64-v8a,armeabi-v7a")
         manifest_file = _prompt_for_input("Path to custom AndroidManifest.xml (leave empty for default)", "")
+        intent_filters_file = _prompt_for_input("Path to custom intent_filters.xml (leave empty for none)", "")
         cmdline_tools_tag = _prompt_for_input("Android Command Line Tools Tag (e.g., 9123335)", "9123335", validation_func=str.isdigit)
         requirements = _prompt_for_list_input("Python Requirements (comma-separated: e.g., py2jib)", "")
         
@@ -74,6 +75,7 @@ def init(ctx):
                 "archs": archs,
                 "cmdline_tools_version": cmdline_tools_tag,
                 "manifest_file": manifest_file,
+                "intent_filters_file": intent_filters_file,
                 "accept_sdk_license": accept_sdk_license,
             },
             "java": {
