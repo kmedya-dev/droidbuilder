@@ -365,6 +365,28 @@ def install_gradle(version):
     logger.info(f"  - Gradle installed to {gradle_install_dir}")
 
 
+# -------------------- Python Source --------------------
+
+def download_python_source(version):
+    """Download Python source code."""
+    logger.info(f"  - Downloading Python source code version {version}...")
+    
+    python_url = f"https://www.python.org/ftp/python/{version}/Python-{version}.tgz"
+    source_dir = os.path.join(INSTALL_DIR, "python-source")
+    
+    _download_and_extract(python_url, source_dir, f"Python-{version}.tgz")
+    
+    # The archive extracts to a directory like 'Python-3.9.13'. We want to move the contents up.
+    extracted_dir = os.path.join(source_dir, f"Python-{version}")
+    if os.path.isdir(extracted_dir):
+        # Move contents up
+        for item in os.listdir(extracted_dir):
+            shutil.move(os.path.join(extracted_dir, item), source_dir)
+        os.rmdir(extracted_dir)
+
+    logger.info(f"  - Python source downloaded to {source_dir}")
+
+
 # -------------------- Licenses --------------------
 
 def _accept_sdk_licenses(sdk_install_dir):
@@ -415,6 +437,7 @@ def setup_tools(conf):
     ndk_version = conf.get("android", {}).get("ndk_version")
     jdk_version = conf.get("java", {}).get("jdk_version")
     gradle_version = conf.get("java", {}).get("gradle_version")
+    python_version = conf.get("python", {}).get("python_version")
     cmdline_tools_version = conf.get("android", {}).get("cmdline_tools_version")
     accept_sdk_license = conf.get("android", {}).get("accept_sdk_license", "interactive")
     requirements = conf.get("project", {}).get("requirements")
@@ -435,6 +458,8 @@ def setup_tools(conf):
         install_jdk(jdk_version)
     if gradle_version:
         install_gradle(gradle_version)
+    if python_version:
+        download_python_source(python_version)
     if requirements:
         install_python_requirements(requirements)
 

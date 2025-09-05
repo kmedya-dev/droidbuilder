@@ -51,6 +51,7 @@ def init(ctx):
         
         java_jdk_version = _prompt_for_input("Java JDK Version (e.g., 11)", "11", validation_func=str.isdigit)
         java_gradle_version = _prompt_for_input("Java Gradle Version (e.g., 8.7)", "8.7")
+        python_version = _prompt_for_input("Python Version for cross-compilation (e.g., 3.9.13)", "3.9.13")
         accept_sdk_license = _prompt_for_input("Accept SDK licenses automatically?", "interactive", type=click.Choice(['interactive', 'non-interactive']))
         system_packages = _prompt_for_list_input("System Packages (comma-separated: e.g., openssl, sdl2)", "")
 
@@ -78,6 +79,9 @@ def init(ctx):
             "java": {
                 "jdk_version": java_jdk_version,
                 "gradle_version": java_gradle_version,
+            },
+            "python": {
+                "python_version": python_version,
             }
         }
 

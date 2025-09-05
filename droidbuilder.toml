@@ -21,3 +21,6 @@ accept_sdk_license = "interactive"
 [java]
 jdk_version = "11"
 gradle_version = "8.7"
+
+[python]
+python_version = "3.9.13"

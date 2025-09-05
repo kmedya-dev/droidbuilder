@@ -33,6 +33,13 @@ def list_tools(ctx):
     else:
         logger.info("Java JDK: Not installed")
 
+    if installed_tools["gradle"]:
+        logger.info("Gradle:")
+        for version in installed_tools["gradle"]:
+            logger.info(f"  - {version}")
+    else:
+        logger.info("Gradle: Not installed")
+
     if installed_tools["android_cmdline_tools"]:
         logger.info("Android Command-line Tools: Installed")
     else:
