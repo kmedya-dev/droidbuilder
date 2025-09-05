@@ -22,7 +22,7 @@ htmlcov/
 .coverage
 *.cover
 *.egg-info/
-#build/
+/build/
 dist/
 
 # ===============================
@@ -39,9 +39,11 @@ bin/
 gen/
 out/
 obj/
-**/templates/
 
+
+# ===============================
 # Droidbuilder
+# ===============================
 .droidbuilder/
 .gitmodules
 
@@ -65,3 +67,6 @@ desktop.ini
 extras/
 deps/py2jib
 browser/
+droidbuilder/builder.py1
+droidbuilder/py2jib/
+droidbuilder/templates/

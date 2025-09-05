@@ -113,7 +113,7 @@ def _create_android_project(project_name, package_domain, build_path):
     """Create a basic Android project structure by copying from template."""
     logger.info(f"  - Creating Android project structure for {project_name} from template...")
 
-    template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "build", "android", "template")
+    template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "target", "android")
     
     if not os.path.exists(template_path):
         logger.error(f"Error: Android project template not found at {template_path}")
@@ -128,7 +128,7 @@ def _create_android_project(project_name, package_domain, build_path):
     logger.success(f"  - Android project structure created at {build_path}.")
     return True
 
-def _configure_android_project(build_path, project_name, package_domain, app_version, sdk_version, min_sdk_version, ndk_api):
+def _configure_android_project(build_path, project_name, package_domain, app_version, sdk_version, min_sdk_version, ndk_api, manifest_file):
     """Configure the copied Android project with actual values."""
     logger.info(f"  - Configuring Android project at {build_path}...")
 
@@ -319,6 +319,7 @@ def build_android(config, verbose):
     package_domain = project.get("package_domain", "org.test")
     build_type = project.get("build_type", "debug")
     requirements = project.get("requirements", ["python3"])
+    system_packages = project.get("system_packages", [])
 
     # Android configs
     android_cfg = config.get("android", {})
@@ -337,6 +338,10 @@ def build_android(config, verbose):
     # Python configs
     python_cfg = config.get("python", {})
     python_version = python_cfg.get("python_version")
+
+    # Build path
+    build_path = os.path.join(BUILD_DIR, project_name)
+    dist_dir = os.path.join(os.getcwd(), "dist")
 
     # Ensure Android is a target
     if "android" not in target_platforms:
@@ -386,8 +391,6 @@ def build_android(config, verbose):
     if not _configure_android_project(build_path, project_name, package_domain, app_version, sdk_version, min_sdk_version, ndk_api, manifest_file):
         logger.error("Failed to configure Android project. Aborting.")
         return False
-        logger.error("Failed to configure Android project. Aborting.")
-        return False
 
     # Copy Python assets
     if not _copy_python_assets(build_path, archs):
@@ -430,21 +433,8 @@ def build_android(config, verbose):
         if not _bundle_system_packages(system_packages, build_path, archs):
             logger.error("Failed to bundle system packages. Aborting.")
             return False
-        
-        # Bundle system packages
-        if not _bundle_system_packages(system_packages, build_path, archs):
-            logger.error("Failed to bundle system packages. Aborting.")
-            return False
-        
-        # Bundle system packages
-        if not _bundle_system_packages(system_packages, build_path, archs):
-            logger.error("Failed to bundle system packages. Aborting.")
-            return False
 
     logger.info(f"Starting build for {project_name} v{app_version} ({build_type})")
-
-    build_path = os.path.join(BUILD_DIR, project_name)
-    dist_dir = os.path.join(os.getcwd(), "dist")
 
     # Build APK
     logger.info("  - Building Android APK...")
