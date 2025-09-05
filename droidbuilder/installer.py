@@ -329,10 +329,40 @@ def install_jdk(version):
         logger.warning("Warning: Could not find extracted JDK directory.")
 
 
+# -------------------- Gradle --------------------
+
+def _get_gradle_download_url(version):
+    """Get the download URL for a specific Gradle version."""
+    return f"https://services.gradle.org/distributions/gradle-{version}-bin.zip"
 
 
+def install_gradle(version):
+    """Install Gradle."""
+    logger.info(f"  - Installing Gradle version {version}...")
 
+    gradle_url = _get_gradle_download_url(version)
+    if not gradle_url:
+        logger.error(f"  - Failed to get download URL for Gradle version {version}. Aborting installation.")
+        return
 
+    gradle_install_dir = os.path.join(INSTALL_DIR, f"gradle-{version}")
+    _download_and_extract(gradle_url, gradle_install_dir, f"gradle-{version}-bin.zip")
+
+    # The archive extracts to a directory like 'gradle-8.7'. We want to move the contents up.
+    extracted_dir = os.path.join(gradle_install_dir, f"gradle-{version}")
+
+    if os.path.isdir(extracted_dir):
+        # Move contents of extracted dir to the parent gradle_install_dir
+        for item in os.listdir(extracted_dir):
+            source_item = os.path.join(extracted_dir, item)
+            shutil.move(source_item, gradle_install_dir)
+        # remove the now-empty directory
+        shutil.rmtree(extracted_dir)
+
+    # Set environment variables
+    os.environ["GRADLE_HOME"] = gradle_install_dir
+    os.environ["PATH"] += os.pathsep + os.path.join(gradle_install_dir, "bin")
+    logger.info(f"  - Gradle installed to {gradle_install_dir}")
 
 
 # -------------------- Licenses --------------------
@@ -384,6 +414,7 @@ def setup_tools(conf):
     sdk_version = conf.get("android", {}).get("sdk_version")
     ndk_version = conf.get("android", {}).get("ndk_version")
     jdk_version = conf.get("java", {}).get("jdk_version")
+    gradle_version = conf.get("java", {}).get("gradle_version")
     cmdline_tools_version = conf.get("android", {}).get("cmdline_tools_version")
     accept_sdk_license = conf.get("android", {}).get("accept_sdk_license", "interactive")
     requirements = conf.get("project", {}).get("requirements")
@@ -402,6 +433,8 @@ def setup_tools(conf):
         install_ndk(ndk_version, sdk_install_dir)
     if jdk_version:
         install_jdk(jdk_version)
+    if gradle_version:
+        install_gradle(gradle_version)
     if requirements:
         install_python_requirements(requirements)
 
@@ -481,6 +514,7 @@ def list_installed_tools():
         "android_sdk": [],
         "android_ndk": [],
         "java_jdk": [],
+        "gradle": [],
         "android_cmdline_tools": False,
     }
 
@@ -500,10 +534,12 @@ def list_installed_tools():
     if os.path.exists(ndk_dir):
         installed["android_ndk"] = [d for d in os.listdir(ndk_dir) if os.path.isdir(os.path.join(ndk_dir, d))]
 
-    # Java JDK
+    # Java JDK and Gradle
     for item in os.listdir(INSTALL_DIR):
         if item.startswith("jdk-") and os.path.isdir(os.path.join(INSTALL_DIR, item)):
             installed["java_jdk"].append(item.replace("jdk-", ""))
+        if item.startswith("gradle-") and os.path.isdir(os.path.join(INSTALL_DIR, item)):
+            installed["gradle"].append(item.replace("gradle-", ""))
 
     # Android Command-line Tools
     cmdline_tools_path = os.path.join(INSTALL_DIR, "android-sdk", "cmdline-tools", "latest", "bin", "sdkmanager")
