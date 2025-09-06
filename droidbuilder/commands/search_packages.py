@@ -2,9 +2,13 @@
 import click
 import os
 import subprocess
+import sys
 from .. import installer
 from ..cli_logger import logger
 
+@click.command()
+@click.pass_context
+@click.argument("query", required=False)
 def search_packages(ctx, query):
     """Search for available SDK packages."""
     logger.info("Searching for SDK packages...")
