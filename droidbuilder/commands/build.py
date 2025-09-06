@@ -1,8 +1,17 @@
 import click
+import sys
 from .. import config as config_module
 from .. import builder
 from ..cli_logger import logger
 
+@click.command()
+@click.pass_context
+@click.argument("platform")
+@click.option("--sdk-version", default=None, help="Android SDK version to use.")
+@click.option("--ndk-version", default=None, help="Android NDK version to use.")
+@click.option("--jdk-version", default=None, help="JDK version to use.")
+@click.option("--build-type", default="debug", help="Build type (e.g., debug, release).")
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose output.")
 def build(ctx, platform, sdk_version, ndk_version, jdk_version, build_type, verbose):
     """Build the application for a specified platform.
 
