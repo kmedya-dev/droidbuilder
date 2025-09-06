@@ -10,5 +10,9 @@ def log():
         return
 
     logger.info(f"Displaying log file: {latest_log}")
-    with open(latest_log, 'r') as f:
-        logger.info(f.read())
+    try:
+        with open(latest_log, 'r') as f:
+            logger.info(f.read())
+    except IOError as e:
+        logger.error(f"Error reading log file {latest_log}: {e}")
+        logger.info("Please check file permissions.")

@@ -17,8 +17,12 @@ def view(ctx):
     if not conf:
         logger.error("Error: No droidbuilder.toml found. Please run 'droidbuilder init' first.")
         return
-    with open(os.path.join(ctx.obj["path"], config_module.CONFIG_FILE), 'r') as f:
-        click.echo(f.read())
+    try:
+        with open(os.path.join(ctx.obj["path"], config_module.CONFIG_FILE), 'r') as f:
+            click.echo(f.read())
+    except IOError as e:
+        logger.error(f"Error reading droidbuilder.toml: {e}")
+        logger.info("Please check file permissions.")
 
 @config.command()
 @click.pass_context
@@ -28,4 +32,8 @@ def edit(ctx):
     if not conf:
         logger.error("Error: No droidbuilder.toml found. Please run 'droidbuilder init' first.")
         return
-    click.edit(filename=os.path.join(ctx.obj["path"], config_module.CONFIG_FILE))
+    try:
+        click.edit(filename=os.path.join(ctx.obj["path"], config_module.CONFIG_FILE))
+    except Exception as e:
+        logger.error(f"Error editing droidbuilder.toml: {e}")
+        logger.info("Please ensure your default editor is configured correctly and has necessary permissions.")

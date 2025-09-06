@@ -31,16 +31,30 @@ def search_packages(ctx, query):
         
         if query:
             logger.info(f"Filtering results for '{query}':")
+            found_matches = False
             for line in lines:
                 if query.lower() in line.lower():
                     logger.info(line)
+                    found_matches = True
+            if not found_matches:
+                logger.info(f"No packages found matching '{query}'.")
         else:
             logger.info("Available packages:")
             for line in lines:
                 logger.info(line)
 
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Error running sdkmanager: {e.stderr}")
     except FileNotFoundError:
-        logger.error("SDK manager not found. Please ensure it's installed and in your PATH.")
+        logger.error("SDK manager executable not found. This usually means the Android SDK Command-line Tools are not installed or configured correctly.")
+        logger.info("Please run 'droidbuilder install-tools' to ensure all necessary SDK components are installed.")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error running sdkmanager (Exit Code: {e.returncode}):")
+        if e.stdout:
+            logger.error(f"Stdout: {e.stdout}")
+        if e.stderr:
+            logger.error(f"Stderr: {e.stderr}")
+        logger.info("This might indicate an issue with your Android SDK installation or its components.")
+        logger.info("Please try running 'droidbuilder doctor' to diagnose potential problems, or 'droidbuilder install-tools' to re-install SDK components.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while searching for packages: {e}")
+        logger.info("Please report this issue to the DroidBuilder developers.")
 

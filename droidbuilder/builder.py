@@ -85,7 +85,12 @@ def _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_
     try:
         subprocess.run(configure_cmd, check=True, cwd=python_source_dir)
     except subprocess.CalledProcessError as e:
-        logger.error(f"Python configure failed: {e}")
+        logger.error(f"Python configure failed (Exit Code: {e.returncode}):")
+        if e.stdout:
+            logger.error(f"Stdout: {e.stdout}")
+        if e.stderr:
+            logger.error(f"Stderr: {e.stderr}")
+        logger.info("Please check the Python source, NDK setup, and compiler paths.")
         return False
 
     # Make command
@@ -94,7 +99,12 @@ def _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_
     try:
         subprocess.run(make_cmd, check=True, cwd=python_source_dir)
     except subprocess.CalledProcessError as e:
-        logger.error(f"Python make failed: {e}")
+        logger.error(f"Python make failed (Exit Code: {e.returncode}):")
+        if e.stdout:
+            logger.error(f"Stdout: {e.stdout}")
+        if e.stderr:
+            logger.error(f"Stderr: {e.stderr}")
+        logger.info("Please check the build logs for more details on the compilation error.")
         return False
 
     # Make install command
@@ -103,7 +113,12 @@ def _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_
     try:
         subprocess.run(make_install_cmd, check=True, cwd=python_source_dir)
     except subprocess.CalledProcessError as e:
-        logger.error(f"Python make install failed: {e}")
+        logger.error(f"Python make install failed (Exit Code: {e.returncode}):")
+        if e.stdout:
+            logger.error(f"Stdout: {e.stdout}")
+        if e.stderr:
+            logger.error(f"Stderr: {e.stderr}")
+        logger.info("Please check the installation directory permissions and logs.")
         return False
 
     logger.success(f"  - Python {python_version} built and installed for {arch}.")
@@ -121,8 +136,9 @@ def _create_android_project(project_name, package_domain, build_path):
 
     try:
         shutil.copytree(template_path, build_path, dirs_exist_ok=True)
-    except Exception as e:
+    except (shutil.Error, OSError) as e:
         logger.error(f"Error copying Android project template: {e}")
+        logger.info("Please check file permissions and ensure the template directory is accessible.")
         return False
 
     logger.success(f"  - Android project structure created at {build_path}.")
@@ -204,8 +220,9 @@ def _copy_python_assets(build_path, archs):
         try:
             shutil.copytree(python_install_dir, dest_dir, dirs_exist_ok=True)
             logger.info(f"    - Copied Python assets for {arch} to {dest_dir}")
-        except Exception as e:
+        except (shutil.Error, OSError) as e:
             logger.error(f"Error copying Python assets for {arch}: {e}")
+            logger.info("Please check directory permissions and ensure enough disk space is available.")
             return False
 
     logger.success("  - Python assets copied.")
@@ -228,8 +245,9 @@ def _copy_user_python_code(build_path, main_file):
     try:
         shutil.copyfile(source_main_file_path, dest_main_file_path)
         logger.success(f"  - Copied user's main Python file to {dest_main_file_path}")
-    except Exception as e:
+    except (shutil.Error, OSError) as e:
         logger.error(f"Error copying user's main Python file: {e}")
+        logger.info("Please check file permissions and ensure the source file exists and is readable.")
         return False
 
     return True
@@ -260,8 +278,9 @@ def _download_python_packages(requirements, build_path):
         try:
             utils.download_and_extract(package_url, packages_source_dir, package_filename)
             logger.info(f"    - Downloaded {req}")
-        except Exception as e:
+        except (requests.exceptions.RequestException, IOError) as e:
             logger.error(f"Error downloading {req}: {e}")
+            logger.info("Please check your internet connection and the package name/version.")
             return False
 
     logger.success("  - Python packages downloaded.")
@@ -457,11 +476,18 @@ def build_android(config, verbose):
         subprocess.run(gradle_build_cmd, check=True, cwd=build_path)
         logger.success("  - Android APK built successfully.")
     except subprocess.CalledProcessError as e:
-        logger.error(f"Gradle build failed: {e}")
-        return False
+        logger.error(f"Gradle build failed (Exit Code: {e.returncode}):")
+        if e.stdout:
+            logger.error(f"Stdout: {e.stdout}")
+        if e.stderr:
+            logger.error(f"Stderr: {e.stderr}")
+        logger.info("Please review the Gradle output above for specific errors and ensure your Android SDK and NDK are correctly installed and configured.")
+    except (OSError, FileNotFoundError) as e:
+        logger.error(f"Error executing Gradle command: {e}")
+        logger.info("This might indicate an issue with your Java or Gradle installation, or incorrect permissions.")
     except Exception as e:
         logger.error(f"An unexpected error occurred during Gradle build: {e}")
-        return False
+        logger.info("Please report this issue to the DroidBuilder developers.")
 
     # Find the generated APK and move it to the dist dir
     apk_name = f"{project_name}-{build_type}.apk" # Simplified name
@@ -469,18 +495,28 @@ def build_android(config, verbose):
     generated_apk_path = os.path.join(build_path, "app", "build", "outputs", "apk", build_type, f"app-{build_type}.apk")
     
     if os.path.exists(generated_apk_path):
-        shutil.move(generated_apk_path, dist_dir)
-        logger.success(f"Build successful! APK available at {os.path.join(dist_dir, apk_name)}")
+        try:
+            shutil.move(generated_apk_path, dist_dir)
+            logger.success(f"Build successful! APK available at {os.path.join(dist_dir, apk_name)}")
+        except (shutil.Error, OSError) as e:
+            logger.error(f"Error moving generated APK to dist directory: {e}")
+            logger.info("Please check permissions for the dist directory and ensure enough disk space.")
+            return False
     else:
         # Try to find any apk
         found_apk = False
         for root, _, files in os.walk(os.path.join(build_path, "app", "build", "outputs", "apk")):
             for f in files:
                 if f.endswith(".apk"):
-                    shutil.move(os.path.join(root, f), dist_dir)
-                    logger.success(f"Build successful! APK available at {os.path.join(root, f)}")
-                    found_apk = True
-                    break
+                    try:
+                        shutil.move(os.path.join(root, f), dist_dir)
+                        logger.success(f"Build successful! APK available at {os.path.join(dist_dir, f)}")
+                        found_apk = True
+                        break
+                    except (shutil.Error, OSError) as e:
+                        logger.error(f"Error moving found APK to dist directory: {e}")
+                        logger.info("Please check permissions for the dist directory and ensure enough disk space.")
+                        return False
             if found_apk:
                 break
         if not found_apk:

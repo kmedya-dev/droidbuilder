@@ -43,4 +43,8 @@ cli.add_command(log)
 cli.add_command(search_packages)
 
 if __name__ == '__main__':
-    cli()
+    try:
+        cli()
+    except Exception as e:
+        click.echo(f"An unexpected error occurred: {e}", err=True)
+        click.echo("Please report this issue to the DroidBuilder developers.", err=True)

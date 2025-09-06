@@ -149,8 +149,13 @@ def install_sdk_packages(version):
         )
         logger.info("  - Android SDK components installed.")
     except subprocess.CalledProcessError as e:
-        logger.error(f"Error installing SDK components: {e.stderr}")
-        logger.info("Please ensure the SDK version is valid and try again.")
+        logger.error(f"Error installing Android SDK components (Exit Code: {e.returncode}):")
+        if e.stdout:
+            logger.error(f"Stdout: {e.stdout}")
+        if e.stderr:
+            logger.error(f"Stderr: {e.stderr}")
+        logger.info("This might indicate an issue with the specified SDK version or a problem with your network connection.")
+        logger.info("Please ensure the SDK version is valid and try again, or run 'droidbuilder doctor' to diagnose.")
 
 
 # -------------------- Android NDK --------------------
@@ -171,8 +176,13 @@ def install_ndk(version, sdk_install_dir):
         os.environ["ANDROID_NDK_HOME"] = ndk_path
         os.environ["PATH"] += os.pathsep + ndk_path
     except subprocess.CalledProcessError as e:
-        logger.error(f"Error installing NDK components: {e.stderr}")
-        logger.info("Please ensure the NDK version is valid and try again.")
+        logger.error(f"Error installing Android NDK components (Exit Code: {e.returncode}):")
+        if e.stdout:
+            logger.error(f"Stdout: {e.stdout}")
+        if e.stderr:
+            logger.error(f"Stderr: {e.stderr}")
+        logger.info("This might indicate an issue with the specified NDK version or a problem with your network connection.")
+        logger.info("Please ensure the NDK version is valid and try again, or run 'droidbuilder doctor' to diagnose.")
 
 
 # -------------------- JDK --------------------

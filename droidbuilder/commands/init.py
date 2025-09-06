@@ -98,6 +98,6 @@ def init(ctx):
     except click.Abort:
         logger.warning("\nProject initialization aborted by user.")
     except Exception as e:
-        logger.error(f"\nAn unexpected error occurred during initialization: {e}")
-        logger.info("Please report this issue on the DroidBuilder GitHub page.")
+        logger.error(f"An unexpected error occurred during initialization: {e}")
+        logger.info("Please report this issue on the DroidBuilder GitHub page, providing the full error message.")
         logger.exception(*sys.exc_info())

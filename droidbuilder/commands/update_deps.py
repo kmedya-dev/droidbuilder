@@ -34,8 +34,11 @@ def update_deps():
     except toml.TomlDecodeError:
         logger.error("Error decoding pyproject.toml. Please check its format.")
     except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to update dependencies: {e}")
-        logger.error(f"Stdout: {e.stdout}")
-        logger.error(f"Stderr: {e.stderr}")
+        logger.error(f"Failed to update dependencies (Exit Code: {e.returncode}):")
+        if e.stdout:
+            logger.error(f"Stdout: {e.stdout}")
+        if e.stderr:
+            logger.error(f"Stderr: {e.stderr}")
+        logger.info("Please check your network connection and ensure the dependencies are correctly specified.")
     except Exception as e:
         logger.error(f"An unexpected error occurred: {e}")
