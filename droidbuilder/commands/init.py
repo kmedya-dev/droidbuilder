@@ -94,6 +94,9 @@ def init(ctx):
         except IOError as e:
             logger.error(f"Error saving configuration file: {e}")
             logger.info("Please check your file permissions and try again.")
+        except Exception as e:
+            logger.error(f"An unexpected error occurred while saving configuration file: {e}")
+            logger.exception(*sys.exc_info())
 
     except click.Abort:
         logger.warning("\nProject initialization aborted by user.")
@@ -101,3 +104,4 @@ def init(ctx):
         logger.error(f"An unexpected error occurred during initialization: {e}")
         logger.info("Please report this issue on the DroidBuilder GitHub page, providing the full error message.")
         logger.exception(*sys.exc_info())
+

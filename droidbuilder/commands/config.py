@@ -17,12 +17,16 @@ def view(ctx):
     if not conf:
         logger.error("Error: No droidbuilder.toml found. Please run 'droidbuilder init' first.")
         return
+    config_file_path = os.path.join(ctx.obj["path"], config_module.CONFIG_FILE)
     try:
-        with open(os.path.join(ctx.obj["path"], config_module.CONFIG_FILE), 'r') as f:
+        with open(config_file_path, 'r') as f:
             click.echo(f.read())
     except IOError as e:
-        logger.error(f"Error reading droidbuilder.toml: {e}")
+        logger.error(f"Error reading droidbuilder.toml at {config_file_path}: {e}")
         logger.info("Please check file permissions.")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while viewing droidbuilder.toml: {e}")
+        logger.exception(*sys.exc_info())
 
 @config.command()
 @click.pass_context
@@ -32,8 +36,13 @@ def edit(ctx):
     if not conf:
         logger.error("Error: No droidbuilder.toml found. Please run 'droidbuilder init' first.")
         return
+    config_file_path = os.path.join(ctx.obj["path"], config_module.CONFIG_FILE)
     try:
-        click.edit(filename=os.path.join(ctx.obj["path"], config_module.CONFIG_FILE))
+        click.edit(filename=config_file_path)
+    except click.ClickException as e:
+        logger.error(f"Click error editing droidbuilder.toml: {e}")
+        logger.info("This might indicate an issue with your editor configuration or environment variables.")
     except Exception as e:
-        logger.error(f"Error editing droidbuilder.toml: {e}")
+        logger.error(f"An unexpected error occurred while editing droidbuilder.toml: {e}")
         logger.info("Please ensure your default editor is configured correctly and has necessary permissions.")
+        logger.exception(*sys.exc_info())

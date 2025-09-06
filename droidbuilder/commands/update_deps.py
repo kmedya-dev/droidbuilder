@@ -9,7 +9,12 @@ def update_deps():
     """Update DroidBuilder's project dependencies."""
     logger.info("Updating DroidBuilder dependencies...")
     try:
-        with open("pyproject.toml", "r") as f:
+        pyproject_path = "pyproject.toml"
+        if not os.path.exists(pyproject_path):
+            logger.error(f"Error: '{pyproject_path}' not found in the current directory.")
+            return
+
+        with open(pyproject_path, "r") as f:
             pyproject_data = toml.load(f)
 
         dependencies = pyproject_data.get("project", {}).get("dependencies", [])
@@ -29,16 +34,24 @@ def update_deps():
             logger.warning(process.stderr)
         logger.success("DroidBuilder dependencies updated successfully.")
 
-    except FileNotFoundError:
+    except FileNotFoundError: # Redundant due to os.path.exists check, but keeping for robustness
         logger.error("pyproject.toml not found in the current directory.")
     except toml.TomlDecodeError:
-        logger.error("Error decoding pyproject.toml. Please check its format.")
+        logger.error("Error decoding pyproject.toml. Please check its format for syntax errors.")
+    except IOError as e:
+        logger.error(f"Error reading pyproject.toml: {e}")
+        logger.info("Please check file permissions.")
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to update dependencies (Exit Code: {e.returncode}):")
         if e.stdout:
-            logger.error(f"Stdout: {e.stdout}")
+            logger.error(f"Stdout:\n{e.stdout}")
         if e.stderr:
-            logger.error(f"Stderr: {e.stderr}")
+            logger.error(f"Stderr:\n{e.stderr}")
         logger.info("Please check your network connection and ensure the dependencies are correctly specified.")
+    except FileNotFoundError:
+        logger.error(f"Error: Python executable '{sys.executable}' or pip not found. Please ensure Python and pip are correctly installed and in your PATH.")
     except Exception as e:
-        logger.error(f"An unexpected error occurred: {e}")
+        logger.error(f"An unexpected error occurred during dependency update: {e}")
+        logger.info("Please report this issue to the DroidBuilder developers.")
+        logger.exception(*sys.exc_info())
+

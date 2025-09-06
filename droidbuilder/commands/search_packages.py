@@ -5,9 +5,6 @@ import subprocess
 from .. import installer
 from ..cli_logger import logger
 
-@click.command(name="search-packages")
-@click.argument("query", required=False)
-@click.pass_context
 def search_packages(ctx, query):
     """Search for available SDK packages."""
     logger.info("Searching for SDK packages...")
@@ -49,12 +46,14 @@ def search_packages(ctx, query):
     except subprocess.CalledProcessError as e:
         logger.error(f"Error running sdkmanager (Exit Code: {e.returncode}):")
         if e.stdout:
-            logger.error(f"Stdout: {e.stdout}")
+            logger.error(f"Stdout:\n{e.stdout}")
         if e.stderr:
-            logger.error(f"Stderr: {e.stderr}")
+            logger.error(f"Stderr:\n{e.stderr}")
         logger.info("This might indicate an issue with your Android SDK installation or its components.")
         logger.info("Please try running 'droidbuilder doctor' to diagnose potential problems, or 'droidbuilder install-tools' to re-install SDK components.")
     except Exception as e:
         logger.error(f"An unexpected error occurred while searching for packages: {e}")
         logger.info("Please report this issue to the DroidBuilder developers.")
+        logger.exception(*sys.exc_info())
+
 

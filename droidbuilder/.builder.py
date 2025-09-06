@@ -80,7 +80,12 @@ def build_android(config, verbose=False):
     p4a_build_dir = os.path.join(os.path.expanduser("~"), ".p4a_build")
     if os.path.exists(p4a_build_dir):
         logger.info(f"  - Cleaning up previous p4a build directory: {p4a_build_dir}")
-        shutil.rmtree(p4a_build_dir)
+        try:
+            shutil.rmtree(p4a_build_dir)
+        except OSError as e:
+            logger.error(f"Error cleaning up previous p4a build directory {p4a_build_dir}: {e}")
+            logger.info("Please check file permissions and try again.")
+            return False
 
     logger.info(f"  - Running p4a command: build apk {' '.join(p4a_args)}")
     try:
@@ -96,12 +101,20 @@ def build_android(config, verbose=False):
             toolchain_instance.apk(toolchain_instance.args) # Pass the parsed args object
             logger.success("  - Android APK build complete via python-for-android.")
             logger.info(f"  - APK should be in {os.path.join(os.getcwd(), project_name.lower().replace(' ', '') + '_dist/bin/')}")
+            return True
+        except Exception as e:
+            logger.error(f"Error during python-for-android build process: {e}")
+            logger.info("This might be due to missing dependencies, incorrect configurations, or issues with the p4a environment.")
+            logger.info("Please review the output above for specific errors and ensure all required tools are installed and configured correctly.")
+            logger.exception(*sys.exc_info())
+            return False
         finally:
             sys.argv = original_argv # Restore original sys.argv
-    except Exception as e:
-        logger.error(f"Error building Android APK with python-for-android: {e}")
-        logger.info("Please ensure all required tools are installed and configured correctly.")
+    except Exception as e: # Catch any unexpected errors during sys.argv manipulation or ToolchainCL instantiation
+        logger.error(f"An unexpected error occurred before or during the python-for-android build: {e}")
+        logger.info("Please ensure python-for-android is correctly installed and your environment is set up.")
         logger.exception(*sys.exc_info())
+        return False
 
 def build_ios(config, verbose=False):
     """Build the iOS application."""

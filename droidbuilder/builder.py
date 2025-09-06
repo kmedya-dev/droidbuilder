@@ -22,8 +22,19 @@ def _setup_python_build_environment(ndk_version, ndk_api, arch):
     logger.info(f"  - Setting up build environment for {arch} (NDK {ndk_version}, API {ndk_api})...")
 
     ndk_root = os.path.join(INSTALL_DIR, "android-sdk", "ndk", ndk_version)
+    if not os.path.exists(ndk_root):
+        logger.error(f"Error: NDK root directory not found at {ndk_root}. Please ensure NDK {ndk_version} is installed.")
+        return False
+
     toolchain_bin = os.path.join(ndk_root, "toolchains", "llvm", "prebuilt", "linux-x86_64", "bin")
+    if not os.path.exists(toolchain_bin):
+        logger.error(f"Error: NDK toolchain binary directory not found at {toolchain_bin}. Please check your NDK installation.")
+        return False
+
     sysroot = os.path.join(toolchain_bin, f"../sysroot") # sysroot is usually relative to toolchain bin
+    if not os.path.exists(sysroot):
+        logger.error(f"Error: NDK sysroot not found at {sysroot}. Please check your NDK installation.")
+        return False
 
     compiler_prefix = ARCH_COMPILER_PREFIXES.get(arch)
     if not compiler_prefix:
@@ -47,11 +58,23 @@ def _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_
     logger.info(f"  - Building Python {python_version} for {arch}...")
 
     python_source_dir = os.path.join(INSTALL_DIR, "python-source")
+    if not os.path.exists(python_source_dir):
+        logger.error(f"Error: Python source directory not found at {python_source_dir}. Please download Python source first.")
+        return False
+
     python_install_dir = os.path.join(build_path, "python-install", arch)
-    os.makedirs(python_install_dir, exist_ok=True)
+    try:
+        os.makedirs(python_install_dir, exist_ok=True)
+    except OSError as e:
+        logger.error(f"Error creating Python install directory {python_install_dir}: {e}")
+        return False
 
     # Get build triplet
-    build_triplet = subprocess.check_output(["uname", "-m", "-s"]).decode().strip().replace(" ", "-").lower()
+    try:
+        build_triplet = subprocess.check_output(["uname", "-m", "-s"]).decode().strip().replace(" ", "-").lower()
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Error determining build triplet: {e}")
+        return False
 
     # Get host triplet
     host_triplet = ARCH_COMPILER_PREFIXES.get(arch)
@@ -61,8 +84,13 @@ def _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_
         return False
 
     # Configure command
+    configure_script = os.path.join(python_source_dir, "configure")
+    if not os.path.exists(configure_script):
+        logger.error(f"Error: Configure script not found at {configure_script}. Python source might be incomplete.")
+        return False
+
     configure_cmd = [
-        os.path.join(python_source_dir, "configure"),
+        configure_script,
         f"--host={host_triplet}",
         f"--build={build_triplet}",
         "--enable-shared",
@@ -70,59 +98,81 @@ def _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_
         "--with-system-ffi=no",
         "--without-ensurepip",
         f"--prefix={python_install_dir}",
-        f"CC={os.environ['CC']}",
-        f"CXX={os.environ['CXX']}",
-        f"AR={os.environ['AR']}",
-        f"LD={os.environ['LD']}",
-        f"RANLIB={os.environ['RANLIB']}",
-        f"STRIP={os.environ['STRIP']}",
-        f"SYSROOT={os.environ['SYSROOT']}",
+        f"CC={os.environ.get('CC', '')}",
+        f"CXX={os.environ.get('CXX', '')}",
+        f"AR={os.environ.get('AR', '')}",
+        f"LD={os.environ.get('LD', '')}",
+        f"RANLIB={os.environ.get('RANLIB', '')}",
+        f"STRIP={os.environ.get('STRIP', '')}",
+        f"SYSROOT={os.environ.get('SYSROOT', '')}",
         f"CFLAGS=-fPIC -DANDROID -D__ANDROID_API__={ndk_api}",
-        f"LDFLAGS=-L{os.environ['SYSROOT']}/usr/lib/{host_triplet}/{ndk_api}",
+        f"LDFLAGS=-L{os.environ.get('SYSROOT', '')}/usr/lib/{host_triplet}/{ndk_api}",
     ]
 
     logger.info(f"  - Running configure: {' '.join(configure_cmd)}")
     try:
-        subprocess.run(configure_cmd, check=True, cwd=python_source_dir)
+        subprocess.run(configure_cmd, check=True, cwd=python_source_dir, capture_output=True, text=True)
     except subprocess.CalledProcessError as e:
         logger.error(f"Python configure failed (Exit Code: {e.returncode}):")
         if e.stdout:
-            logger.error(f"Stdout: {e.stdout}")
+            logger.error(f"Stdout:\n{e.stdout}")
         if e.stderr:
-            logger.error(f"Stderr: {e.stderr}")
+            logger.error(f"Stderr:\n{e.stderr}")
         logger.info("Please check the Python source, NDK setup, and compiler paths.")
+        return False
+    except FileNotFoundError:
+        logger.error(f"Error: 'configure' command not found. Ensure your PATH is set correctly.")
+        return False
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during configure: {e}")
+        logger.exception(*sys.exc_info())
         return False
 
     # Make command
     make_cmd = ["make", "-j", str(os.cpu_count())]
     logger.info(f"  - Running make: {' '.join(make_cmd)}")
     try:
-        subprocess.run(make_cmd, check=True, cwd=python_source_dir)
+        subprocess.run(make_cmd, check=True, cwd=python_source_dir, capture_output=True, text=True)
     except subprocess.CalledProcessError as e:
         logger.error(f"Python make failed (Exit Code: {e.returncode}):")
         if e.stdout:
-            logger.error(f"Stdout: {e.stdout}")
+            logger.error(f"Stdout:\n{e.stdout}")
         if e.stderr:
-            logger.error(f"Stderr: {e.stderr}")
+            logger.error(f"Stderr:\n{e.stderr}")
         logger.info("Please check the build logs for more details on the compilation error.")
+        return False
+    except FileNotFoundError:
+        logger.error(f"Error: 'make' command not found. Ensure 'make' is installed and in your PATH.")
+        return False
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during make: {e}")
+        logger.exception(*sys.exc_info())
         return False
 
     # Make install command
     make_install_cmd = ["make", "install"]
     logger.info(f"  - Running make install: {' '.join(make_install_cmd)}")
     try:
-        subprocess.run(make_install_cmd, check=True, cwd=python_source_dir)
+        subprocess.run(make_install_cmd, check=True, cwd=python_source_dir, capture_output=True, text=True)
     except subprocess.CalledProcessError as e:
         logger.error(f"Python make install failed (Exit Code: {e.returncode}):")
         if e.stdout:
-            logger.error(f"Stdout: {e.stdout}")
+            logger.error(f"Stdout:\n{e.stdout}")
         if e.stderr:
-            logger.error(f"Stderr: {e.stderr}")
+            logger.error(f"Stderr:\n{e.stderr}")
         logger.info("Please check the installation directory permissions and logs.")
+        return False
+    except FileNotFoundError:
+        logger.error(f"Error: 'make' command not found for install. Ensure 'make' is installed and in your PATH.")
+        return False
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during make install: {e}")
+        logger.exception(*sys.exc_info())
         return False
 
     logger.success(f"  - Python {python_version} built and installed for {arch}.")
     return True
+
 
 def _create_android_project(project_name, package_domain, build_path):
     """Create a basic Android project structure by copying from template."""
@@ -148,80 +198,88 @@ def _configure_android_project(build_path, project_name, package_domain, app_ver
     """Configure the copied Android project with actual values."""
     logger.info(f"  - Configuring Android project at {build_path}...")
 
-    # settings.gradle.kts
-    settings_gradle_path = os.path.join(build_path, "settings.gradle.kts")
-    if os.path.exists(settings_gradle_path):
-        with open(settings_gradle_path, "r") as f:
-            content = f.read()
-        content = content.replace("rootProject.name = \"MyDroidApp\"", f"rootProject.name = \"{project_name}\"")
-        with open(settings_gradle_path, "w") as f:
-            f.write(content)
-        logger.info("    - Configured settings.gradle.kts")
+    files_to_configure = {
+        "settings.gradle.kts": {
+            "path": os.path.join(build_path, "settings.gradle.kts"),
+            "replacements": [
+                ("rootProject.name = \"MyDroidApp\"", f"rootProject.name = \"{project_name}\""),
+            ]
+        },
+        "app/build.gradle.kts": {
+            "path": os.path.join(build_path, "app", "build.gradle.kts"),
+            "replacements": [
+                ("namespace = \"com.example.myapp\"", f"namespace = \"{package_domain}.{project_name.lower()}\""),
+                ("applicationId = \"com.example.myapp\"", f"applicationId = \"{package_domain}.{project_name.lower()}\""),
+                ("compileSdk = 34", f"compileSdk = {sdk_version}"),
+                ("minSdk = 21", f"minSdk = {min_sdk_version}"),
+                ("targetSdk = 34", f"targetSdk = {sdk_version}"),
+                ("versionName = \"1.0\"", f"versionName = \"{app_version}\""),
+            ]
+        },
+        "app/src/main/AndroidManifest.xml": {
+            "path": os.path.join(build_path, "app", "src", "main", "AndroidManifest.xml"),
+            "replacements": [
+                ("package=\"com.example.myapp\"", f"package=\"{package_domain}.{project_name.lower()}\""),
+            ]
+        },
+        "app/src/main/res/values/strings.xml": {
+            "path": os.path.join(build_path, "app", "src", "main", "res", "values", "strings.xml"),
+            "replacements": [
+                ("<string name=\"app_name\">MyDroidApp</string>", f"<string name=\"app_name\">{project_name}</string>"),
+            ]
+        }
+    }
 
-    # app/build.gradle.kts
-    app_build_gradle_path = os.path.join(build_path, "app", "build.gradle.kts")
-    if os.path.exists(app_build_gradle_path):
-        with open(app_build_gradle_path, "r") as f:
-            content = f.read()
-        
-        app_id = f"{package_domain}.{project_name.lower()}"
-        content = content.replace("namespace = \"com.example.myapp\"", f"namespace = \"{app_id}\"")
-        content = content.replace("applicationId = \"com.example.myapp\"", f"applicationId = \"{app_id}\"")
-        content = content.replace("compileSdk = 34", f"compileSdk = {sdk_version}")
-        content = content.replace("minSdk = 21", f"minSdk = {min_sdk_version}")
-        content = content.replace("targetSdk = 34", f"targetSdk = {sdk_version}") # targetSdk should be same as compileSdk
-        content = content.replace("versionName = \"1.0\"", f"versionName = \"{app_version}\"")
-
-        with open(app_build_gradle_path, "w") as f:
-            f.write(content)
-        logger.info("    - Configured app/build.gradle.kts")
-
-    # app/src/main/AndroidManifest.xml
-    manifest_path = os.path.join(build_path, "app", "src", "main", "AndroidManifest.xml")
-    if os.path.exists(manifest_path):
-        with open(manifest_path, "r") as f:
-            content = f.read()
-        
-        # Replace package name in manifest tag
-        content = content.replace("package=\"com.example.myapp\"", f"package=\"{package_domain}.{project_name.lower()}\"")
-
-        with open(manifest_path, "w") as f:
-            f.write(content)
-        logger.info("    - Configured AndroidManifest.xml")
-
-    # app/src/main/res/values/strings.xml
-    strings_xml_path = os.path.join(build_path, "app", "src", "main", "res", "values", "strings.xml")
-    if os.path.exists(strings_xml_path):
-        with open(strings_xml_path, "r") as f:
-            content = f.read()
-        content = content.replace("<string name=\"app_name\">MyDroidApp</string>", f"<string name=\"app_name\">{project_name}</string>")
-        with open(strings_xml_path, "w") as f:
-            f.write(content)
-        logger.info("    - Configured strings.xml")
+    for file_name, details in files_to_configure.items():
+        file_path = details["path"]
+        if os.path.exists(file_path):
+            try:
+                with open(file_path, "r") as f:
+                    content = f.read()
+                
+                for old, new in details["replacements"]:
+                    content = content.replace(old, new)
+                
+                with open(file_path, "w") as f:
+                    f.write(content)
+                logger.info(f"    - Configured {file_name}")
+            except IOError as e:
+                logger.error(f"Error configuring {file_name} at {file_path}: {e}")
+                logger.info("Please check file permissions and ensure the file is accessible.")
+                return False
+            except Exception as e:
+                logger.error(f"An unexpected error occurred while configuring {file_name}: {e}")
+                logger.exception(*sys.exc_info())
+                return False
 
     logger.success("  - Android project configured.")
     return True
+
 
 def _copy_python_assets(build_path, archs):
     """Copy compiled Python interpreter and modules to Android project assets."""
     logger.info("  - Copying Python assets to Android project...")
 
     assets_dir = os.path.join(build_path, "app", "src", "main", "assets")
-    os.makedirs(assets_dir, exist_ok=True)
+    try:
+        os.makedirs(assets_dir, exist_ok=True)
+    except OSError as e:
+        logger.error(f"Error creating assets directory {assets_dir}: {e}")
+        return False
 
     for arch in archs:
         python_install_dir = os.path.join(build_path, "python-install", arch)
         dest_dir = os.path.join(assets_dir, "python", arch)
         
         if not os.path.exists(python_install_dir):
-            logger.error(f"Error: Compiled Python for {arch} not found at {python_install_dir}")
+            logger.error(f"Error: Compiled Python for {arch} not found at {python_install_dir}. Please ensure Python was built successfully for this architecture.")
             return False
 
         try:
             shutil.copytree(python_install_dir, dest_dir, dirs_exist_ok=True)
             logger.info(f"    - Copied Python assets for {arch} to {dest_dir}")
         except (shutil.Error, OSError) as e:
-            logger.error(f"Error copying Python assets for {arch}: {e}")
+            logger.error(f"Error copying Python assets for {arch} from {python_install_dir} to {dest_dir}: {e}")
             logger.info("Please check directory permissions and ensure enough disk space is available.")
             return False
 
@@ -233,20 +291,27 @@ def _copy_user_python_code(build_path, main_file):
     logger.info("  - Copying user's Python code to Android project...")
 
     user_python_assets_dir = os.path.join(build_path, "app", "src", "main", "assets", "user_python")
-    os.makedirs(user_python_assets_dir, exist_ok=True)
+    try:
+        os.makedirs(user_python_assets_dir, exist_ok=True)
+    except OSError as e:
+        logger.error(f"Error creating user Python assets directory {user_python_assets_dir}: {e}")
+        return False
 
     source_main_file_path = os.path.join(os.getcwd(), main_file)
     dest_main_file_path = os.path.join(user_python_assets_dir, os.path.basename(main_file))
 
     if not os.path.exists(source_main_file_path):
-        logger.error(f"Error: Main Python file not found at {source_main_file_path}")
+        logger.error(f"Error: Main Python file not found at {source_main_file_path}. Please ensure '{main_file}' exists in your project root.")
+        return False
+    if not os.path.isfile(source_main_file_path):
+        logger.error(f"Error: '{source_main_file_path}' is not a file. Please ensure 'main_file' in droidbuilder.toml points to a valid file.")
         return False
 
     try:
         shutil.copyfile(source_main_file_path, dest_main_file_path)
         logger.success(f"  - Copied user's main Python file to {dest_main_file_path}")
     except (shutil.Error, OSError) as e:
-        logger.error(f"Error copying user's main Python file: {e}")
+        logger.error(f"Error copying user's main Python file from {source_main_file_path} to {dest_main_file_path}: {e}")
         logger.info("Please check file permissions and ensure the source file exists and is readable.")
         return False
 
@@ -257,30 +322,42 @@ def _download_python_packages(requirements, build_path):
     logger.info("  - Downloading Python packages...")
 
     packages_source_dir = os.path.join(build_path, "python-packages-source")
-    os.makedirs(packages_source_dir, exist_ok=True)
+    try:
+        os.makedirs(packages_source_dir, exist_ok=True)
+    except OSError as e:
+        logger.error(f"Error creating packages source directory {packages_source_dir}: {e}")
+        return False
 
     for req in requirements:
-        # For simplicity, assume direct download from PyPI for now
-        # This needs to be more robust (e.g., handling versions, dependencies)
-        # Example: "requests==2.28.1" -> "requests/requests-2.28.1.tar.gz"
         package_name = req.split('==')[0]
         package_version = req.split('==')[1] if '==' in req else None
         
         if package_version:
             package_filename = f"{package_name}-{package_version}.tar.gz"
-            package_url = f"https://pypi.org/packages/source/{package_name[0]}/{package_name}/{package_filename}"
+            # PyPI URL structure: https://pypi.org/packages/source/<first-letter-of-package>/<package-name>/<package-name>-<version>.tar.gz
+            # Handle cases where package_name[0] might be a digit or special char
+            first_char = package_name[0].lower()
+            if not first_char.isalpha():
+                first_char = '_' # Fallback for non-alphabetic first characters, though uncommon for PyPI
+            package_url = f"https://pypi.org/packages/source/{first_char}/{package_name}/{package_filename}"
         else:
-            # Try to find latest version (more complex, requires PyPI API)
-            # For now, assume a common version or require explicit version
-            logger.warning(f"  - No version specified for {package_name}. Skipping download.")
+            logger.warning(f"  - No version specified for '{package_name}'. Skipping download. Please specify a version (e.g., '{package_name}==1.0.0') in your droidbuilder.toml for reliable downloads.")
             continue
 
         try:
             utils.download_and_extract(package_url, packages_source_dir, package_filename)
             logger.info(f"    - Downloaded {req}")
-        except (requests.exceptions.RequestException, IOError) as e:
-            logger.error(f"Error downloading {req}: {e}")
-            logger.info("Please check your internet connection and the package name/version.")
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error downloading '{req}' from {package_url}: {e}")
+            logger.info("Please check your internet connection, the package name/version, and the PyPI URL format.")
+            return False
+        except IOError as e:
+            logger.error(f"File system error while downloading '{req}': {e}")
+            logger.info("Please check disk space and permissions for the download directory.")
+            return False
+        except Exception as e:
+            logger.error(f"An unexpected error occurred while downloading '{req}': {e}")
+            logger.exception(*sys.exc_info())
             return False
 
     logger.success("  - Python packages downloaded.")
@@ -462,8 +539,12 @@ def build_android(config, verbose):
         logger.error(f"Error: gradlew not found at {gradlew_path}. Android project setup failed.")
         return False
     
-    # Make gradlew executable
-    os.chmod(gradlew_path, 0o755)
+    try:
+        os.chmod(gradlew_path, 0o755)
+    except OSError as e:
+        logger.error(f"Error making gradlew executable: {e}")
+        logger.info("Please check file permissions for gradlew.")
+        return False
 
     build_task = "assembleDebug"
     if build_type == "release":
@@ -473,31 +554,37 @@ def build_android(config, verbose):
     logger.info(f"  - Running Gradle build: {' '.join(gradle_build_cmd)}")
 
     try:
-        subprocess.run(gradle_build_cmd, check=True, cwd=build_path)
+        subprocess.run(gradle_build_cmd, check=True, cwd=build_path, capture_output=True, text=True)
         logger.success("  - Android APK built successfully.")
     except subprocess.CalledProcessError as e:
         logger.error(f"Gradle build failed (Exit Code: {e.returncode}):")
         if e.stdout:
-            logger.error(f"Stdout: {e.stdout}")
+            logger.error(f"Stdout:\n{e.stdout}")
         if e.stderr:
-            logger.error(f"Stderr: {e.stderr}")
+            logger.error(f"Stderr:\n{e.stderr}")
         logger.info("Please review the Gradle output above for specific errors and ensure your Android SDK and NDK are correctly installed and configured.")
+        return False
     except (OSError, FileNotFoundError) as e:
         logger.error(f"Error executing Gradle command: {e}")
         logger.info("This might indicate an issue with your Java or Gradle installation, or incorrect permissions.")
+        return False
     except Exception as e:
         logger.error(f"An unexpected error occurred during Gradle build: {e}")
         logger.info("Please report this issue to the DroidBuilder developers.")
+        logger.exception(*sys.exc_info())
+        return False
 
     # Find the generated APK and move it to the dist dir
+    os.makedirs(dist_dir, exist_ok=True) # Ensure dist directory exists
     apk_name = f"{project_name}-{build_type}.apk" # Simplified name
     # The actual APK path is usually app/build/outputs/apk/{build_type}/app-{build_type}.apk
     generated_apk_path = os.path.join(build_path, "app", "build", "outputs", "apk", build_type, f"app-{build_type}.apk")
     
     if os.path.exists(generated_apk_path):
         try:
-            shutil.move(generated_apk_path, dist_dir)
+            shutil.move(generated_apk_path, os.path.join(dist_dir, apk_name))
             logger.success(f"Build successful! APK available at {os.path.join(dist_dir, apk_name)}")
+            return True
         except (shutil.Error, OSError) as e:
             logger.error(f"Error moving generated APK to dist directory: {e}")
             logger.info("Please check permissions for the dist directory and ensure enough disk space.")
@@ -509,7 +596,7 @@ def build_android(config, verbose):
             for f in files:
                 if f.endswith(".apk"):
                     try:
-                        shutil.move(os.path.join(root, f), dist_dir)
+                        shutil.move(os.path.join(root, f), os.path.join(dist_dir, f)) # Use original filename if found
                         logger.success(f"Build successful! APK available at {os.path.join(dist_dir, f)}")
                         found_apk = True
                         break
