@@ -3,6 +3,7 @@ import sys
 import time
 import traceback
 import os
+import shutil
 from colorama import Fore, Style, init
 
 # Initialize Colorama
@@ -12,6 +13,7 @@ LOG_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder", "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 
 class Logger:
+    MIN_SINGLE_LINE = 70  # approx min total length
     def __init__(self):
         self.log_file = os.path.join(
             LOG_DIR,
@@ -79,7 +81,6 @@ class Logger:
 
         print(f"{description}...")
         print()
-        print()
         sys.stdout.flush()
 
         for i, item in enumerate(iterable):
@@ -113,25 +114,31 @@ class Logger:
                 speed_unit, speed_divisor = ("MB/s", 1024*1024)
                 if speed > 1024*1024*1024:
                     speed_unit, speed_divisor = ("GB/s", 1024*1024*1024)
-
-                line1 = f"{bar} {percent*100:3.0f}%"
-                line2 = (f"{format_size(current_val)}/{format_size(total)} • "
-                         f"{speed/speed_divisor:.1f} {speed_unit} • "
-                         f"{time.strftime('%M:%S', time.gmtime(elapsed))}/"
-                         f"{time.strftime('%M:%S', time.gmtime(elapsed+eta))}")
             else:
-                line1 = f"{bar} {percent*100:3.0f}%"
-                line2 = (f"{current_val}/{total} • {speed:.1f} it/s • "
-                         f"{time.strftime('%M:%S', time.gmtime(elapsed))}/"
-                         f"{time.strftime('%M:%S', time.gmtime(elapsed+eta))}")
+                speed_unit, speed_divisor = ("it/s", 1)
 
-            # Overwrite last 2 lines
-            sys.stdout.write("\x1b[F\x1b[F\r")
-            print(line1)
-            print(line2)
+            line = (
+                f"{percent*100:3.0f}% | "
+		f"{bar} | "
+                f"{format_size(current_val)}/{format_size(total)} • "
+                f"{speed/speed_divisor:.1f} {speed_unit} • "
+                f"{time.strftime('%M:%S', time.gmtime(elapsed))}/"
+                f"{time.strftime('%M:%S', time.gmtime(elapsed+eta))}"
+            )
+
+            # Overwrite same line
+            terminal_width = shutil.get_terminal_size().columns
+            if terminal_width < self.MIN_SINGLE_LINE:
+                # dual-line mode
+                sys.stdout.write("\x1b[F\x1b[F\r")  # move cursor up 2 lines
+            else:
+                # single-line mode
+                sys.stdout.write("\x1b[F\r")  # move cursor up 1 line
+            print(line)
             sys.stdout.flush()
 
-        print("✅ Download complete!")
+        # completion message
+        print("\n✅ Download complete!")
 
     # -------- Exception logging --------
     def exception(self, exc_type, exc_value, exc_traceback):
