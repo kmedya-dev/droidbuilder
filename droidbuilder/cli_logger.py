@@ -13,7 +13,6 @@ LOG_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder", "logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 
 class Logger:
-    MIN_SINGLE_LINE = 70  # approx min total length
     def __init__(self):
         self.log_file = os.path.join(
             LOG_DIR,
@@ -119,23 +118,24 @@ class Logger:
 
             line = (
                 f"{percent*100:3.0f}% | "
-		f"{bar} | "
+                f"{bar} | "
                 f"{format_size(current_val)}/{format_size(total)} • "
                 f"{speed/speed_divisor:.1f} {speed_unit} • "
                 f"{time.strftime('%M:%S', time.gmtime(elapsed))}/"
                 f"{time.strftime('%M:%S', time.gmtime(elapsed+eta))}"
             )
 
-            # Overwrite same line
-            terminal_width = shutil.get_terminal_size().columns
-            if terminal_width < self.MIN_SINGLE_LINE:
-                # dual-line mode
-                sys.stdout.write("\x1b[F\x1b[F\r")  # move cursor up 2 lines
-            else:
-                # single-line mode
-                sys.stdout.write("\x1b[F\r")  # move cursor up 1 line
+        # Overwrite same line
+        terminal_width = shutil.get_terminal_size().columns
+        if terminal_width < len(line):
+            # for small display
+            sys.stdout.write("\x1b[F\x1b[F\r")
             print(line)
-            sys.stdout.flush()
+        else:
+            # for large display
+            sys.stdout.write("\x1b[F\r")
+            print(line)
+        sys.stdout.flush()
 
         # completion message
         print("\n✅ Download complete!")
@@ -159,4 +159,3 @@ def get_latest_log_file():
     if not log_files:
         return None
     return max(log_files, key=os.path.getctime)
-
