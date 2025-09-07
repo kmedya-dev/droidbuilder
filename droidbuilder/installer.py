@@ -203,7 +203,7 @@ def install_ndk(version, sdk_install_dir):
         return False
 
     try:
-        subprocess.run([sdk_manager, f"ndk;{version}"], input=b"y\n", check=True, capture_output=True, text=True)
+        subprocess.run([sdk_manager, f"ndk;{version}"], input=b"y\n", check=True, capture_output=True)
         logger.info("  - Android NDK components installed.")
         # Set ANDROID_NDK_HOME and PATH
         ndk_path = os.path.join(sdk_install_dir, "ndk", version)  # NDK is installed under ndk/<version>

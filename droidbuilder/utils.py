@@ -58,12 +58,13 @@ def _safe_extract_tar(tar_ref: tarfile.TarFile, dest_dir: str, log_each=True):
                 logger.step_info(f" replace: {member.name}", indent=2)
             else:
                 logger.step_info(f"extracting: {member.name}", indent=2)
-        with tar_ref.extractfile(member) as src:
-            if src is None:
-                # could be special file; skip silently
-                continue
+        src = tar_ref.extractfile(member)
+        if src is None:
+            # could be special file; skip silently
+            continue
+        with src as src_file: # Use a different variable name to avoid confusion
             with open(member_path, "wb") as out:
-                shutil.copyfileobj(src, out)
+                shutil.copyfileobj(src_file, out)
             # Preserve file permissions
             if member.mode:
                 os.chmod(member_path, member.mode)
