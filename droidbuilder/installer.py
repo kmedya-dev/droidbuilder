@@ -398,37 +398,6 @@ def _accept_sdk_licenses(sdk_install_dir):
         return False
 
 
-
-# -------------------- Python Requirements --------------------
-
-def install_python_requirements(requirements):
-    """Install python requirements using pip."""
-    if not requirements:
-        return True
-
-    logger.info("Installing python requirements...")
-    try:
-        subprocess.check_call([sys.executable, "-m", "pip", "install", *requirements])
-        logger.info("Python requirements installed successfully.")
-        return True
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Error installing python requirements (Exit Code: {e.returncode}):")
-        if e.stdout:
-            logger.error(f"Stdout:\n{e.stdout.decode()}")
-        if e.stderr:
-            logger.error(f"Stderr:\n{e.stderr.decode()}")
-        logger.info("Please check your internet connection and ensure the package names are correct.")
-        return False
-    except FileNotFoundError:
-        logger.error(f"Error: Python executable '{sys.executable}' or pip not found. Please ensure Python and pip are correctly installed and in your PATH.")
-        return False
-    except Exception as e:
-        logger.error(f"An unexpected error occurred during Python requirements installation: {e}")
-        logger.exception(*sys.exc_info())
-        return False
-
-
-
 # -------------------- Orchestrators --------------------
 
 def setup_tools(conf):
@@ -441,8 +410,6 @@ def setup_tools(conf):
     python_version = conf.get("python", {}).get("python_version")
     cmdline_tools_version = conf.get("android", {}).get("cmdline_tools_version")
     accept_sdk_license = conf.get("android", {}).get("accept_sdk_license", "interactive")
-    requirements = conf.get("project", {}).get("requirements")
-    system_packages = conf.get("project", {}).get("system_packages")
     sdk_install_dir = os.path.join(INSTALL_DIR, "android-sdk")
 
     all_successful = True
@@ -481,93 +448,6 @@ def setup_tools(conf):
         if not download_python_source(python_version):
             logger.error(f"Failed to download Python source version {python_version}.")
             all_successful = False
-    
-    if requirements:
-        if not install_python_requirements(requirements):
-            logger.error("Failed to install Python requirements.")
-            all_successful = False
-
-    if system_packages:
-        if not _install_system_packages(system_packages):
-            logger.error("Failed to install system packages.")
-            all_successful = False
-    
-    return all_successful
-
-
-def _install_system_packages(packages):
-    """Install system-level packages using the appropriate package manager."""
-    if not packages:
-        return True
-
-    logger.info("Installing system packages...")
-
-    package_managers = {
-        "linux": [
-            {"name": "apt-get", "command": ["sudo", "apt-get", "install", "-y"], "update_command": ["sudo", "apt-get", "update"]},
-            {"name": "dnf", "command": ["sudo", "dnf", "install", "-y"]},
-            {"name": "yum", "command": ["sudo", "yum", "install", "-y"]},
-            {"name": "pacman", "command": ["sudo", "pacman", "-S", "--noconfirm"]},
-            {"name": "zypper", "command": ["sudo", "zypper", "install", "-y"]},
-        ],
-        "darwin": [
-            {"name": "brew", "command": ["brew", "install"], "update_command": ["brew", "update"]},
-        ],
-        "win32": [
-            {"name": "choco", "command": ["choco", "install", "-y"]},
-            {"name": "winget", "command": ["winget", "install", "--accept-source-agreements", "--accept-package-agreements"]},
-        ]
-    }
-
-    platform = sys.platform
-    if platform not in package_managers:
-        logger.warning(f"Unsupported operating system: {platform}. Cannot install system packages automatically.")
-        logger.info(f"Please install the following packages manually: {', '.join(packages)}")
-        return False
-
-    installed_successfully = False
-    for pm in package_managers[platform]:
-        if shutil.which(pm["name"]):
-            logger.info(f"Attempting to use {pm['name']} to install packages...")
-
-            # Some package managers require an update before installing packages
-            if "update_command" in pm:
-                logger.info(f"  - Running: {' '.join(pm['update_command'])}")
-                try:
-                    subprocess.run(pm["update_command"], check=True, capture_output=True, text=True)
-                except subprocess.CalledProcessError as e:
-                    logger.warning(f"  - Failed to update {pm['name']}: {e.stderr}")
-                    # Continue anyway, maybe the packages are already in cache
-                except FileNotFoundError:
-                    logger.warning(f"  - Update command for {pm['name']} not found. Skipping update.")
-                except Exception as e:
-                    logger.warning(f"  - An unexpected error occurred during update for {pm['name']}: {e}")
-
-            cmd = pm["command"] + packages
-            logger.info(f"  - Running: {' '.join(cmd)}")
-            try:
-                subprocess.run(cmd, check=True, capture_output=True, text=True)
-                logger.success(f"  - System packages installed successfully with {pm['name']}.")
-                installed_successfully = True
-                break  # Exit after first successful installation
-            except subprocess.CalledProcessError as e:
-                logger.error(f"  - Error installing system packages with {pm['name']} (Exit Code: {e.returncode}): {e.stderr}")
-                logger.info("  - Please ensure you have the necessary privileges or install manually.")
-                # Continue to the next package manager
-            except FileNotFoundError:
-                logger.error(f"  - Command '{pm['name']}' not found. Please ensure it is installed and in your PATH.")
-                # Continue to the next package manager
-            except Exception as e:
-                logger.error(f"  - An unexpected error occurred during installation with {pm['name']}: {e}")
-                logger.exception(*sys.exc_info())
-                # Continue to the next package manager
-
-    if not installed_successfully:
-        logger.warning(f"Could not install packages using any of the supported package managers for {platform}.")
-        logger.info(f"Please install the following packages manually: {', '.join(packages)}")
-        return False
-    return True
-
 
 def list_installed_tools():
     """Scan the installation directory and list installed tools and versions."""
