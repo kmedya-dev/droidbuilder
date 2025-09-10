@@ -240,6 +240,16 @@ def install_jdk(version):
         return False
 
     jdk_install_dir = os.path.join(INSTALL_DIR, f"jdk-{version}")
+    
+    # Ensure a clean slate and correct permissions
+    shutil.rmtree(jdk_install_dir, ignore_errors=True)
+    try:
+        os.makedirs(jdk_install_dir, exist_ok=True)
+        os.chmod(jdk_install_dir, 0o755) # Set appropriate permissions
+    except OSError as e:
+        logger.error(f"Error creating or setting permissions for JDK install directory {jdk_install_dir}: {e}")
+        return False
+
     try:
         utils.download_and_extract(jdk_url, jdk_install_dir)
     except Exception as e:
@@ -284,6 +294,15 @@ def install_gradle(version):
         return False
 
     gradle_install_dir = os.path.join(INSTALL_DIR, f"gradle-{version}")
+    
+    # Ensure a clean slate before extraction
+    shutil.rmtree(gradle_install_dir, ignore_errors=True)
+    try:
+        os.makedirs(gradle_install_dir, exist_ok=True)
+    except OSError as e:
+        logger.error(f"Error creating Gradle install directory {gradle_install_dir}: {e}")
+        return False
+
     try:
         utils.download_and_extract(gradle_url, gradle_install_dir, f"gradle-{version}-bin.zip")
     except Exception as e:
