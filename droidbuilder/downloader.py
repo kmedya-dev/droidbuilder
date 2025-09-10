@@ -148,16 +148,3 @@ def download_github_package(repo_name, download_path="."):
     except requests.exceptions.RequestException as e:
         logger.error(f"Error downloading {repo_name}: {e}")
         return None
-
-
-def setup_tools(conf):
-    """Install all the required tools."""
-    logger.info("Setting up development tools...")
-    python_version = conf.get("python", {}).get("python_version")
-
-    all_successful = True
-
-    if python_version:
-        if not download_python_source(python_version):
-            logger.error(f"Failed to download Python source version {python_version}.")
-            all_successful = False

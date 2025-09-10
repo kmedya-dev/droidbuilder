@@ -406,6 +406,8 @@ def setup_tools(conf):
         if not install_gradle(gradle_version):
             logger.error(f"Failed to install Gradle version {gradle_version}.")
             all_successful = False
+    
+    return all_successful
 
 def list_installed_tools():
     """Scan the installation directory and list installed tools and versions."""
