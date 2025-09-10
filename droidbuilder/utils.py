@@ -5,6 +5,7 @@ import tarfile
 import shutil
 import sys
 import contextlib
+import subprocess
 from .cli_logger import logger # Assuming cli_logger is accessible
 
 # -------------------- Helpers: safe paths & extraction --------------------
@@ -121,6 +122,7 @@ def download_and_extract(url, dest_dir, filename=None, timeout=60):
             pass
 
         logger.success(f"Successfully extracted to {dest_dir}")
+        return dest_dir
 
     except requests.exceptions.RequestException as e:
         logger.error(f"Error downloading the file: {e}")

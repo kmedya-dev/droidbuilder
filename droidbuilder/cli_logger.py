@@ -159,3 +159,4 @@ def get_latest_log_file():
     if not log_files:
         return None
     return max(log_files, key=os.path.getctime)
+	

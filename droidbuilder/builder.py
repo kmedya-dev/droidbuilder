@@ -3,8 +3,12 @@ import os
 import subprocess
 import shutil
 import sys
+import tarfile
+import zipfile
 from .cli_logger import logger
 from . import utils
+from . import downloader
+from . import dependencies
 
 INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
 BUILD_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder_build")
@@ -50,6 +54,17 @@ def _setup_python_build_environment(ndk_version, ndk_api, arch):
     os.environ["SYSROOT"] = sysroot
     os.environ["PATH"] = f"{toolchain_bin}:{os.environ['PATH']}"
 
+    # Ensure NDK's readelf is in PATH
+    ndk_readelf = os.path.join(toolchain_bin, f"{compiler_prefix}-readelf")
+    if not os.path.exists(ndk_readelf):
+        logger.warning(f"  - NDK readelf not found at {ndk_readelf}. This might cause issues with cross-compilation.")
+    else:
+        logger.info(f"  - NDK readelf found at {ndk_readelf}")
+
+    # Try to set PYTHON_FOR_BUILD and PYTHON_FOR_HOST for configure script
+    os.environ["PYTHON_FOR_BUILD"] = sys.executable
+    os.environ["PYTHON_FOR_HOST"] = sys.executable
+
     logger.info("  - Build environment set up.")
     return True
 
@@ -70,11 +85,15 @@ def _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_
         return False
 
     # Get build triplet
-    try:
-        build_triplet = subprocess.check_output(["uname", "-m", "-s"]).decode().strip().replace(" ", "-").lower()
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Error determining build triplet: {e}")
-        return False
+    build_triplet = ""
+    if sys.platform == "linux" and os.uname().machine == "x86_64":
+        build_triplet = "x86_64-linux-gnu"
+    else:
+        try:
+            build_triplet = subprocess.check_output(["uname", "-m", "-s"]).decode().strip().replace(" ", "-").lower()
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Error determining build triplet: {e}")
+            return False
 
     # Get host triplet
     host_triplet = ARCH_COMPILER_PREFIXES.get(arch)
@@ -98,6 +117,7 @@ def _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_
         "--with-system-ffi=no",
         "--without-ensurepip",
         f"--prefix={python_install_dir}",
+        f"--with-build-python={sys.executable}",
         f"CC={os.environ.get('CC', '')}",
         f"CXX={os.environ.get('CXX', '')}",
         f"AR={os.environ.get('AR', '')}",
@@ -173,6 +193,127 @@ def _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_
     logger.success(f"  - Python {python_version} built and installed for {arch}.")
     return True
 
+
+
+def _compile_python_package(package_source_path, python_install_dir, arch, ndk_version, ndk_api):
+    """Compiles and installs a Python package for a specific Android architecture."""
+    package_name = os.path.basename(package_source_path)
+    logger.info(f"  - Compiling Python package {package_name} for {arch}...")
+
+    # Set up environment for cross-compilation
+    if not _setup_python_build_environment(ndk_version, ndk_api, arch):
+        logger.error(f"Failed to set up build environment for {arch} for package {package_name}. Aborting.")
+        return False
+
+    # Attempt to install using pip (preferred for Python packages)
+    # Ensure pip is available in the cross-compiled Python environment
+    python_bin = os.path.join(python_install_dir, "bin", "python3")
+    if not os.path.exists(python_bin):
+        logger.error(f"Error: Cross-compiled Python interpreter not found at {python_bin}. Cannot install package {package_name}.")
+        return False
+
+    # Try to install using the cross-compiled pip
+    pip_install_cmd = [
+        python_bin,
+        "-m", "pip", "install",
+        "--no-deps", # Don't try to resolve dependencies, we'll handle them explicitly
+        "--target", python_install_dir, # Install into the target Python environment
+        package_source_path # Path to the downloaded package source (sdist)
+    ]
+
+    logger.info(f"    - Running pip install: {' '.join(pip_install_cmd)}")
+    try:
+        subprocess.run(pip_install_cmd, check=True, capture_output=True, text=True)
+        logger.success(f"    - Successfully compiled and installed {package_name} for {arch}.")
+        return True
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Pip install failed for {package_name} (Exit Code: {e.returncode}):")
+        if e.stdout:
+            logger.error(f"Stdout:\n{e.stdout}")
+        if e.stderr:
+            logger.error(f"Stderr:\n{e.stderr}")
+        logger.info("Please check the package requirements and cross-compilation environment.")
+        return False
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during pip install for {package_name}: {e}")
+        logger.exception(*sys.exc_info())
+        return False
+
+def _download_python_packages(requirements, build_path, archs, ndk_version, ndk_api):
+    """Downloads and compiles Python packages specified in requirements."""
+    logger.info("  - Downloading and compiling Python packages...")
+    download_dir = os.path.join(build_path, "python_packages_src")
+    os.makedirs(download_dir, exist_ok=True)
+
+    downloaded_packages = []
+    for req in requirements:
+        if req == "python3":
+            continue
+        logger.info(f"    - Downloading {req}...")
+        package_path = downloader.download_pypi_package(req, download_dir)
+        if not package_path:
+            logger.error(f"Failed to download Python package: {req}")
+            return False
+        logger.success(f"    - Downloaded {req} to {package_path}")
+        downloaded_packages.append(package_path)
+
+    # Now compile each downloaded package for each architecture
+    for package_path in downloaded_packages:
+        for arch in archs:
+            python_install_dir = os.path.join(build_path, "python-install", arch)
+            if not _compile_python_package(package_path, python_install_dir, arch, ndk_version, ndk_api):
+                logger.error(f"Failed to compile {os.path.basename(package_path)} for {arch}. Aborting.")
+                return False
+
+    logger.success("  - All Python packages downloaded and compiled.")
+    return True
+
+    
+
+def _download_system_packages(system_packages, build_path, archs, ndk_version, ndk_api):
+    """Downloads and compiles system packages specified."""
+    logger.info("  - Downloading and compiling system packages...")
+    download_dir = os.path.join(build_path, "system_packages_src")
+    os.makedirs(download_dir, exist_ok=True)
+
+    downloaded_packages_info = [] # Store (package_path, extracted_dir)
+    for pkg in system_packages:
+        logger.info(f"    - Downloading {pkg}...")
+        package_path = downloader.download_github_package(pkg, download_dir)
+        if not package_path:
+            logger.error(f"Failed to download system package: {pkg}")
+            return False
+        logger.success(f"    - Downloaded {pkg} to {package_path}")
+
+        package_name = os.path.basename(package_path).replace(".tar.gz", "").replace(".zip", "")
+        extracted_dir = os.path.join(download_dir, package_name)
+        
+        # Extract the downloaded archive
+        try:
+            if package_path.endswith(".tar.gz"):
+                with tarfile.open(package_path, "r:gz") as tar:
+                    tar.extractall(path=download_dir)
+            elif package_path.endswith(".zip"):
+                with zipfile.ZipFile(package_path, "r") as zip_ref:
+                    zip_ref.extractall(path=download_dir)
+            else:
+                logger.warning(f"Unsupported archive type for system package: {package_path}. Skipping extraction.")
+                continue
+            logger.info(f"    - Extracted {package_name} to {extracted_dir}")
+            downloaded_packages_info.append((package_path, extracted_dir))
+        except Exception as e:
+            logger.error(f"Error extracting system package {package_name}: {e}")
+            return False
+
+    # Now compile each downloaded system package for each architecture
+    for package_path, extracted_dir in downloaded_packages_info:
+        for arch in archs:
+            if not _compile_system_package(extracted_dir, arch, ndk_version, ndk_api):
+                logger.error(f"Failed to compile {os.path.basename(package_path)} for {arch}. Aborting.")
+                return False
+
+    logger.success("  - All system packages downloaded and compiled.")
+    return True
 
 def _create_android_project(project_name, package_domain, build_path):
     """Create a basic Android project structure by copying from template."""
@@ -256,34 +397,52 @@ def _configure_android_project(build_path, project_name, package_domain, app_ver
     return True
 
 
-def _copy_python_assets(build_path, archs):
-    """Copy compiled Python interpreter and modules to Android project assets."""
-    logger.info("  - Copying Python assets to Android project...")
+def _copy_assets_to_android_project(build_path, archs):
+    """Copy compiled Python interpreter, modules, and system libraries to Android project assets/jniLibs."""
+    logger.info("  - Copying Python and system assets to Android project...")
 
     assets_dir = os.path.join(build_path, "app", "src", "main", "assets")
+    jni_libs_dir = os.path.join(build_path, "app", "src", "main", "jniLibs")
     try:
         os.makedirs(assets_dir, exist_ok=True)
+        os.makedirs(jni_libs_dir, exist_ok=True)
     except OSError as e:
-        logger.error(f"Error creating assets directory {assets_dir}: {e}")
+        logger.error(f"Error creating assets/jniLibs directory: {e}")
         return False
 
     for arch in archs:
+        # Copy Python assets
         python_install_dir = os.path.join(build_path, "python-install", arch)
-        dest_dir = os.path.join(assets_dir, "python", arch)
+        dest_python_dir = os.path.join(assets_dir, "python", arch)
         
         if not os.path.exists(python_install_dir):
             logger.error(f"Error: Compiled Python for {arch} not found at {python_install_dir}. Please ensure Python was built successfully for this architecture.")
             return False
 
         try:
-            shutil.copytree(python_install_dir, dest_dir, dirs_exist_ok=True)
-            logger.info(f"    - Copied Python assets for {arch} to {dest_dir}")
+            shutil.copytree(python_install_dir, dest_python_dir, dirs_exist_ok=True)
+            logger.info(f"    - Copied Python assets for {arch} to {dest_python_dir}")
         except (shutil.Error, OSError) as e:
-            logger.error(f"Error copying Python assets for {arch} from {python_install_dir} to {dest_dir}: {e}")
+            logger.error(f"Error copying Python assets for {arch} from {python_install_dir} to {dest_python_dir}: {e}")
             logger.info("Please check directory permissions and ensure enough disk space is available.")
             return False
 
-    logger.success("  - Python assets copied.")
+        # Copy system libraries (assuming they are compiled and placed in INSTALL_DIR/system_libs/{arch})
+        system_libs_source_dir = os.path.join(INSTALL_DIR, "system_libs", arch)
+        dest_system_libs_dir = os.path.join(jni_libs_dir, arch)
+
+        if os.path.exists(system_libs_source_dir):
+            try:
+                shutil.copytree(system_libs_source_dir, dest_system_libs_dir, dirs_exist_ok=True)
+                logger.info(f"    - Copied system libraries for {arch} to {dest_system_libs_dir}")
+            except (shutil.Error, OSError) as e:
+                logger.error(f"Error copying system libraries for {arch} from {system_libs_source_dir} to {dest_system_libs_dir}: {e}")
+                logger.info("Please check directory permissions and ensure enough disk space is available.")
+                return False
+        else:
+            logger.warning(f"    - No system libraries found for {arch} at {system_libs_source_dir}. Skipping.")
+
+    logger.success("  - Python and system assets copied.")
     return True
 
 def _copy_user_python_code(build_path, main_file):
@@ -333,8 +492,10 @@ def build_android(config, verbose):
     target_platforms = project.get("target_platforms", [])
     package_domain = project.get("package_domain", "org.test")
     build_type = project.get("build_type", "debug")
-    requirements = project.get("requirements", ["python3"])
-    system_packages = project.get("system_packages", [])
+
+    # Get dependencies using the dependencies module
+    requirements = dependencies.get_python_dependencies()
+    _, system_packages = dependencies.get_explicit_dependencies()
 
     # Android configs
     android_cfg = config.get("android", {})
@@ -358,141 +519,172 @@ def build_android(config, verbose):
     build_path = os.path.join(BUILD_DIR, project_name)
     dist_dir = os.path.join(os.getcwd(), "dist")
 
-    # Ensure Android is a target
-    if "android" not in target_platforms:
-        logger.error(
-            "Error: Android is not specified as a target platform in droidbuilder.toml."
+    temp_bin_dir = os.path.join(INSTALL_DIR, "temp_bin")
+
+    try:
+        # Ensure Android is a target
+        if "android" not in target_platforms:
+            logger.error(
+                "Error: Android is not specified as a target platform in droidbuilder.toml."
+            )
+            return False
+
+        # Log values safely
+        logger.info(f"INSTALL_DIR: {INSTALL_DIR}")
+        logger.info(f"SDK version: {sdk_version or 'not set'}")
+        logger.info(f"NDK version: {ndk_version or 'not set'}")
+        logger.info(f"minSdkVersion: {min_sdk_version or 'not set'}")
+        logger.info(f"JDK version: {jdk_version or 'not set'}")
+        logger.info(f"Gradle version: {gradle_version or 'not set'}")
+        logger.info(f"Python version: {python_version or 'not set'}")
+
+        # Construct NDK path if possible
+        ndk_dir_path = (
+            os.path.join(INSTALL_DIR, "android-sdk", "ndk", ndk_version)
+            if ndk_version
+            else None
         )
-        return False
+        logger.info(f"Constructed ndk_dir path: {ndk_dir_path or 'not available'}")
 
-    # Log values safely
-    logger.info(f"INSTALL_DIR: {INSTALL_DIR}")
-    logger.info(f"SDK version: {sdk_version or 'not set'}")
-    logger.info(f"NDK version: {ndk_version or 'not set'}")
-    logger.info(f"minSdkVersion: {min_sdk_version or 'not set'}")
-    logger.info(f"JDK version: {jdk_version or 'not set'}")
-    logger.info(f"Gradle version: {gradle_version or 'not set'}")
-    logger.info(f"Python version: {python_version or 'not set'}")
+        if not ndk_dir_path or not os.path.exists(ndk_dir_path):
+            logger.warning("NDK directory not found, build may fail.")
 
-    # Construct NDK path if possible
-    ndk_dir_path = (
-        os.path.join(INSTALL_DIR, "android-sdk", "ndk", ndk_version)
-        if ndk_version
-        else None
-    )
-    logger.info(f"Constructed ndk_dir path: {ndk_dir_path or 'not available'}")
+        # Download Python source
+        if python_version:
+            if not downloader.download_python_source(python_version):
+                logger.error("Failed to download Python source. Aborting.")
+                return False
+        else:
+            logger.error("Python version not specified in droidbuilder.toml. Aborting.")
+            return False
 
-    if not ndk_dir_path or not os.path.exists(ndk_dir_path):
-        logger.warning("NDK directory not found, build may fail.")
+        # Set up environment for each architecture
+        for arch in archs:
+            if not _setup_python_build_environment(ndk_version, ndk_api, arch):
+                logger.error(f"Failed to set up build environment for {arch}. Aborting.")
+                return False
+            
+            if not _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_path):
+                logger.error(f"Failed to build Python for {arch}. Aborting.")
+                return False
 
-    # Set up environment for each architecture
-    for arch in archs:
-        if not _setup_python_build_environment(ndk_version, ndk_api, arch):
-            logger.error(f"Failed to set up build environment for {arch}. Aborting.")
+        # Download Python packages
+        if requirements:
+            if not _download_python_packages(requirements, build_path, archs, ndk_version, ndk_api):
+                logger.error("Failed to download Python packages. Aborting.")
+                return False
+
+        # Download system packages
+        if system_packages:
+            if not _download_system_packages(system_packages, build_path, archs, ndk_version, ndk_api):
+                logger.error("Failed to download system packages. Aborting.")
+                return False
+
+        # Create Android project structure
+        if not _create_android_project(project_name, package_domain, build_path):
+            logger.error("Failed to create Android project structure. Aborting.")
+            return False
+
+        # Configure the Android project
+        if not _configure_android_project(build_path, project_name, package_domain, app_version, sdk_version, min_sdk_version, ndk_api, manifest_file):
+            logger.error("Failed to configure Android project. Aborting.")
+            return False
+
+        # Copy Python and system assets
+        if not _copy_assets_to_android_project(build_path, archs):
+            logger.error("Failed to copy assets to Android project. Aborting.")
+            return False
+
+        # Copy user's Python code
+        if not _copy_user_python_code(build_path, main_file):
+            logger.error("Failed to copy user's Python code. Aborting.")
+            return False
+
+        logger.info(f"Starting build for {project_name} v{app_version} ({build_type})")
+
+        # Build APK
+        logger.info("  - Building Android APK...")
+        gradlew_path = os.path.join(build_path, "gradlew")
+        if not os.path.exists(gradlew_path):
+            logger.error(f"Error: gradlew not found at {gradlew_path}. Android project setup failed.")
             return False
         
-        if not _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_path):
-            logger.error(f"Failed to build Python for {arch}. Aborting.")
-            return False
-
-    # Create Android project structure
-    if not _create_android_project(project_name, package_domain, build_path):
-        logger.error("Failed to create Android project structure. Aborting.")
-        return False
-
-    # Configure the Android project
-    if not _configure_android_project(build_path, project_name, package_domain, app_version, sdk_version, min_sdk_version, ndk_api, manifest_file):
-        logger.error("Failed to configure Android project. Aborting.")
-        return False
-
-    # Copy Python assets
-    if not _copy_python_assets(build_path, archs):
-        logger.error("Failed to copy Python assets. Aborting.")
-        return False
-
-    # Copy user's Python code
-    if not _copy_user_python_code(build_path, main_file):
-        logger.error("Failed to copy user's Python code. Aborting.")
-        return False
-
-    logger.info(f"Starting build for {project_name} v{app_version} ({build_type})")
-
-    # Build APK
-    logger.info("  - Building Android APK...")
-    gradlew_path = os.path.join(build_path, "gradlew")
-    if not os.path.exists(gradlew_path):
-        logger.error(f"Error: gradlew not found at {gradlew_path}. Android project setup failed.")
-        return False
-    
-    try:
-        os.chmod(gradlew_path, 0o755)
-    except OSError as e:
-        logger.error(f"Error making gradlew executable: {e}")
-        logger.info("Please check file permissions for gradlew.")
-        return False
-
-    build_task = "assembleDebug"
-    if build_type == "release":
-        build_task = "assembleRelease"
-
-    gradle_build_cmd = [gradlew_path, build_task]
-    logger.info(f"  - Running Gradle build: {' '.join(gradle_build_cmd)}")
-
-    try:
-        subprocess.run(gradle_build_cmd, check=True, cwd=build_path, capture_output=True, text=True)
-        logger.success("  - Android APK built successfully.")
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Gradle build failed (Exit Code: {e.returncode}):")
-        if e.stdout:
-            logger.error(f"Stdout:\n{e.stdout}")
-        if e.stderr:
-            logger.error(f"Stderr:\n{e.stderr}")
-        logger.info("Please review the Gradle output above for specific errors and ensure your Android SDK and NDK are correctly installed and configured.")
-        return False
-    except (OSError, FileNotFoundError) as e:
-        logger.error(f"Error executing Gradle command: {e}")
-        logger.info("This might indicate an issue with your Java or Gradle installation, or incorrect permissions.")
-        return False
-    except Exception as e:
-        logger.error(f"An unexpected error occurred during Gradle build: {e}")
-        logger.info("Please report this issue to the DroidBuilder developers.")
-        logger.exception(*sys.exc_info())
-        return False
-
-    # Find the generated APK and move it to the dist dir
-    os.makedirs(dist_dir, exist_ok=True) # Ensure dist directory exists
-    apk_name = f"{project_name}-{build_type}.apk" # Simplified name
-    # The actual APK path is usually app/build/outputs/apk/{build_type}/app-{build_type}.apk
-    generated_apk_path = os.path.join(build_path, "app", "build", "outputs", "apk", build_type, f"app-{build_type}.apk")
-    
-    if os.path.exists(generated_apk_path):
         try:
-            shutil.move(generated_apk_path, os.path.join(dist_dir, apk_name))
-            logger.success(f"Build successful! APK available at {os.path.join(dist_dir, apk_name)}")
-            return True
-        except (shutil.Error, OSError) as e:
-            logger.error(f"Error moving generated APK to dist directory: {e}")
-            logger.info("Please check permissions for the dist directory and ensure enough disk space.")
-            return False
-    else:
-        # Try to find any apk
-        found_apk = False
-        for root, _, files in os.walk(os.path.join(build_path, "app", "build", "outputs", "apk")):
-            for f in files:
-                if f.endswith(".apk"):
-                    try:
-                        shutil.move(os.path.join(root, f), os.path.join(dist_dir, f)) # Use original filename if found
-                        logger.success(f"Build successful! APK available at {os.path.join(dist_dir, f)}")
-                        found_apk = True
-                        break
-                    except (shutil.Error, OSError) as e:
-                        logger.error(f"Error moving found APK to dist directory: {e}")
-                        logger.info("Please check permissions for the dist directory and ensure enough disk space.")
-                        return False
-            if found_apk:
-                break
-        if not found_apk:
-            logger.error("Build failed: Could not find generated APK.")
+            os.chmod(gradlew_path, 0o755)
+        except OSError as e:
+            logger.error(f"Error making gradlew executable: {e}")
+            logger.info("Please check file permissions for gradlew.")
             return False
 
-    return True
+        build_task = "assembleDebug"
+        if build_type == "release":
+            build_task = "assembleRelease"
+
+        gradle_build_cmd = [gradlew_path, build_task]
+        logger.info(f"  - Running Gradle build: {' '.join(gradle_build_cmd)}")
+
+        try:
+            subprocess.run(gradle_build_cmd, check=True, cwd=build_path, capture_output=True, text=True)
+            logger.success("  - Android APK built successfully.")
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Gradle build failed (Exit Code: {e.returncode}):")
+            if e.stdout:
+                logger.error(f"Stdout:\n{e.stdout}")
+            if e.stderr:
+                logger.error(f"Stderr:\n{e.stderr}")
+            logger.info("Please review the Gradle output above for specific errors and ensure your Android SDK and NDK are correctly installed and configured.")
+            return False
+        except (OSError, FileNotFoundError) as e:
+            logger.error(f"Error executing Gradle command: {e}")
+            logger.info("This might indicate an issue with your Java or Gradle installation, or incorrect permissions.")
+            return False
+        except Exception as e:
+            logger.error(f"An unexpected error occurred during Gradle build: {e}")
+            logger.info("Please report this issue to the DroidBuilder developers.")
+            logger.exception(*sys.exc_info())
+            return False
+
+        # Find the generated APK and move it to the dist dir
+        os.makedirs(dist_dir, exist_ok=True) # Ensure dist directory exists
+        apk_name = f"{project_name}-{build_type}.apk" # Simplified name
+        # The actual APK path is usually app/build/outputs/apk/{build_type}/app-{build_type}.apk
+        generated_apk_path = os.path.join(build_path, "app", "build", "outputs", "apk", build_type, f"app-{build_type}.apk")
+        
+        if os.path.exists(generated_apk_path):
+            try:
+                shutil.move(generated_apk_path, os.path.join(dist_dir, apk_name))
+                logger.success(f"Build successful! APK available at {os.path.join(dist_dir, apk_name)}")
+                return True
+            except (shutil.Error, OSError) as e:
+                logger.error(f"Error moving generated APK to dist directory: {e}")
+                logger.info("Please check permissions for the dist directory and ensure enough disk space.")
+                return False
+        else:
+            # Try to find any apk
+            found_apk = False
+            for root, _, files in os.walk(os.path.join(build_path, "app", "build", "outputs", "apk")):
+                for f in files:
+                    if f.endswith(".apk"):
+                        try:
+                            shutil.move(os.path.join(root, f), os.path.join(dist_dir, f)) # Use original filename if found
+                            logger.success(f"Build successful! APK available at {os.path.join(dist_dir, f)}")
+                            found_apk = True
+                            break
+                        except (shutil.Error, OSError) as e:
+                            logger.error(f"Error moving found APK to dist directory: {e}")
+                            logger.info("Please check permissions for the dist directory and ensure enough disk space.")
+                            return False
+                if found_apk:
+                    break
+            if not found_apk:
+                logger.error("Build failed: Could not find generated APK.")
+                return False
+
+        return True
+    finally:
+        if os.path.exists(temp_bin_dir):
+            try:
+                shutil.rmtree(temp_bin_dir)
+                logger.info(f"Cleaned up temporary directory: {temp_bin_dir}")
+            except OSError as e:
+                logger.warning(f"Could not clean up temporary directory {temp_bin_dir}: {e}")

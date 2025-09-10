@@ -13,9 +13,8 @@ from .commands.search import search
 from .commands.doctor import doctor
 from .commands.config import config
 from .commands.version import version
-from .commands.update_deps import update_deps
 from .commands.log import log
-from .commands.search_packages import search_packages
+from .commands.deps import deps
 
 @click.group()
 @click.option("--path", "-p", default=".", help="Path to the project directory.")
@@ -38,9 +37,8 @@ cli.add_command(search)
 cli.add_command(doctor)
 cli.add_command(config)
 cli.add_command(version)
-cli.add_command(update_deps)
 cli.add_command(log)
-cli.add_command(search_packages)
+cli.add_command(deps)
 
 if __name__ == '__main__':
     try:
