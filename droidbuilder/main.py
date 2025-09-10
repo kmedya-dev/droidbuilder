@@ -14,7 +14,7 @@ from .commands.doctor import doctor
 from .commands.config import config
 from .commands.version import version
 from .commands.log import log
-from .commands.deps import deps
+from .commands.update_deps import update_deps
 
 @click.group()
 @click.option("--path", "-p", default=".", help="Path to the project directory.")
@@ -38,7 +38,7 @@ cli.add_command(doctor)
 cli.add_command(config)
 cli.add_command(version)
 cli.add_command(log)
-cli.add_command(deps)
+cli.add_command(update_deps)
 
 if __name__ == '__main__':
     try:
