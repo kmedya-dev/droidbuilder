@@ -1,5 +1,7 @@
 import click
 import os
+import sys
+import json
 from .. import config as config_module
 from ..cli_logger import logger
 
@@ -46,3 +48,73 @@ def edit(ctx):
         logger.error(f"An unexpected error occurred while editing droidbuilder.toml: {e}")
         logger.info("Please ensure your default editor is configured correctly and has necessary permissions.")
         logger.exception(*sys.exc_info())
+
+@config.command()
+@click.pass_context
+def list(ctx):
+    """List all configuration keys and values."""
+    conf = config_module.load_config(path=ctx.obj["path"])
+    if not conf:
+        logger.error("Error: No droidbuilder.toml found. Please run 'droidbuilder init' first.")
+        return
+    click.echo(json.dumps(conf, indent=4))
+
+@config.command()
+@click.argument('key')
+@click.pass_context
+def get(ctx, key):
+    """Get a value from the droidbuilder.toml file."""
+    conf = config_module.load_config(path=ctx.obj["path"])
+    if not conf:
+        logger.error("Error: No droidbuilder.toml found. Please run 'droidbuilder init' first.")
+        return
+
+    keys = key.split('.')
+    value = conf
+    try:
+        for k in keys:
+            value = value[k]
+        click.echo(value)
+    except (KeyError, TypeError):
+        logger.error(f"Error: Key '{key}' not found in droidbuilder.toml")
+
+@config.command()
+@click.argument('key')
+@click.argument('value')
+@click.pass_context
+def set(ctx, key, value):
+    """Set a value in the droidbuilder.toml file."""
+    conf = config_module.load_config(path=ctx.obj["path"])
+    if not conf:
+        logger.error("Error: No droidbuilder.toml found. Please run 'droidbuilder init' first.")
+        return
+    
+    keys = key.split('.')
+    d = conf
+    for k in keys[:-1]:
+        d = d.setdefault(k, {})
+    d[keys[-1]] = value
+    
+    if config_module.save_config(conf, path=ctx.obj["path"]):
+        logger.info(f"Set '{key}' to '{value}'")
+
+@config.command()
+@click.argument('key')
+@click.pass_context
+def unset(ctx, key):
+    """Remove a key from the droidbuilder.toml file."""
+    conf = config_module.load_config(path=ctx.obj["path"])
+    if not conf:
+        logger.error("Error: No droidbuilder.toml found. Please run 'droidbuilder init' first.")
+        return
+
+    keys = key.split('.')
+    d = conf
+    try:
+        for k in keys[:-1]:
+            d = d[k]
+        del d[keys[-1]]
+        if config_module.save_config(conf, path=ctx.obj["path"]):
+            logger.info(f"Unset '{key}'")
+    except (KeyError, TypeError):
+        logger.error(f"Error: Key '{key}' not found in droidbuilder.toml")

@@ -1,6 +1,8 @@
 import click
 from .. import installer
+from .. import downloader
 from ..cli_logger import logger # Import logger
+import shutil
 import os
 
 @click.command()
@@ -14,26 +16,47 @@ def uninstall(ctx, tool_name):
         all_successful = True
         
         tools_to_uninstall = []
+        for ndk_version in installed_tools.get("android_ndk", []):
+            tools_to_uninstall.append(f"ndk-{ndk_version}")
+
         if installed_tools.get("android_cmdline_tools"):
             tools_to_uninstall.append("android-sdk") # This covers cmdline tools and SDK packages
-        
+
         for jdk_version in installed_tools.get("java_jdk", []):
             tools_to_uninstall.append(f"jdk-{jdk_version}")
         
         for gradle_version in installed_tools.get("gradle", []):
             tools_to_uninstall.append(f"gradle-{gradle_version}")
         
-        for ndk_version in installed_tools.get("android_ndk", []):
-            tools_to_uninstall.append(f"ndk-{ndk_version}")
-
-        python_source_path = os.path.join(installer.INSTALL_DIR, "python-source")
-        if os.path.exists(python_source_path):
-            tools_to_uninstall.append("python-source")
+        tools_to_uninstall.append("python-source")
 
         tools_to_uninstall = list(dict.fromkeys(tools_to_uninstall))
 
         for tool in tools_to_uninstall:
-            logger.info(f"Uninstalling {tool}...")
+            # Special handling for NDK
+            if tool.startswith("ndk-"):
+                logger.info(f"Attempting to uninstall {tool}...")
+                ndk_version = tool.replace("ndk-", "")
+                tool_path = os.path.join(installer.INSTALL_DIR, "android-sdk", "ndk", ndk_version)
+                if os.path.exists(tool_path):
+                    shutil.rmtree(tool_path)
+                    logger.success(f"✓ {tool} has been successfully uninstalled.")
+                else:
+                    logger.info(f"{tool} not found.")
+                continue
+
+            # Special handling for python-source
+            if tool == "python-source":
+                logger.info(f"Attempting to uninstall {tool}...")
+                tool_path = os.path.join(downloader.INSTALL_DIR, "python-source")
+                if os.path.exists(tool_path):
+                    shutil.rmtree(tool_path)
+                    logger.success(f"✓ {tool} has been successfully uninstalled.")
+                else:
+                    logger.info(f"{tool} not found.")
+                continue
+
+            # Fallback to generic uninstaller
             if not installer.uninstall_tool(tool):
                 logger.error(f"Failed to uninstall {tool}.")
                 all_successful = False

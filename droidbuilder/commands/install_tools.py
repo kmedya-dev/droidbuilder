@@ -1,4 +1,5 @@
 import click
+import sys
 from .. import config as config_module
 from .. import installer
 from ..cli_logger import logger
