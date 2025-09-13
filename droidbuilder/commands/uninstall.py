@@ -10,6 +10,9 @@ import os
 @click.pass_context
 def uninstall(ctx, tool_name):
     """Uninstall a specified tool (e.g., jdk-11) or all installed tools."""
+    if tool_name.lower() == "python":
+        tool_name = "python-source"
+
     if tool_name.lower() == "all":
         logger.info("Attempting to uninstall all DroidBuilder tools...")
         installed_tools = installer.list_installed_tools()
@@ -38,17 +41,6 @@ def uninstall(ctx, tool_name):
                 logger.info(f"Attempting to uninstall {tool}...")
                 ndk_version = tool.replace("ndk-", "")
                 tool_path = os.path.join(installer.INSTALL_DIR, "android-sdk", "ndk", ndk_version)
-                if os.path.exists(tool_path):
-                    shutil.rmtree(tool_path)
-                    logger.success(f"✓ {tool} has been successfully uninstalled.")
-                else:
-                    logger.info(f"{tool} not found.")
-                continue
-
-            # Special handling for python-source
-            if tool == "python-source":
-                logger.info(f"Attempting to uninstall {tool}...")
-                tool_path = os.path.join(downloader.INSTALL_DIR, "python-source")
                 if os.path.exists(tool_path):
                     shutil.rmtree(tool_path)
                     logger.success(f"✓ {tool} has been successfully uninstalled.")

@@ -6,7 +6,7 @@ target_platforms = [ "android",]
 package_domain = "org.test"
 build_type = "debug"
 requirements = []
-system_packages = []
+system_packages = ["openssl==3.3.1", "xz==5.6.2", "openssl"]
 
 [android]
 sdk_version = "34"
@@ -24,4 +24,4 @@ jdk_version = "11"
 gradle_version = "8.7"
 
 [python]
-python_version = "3.9.13"
+python_version = "3.12.1"

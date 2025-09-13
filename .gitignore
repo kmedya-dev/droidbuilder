@@ -70,3 +70,4 @@ browser/
 droidbuilder/builder.py1
 droidbuilder/py2jib/
 droidbuilder/templates/
+*.swp

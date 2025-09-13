@@ -3,12 +3,14 @@ name = "droidbuilder"
 version = "0.1"
 description = "A user-friendly, cross-platform command-line tool for building applications."
 authors = [{ name = "kmedya", email = "koustavamedya.2000@gmail.com" }]
+# requires-python = "3.13.0"
 dependencies = [
     "click",
     "toml",
     "requests",
     "colorama",
     "stdlib-list",
+    "setuptools",
 ]
 [project.scripts]
 droidbuilder = "droidbuilder.main:cli"
@@ -20,7 +22,7 @@ test = [
 ]
 
 [build-system]
-requires = ["setuptools", "wheel"]
+requires = ["setuptools", "wheel", "build"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]

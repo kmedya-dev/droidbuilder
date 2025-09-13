@@ -45,17 +45,18 @@ def _setup_python_build_environment(ndk_version, ndk_api, arch):
         logger.error(f"Error: Unsupported architecture for Python build: {arch}")
         return False
 
-    os.environ["AR"] = f"{toolchain_bin}/{compiler_prefix}-ar"
+    os.environ["AR"] = f"{toolchain_bin}/llvm-ar"
     os.environ["CC"] = f"{toolchain_bin}/{compiler_prefix}{ndk_api}-clang"
     os.environ["CXX"] = f"{toolchain_bin}/{compiler_prefix}{ndk_api}-clang++"
-    os.environ["LD"] = f"{toolchain_bin}/{compiler_prefix}-ld"
-    os.environ["RANLIB"] = f"{toolchain_bin}/{compiler_prefix}-ranlib"
-    os.environ["STRIP"] = f"{toolchain_bin}/{compiler_prefix}-strip"
+    os.environ["LD"] = f"{toolchain_bin}/ld.lld"
+    os.environ["RANLIB"] = f"{toolchain_bin}/llvm-ranlib"
+    os.environ["STRIP"] = f"{toolchain_bin}/llvm-strip"
+    os.environ["READELF"] = f"{toolchain_bin}/llvm-readelf"
     os.environ["SYSROOT"] = sysroot
     os.environ["PATH"] = f"{toolchain_bin}:{os.environ['PATH']}"
 
     # Ensure NDK's readelf is in PATH
-    ndk_readelf = os.path.join(toolchain_bin, f"{compiler_prefix}-readelf")
+    ndk_readelf = os.path.join(toolchain_bin, "llvm-readelf")
     if not os.path.exists(ndk_readelf):
         logger.warning(f"  - NDK readelf not found at {ndk_readelf}. This might cause issues with cross-compilation.")
     else:
@@ -84,6 +85,13 @@ def _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_
         logger.error(f"Error creating Python install directory {python_install_dir}: {e}")
         return False
 
+    # Create config.site file to handle cross-compilation issues
+    config_site_path = os.path.join(python_source_dir, "config.site")
+    with open(config_site_path, "w") as f:
+        f.write("ac_cv_file__dev_ptmx=yes\n")
+        f.write("ac_cv_file__dev_ptc=no\n")
+    os.environ["CONFIG_SITE"] = config_site_path
+
     # Get build triplet
     build_triplet = ""
     if sys.platform == "linux" and os.uname().machine == "x86_64":
@@ -102,12 +110,19 @@ def _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_
         logger.error(f"Error: Could not determine host triplet for architecture: {arch}")
         return False
 
+    # Add system packages to CFLAGS and LDFLAGS
+    system_libs_dir = os.path.join(INSTALL_DIR, "system_libs", arch)
+    cflags = f"-fPIC -DANDROID -D__ANDROID_API__={ndk_api}"
+    ldflags = f"-L{os.environ.get('SYSROOT', '')}/usr/lib/{host_triplet}/{ndk_api}"
+    if os.path.exists(system_libs_dir):
+        cflags += f" -I{system_libs_dir}/include"
+        ldflags += f" -L{system_libs_dir}/lib"
+
     # Configure command
     configure_script = os.path.join(python_source_dir, "configure")
     if not os.path.exists(configure_script):
         logger.error(f"Error: Configure script not found at {configure_script}. Python source might be incomplete.")
         return False
-
     configure_cmd = [
         configure_script,
         f"--host={host_triplet}",
@@ -125,8 +140,8 @@ def _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_
         f"RANLIB={os.environ.get('RANLIB', '')}",
         f"STRIP={os.environ.get('STRIP', '')}",
         f"SYSROOT={os.environ.get('SYSROOT', '')}",
-        f"CFLAGS=-fPIC -DANDROID -D__ANDROID_API__={ndk_api}",
-        f"LDFLAGS=-L{os.environ.get('SYSROOT', '')}/usr/lib/{host_triplet}/{ndk_api}",
+        f"CFLAGS={cflags}",
+        f"LDFLAGS={ldflags}",
     ]
 
     logger.info(f"  - Running configure: {' '.join(configure_cmd)}")
@@ -192,7 +207,6 @@ def _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_
 
     logger.success(f"  - Python {python_version} built and installed for {arch}.")
     return True
-
 
 
 def _compile_python_package(package_source_path, python_install_dir, arch, ndk_version, ndk_api):
@@ -268,7 +282,81 @@ def _download_python_packages(requirements, build_path, archs, ndk_version, ndk_
     logger.success("  - All Python packages downloaded and compiled.")
     return True
 
-    
+def _compile_system_package(package_source_path, arch, ndk_version, ndk_api):
+    """Compiles and installs a system package for a specific Android architecture."""
+    package_name = os.path.basename(package_source_path)
+    logger.info(f"  - Compiling system package {package_name} for {arch}...")
+
+    # Set up environment for cross-compilation
+    if not _setup_python_build_environment(ndk_version, ndk_api, arch):
+        logger.error(f"Failed to set up build environment for {arch} for package {package_name}. Aborting.")
+        return False
+
+    # The destination for the compiled libraries
+    install_dir = os.path.join(INSTALL_DIR, "system_libs", arch)
+    os.makedirs(install_dir, exist_ok=True)
+
+    # Some packages need to generate a configure script first
+    autogen_script = os.path.join(package_source_path, "autogen.sh")
+    if os.path.exists(autogen_script):
+        logger.info(f"  - Running autogen.sh for {package_name}...")
+        try:
+            subprocess.run(["./autogen.sh"], check=True, cwd=package_source_path, capture_output=True, text=True)
+        except subprocess.CalledProcessError as e:
+            logger.error(f"autogen.sh failed for {package_name} (Exit Code: {e.returncode}):")
+            if e.stdout:
+                logger.error(f"Stdout:\n{e.stdout}")
+            if e.stderr:
+                logger.error(f"Stderr:\n{e.stderr}")
+            return False
+
+    # Configure command
+    configure_script = os.path.join(package_source_path, "configure")
+    if not os.path.exists(configure_script):
+        logger.error(f"Error: Configure script not found at {configure_script}. The package might not use a standard configure script.")
+        return False
+        
+    host_triplet = ARCH_COMPILER_PREFIXES.get(arch)
+    build_triplet = subprocess.check_output(['uname', '-m', '-s']).decode().strip().replace(' ', '-').lower()
+
+    configure_cmd = [
+        "./configure",
+        f"--host={host_triplet}",
+        f"--build={build_triplet}",
+        f"--prefix={install_dir}",
+        "--disable-shared",
+        "--enable-static",
+    ]
+
+    logger.info(f"  - Running configure: {' '.join(configure_cmd)}")
+    try:
+        subprocess.run(configure_cmd, check=True, cwd=package_source_path, capture_output=True, text=True)
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Configure failed for {package_name} (Exit Code: {e.returncode}):")
+        if e.stdout:
+            logger.error(f"Stdout:\n{e.stdout}")
+        if e.stderr:
+            logger.error(f"Stderr:\n{e.stderr}")
+        return False
+
+    # Make and make install
+    make_cmd = ["make", "-j", str(os.cpu_count())]
+    make_install_cmd = ["make", "install"]
+
+    logger.info(f"  - Running make: {' '.join(make_cmd)}")
+    try:
+        subprocess.run(make_cmd, check=True, cwd=package_source_path, capture_output=True, text=True)
+        logger.info(f"  - Running make install: {' '.join(make_install_cmd)}")
+        subprocess.run(make_install_cmd, check=True, cwd=package_source_path, capture_output=True, text=True)
+        logger.success(f"  - Successfully compiled and installed {package_name} for {arch}.")
+        return True
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Make/install failed for {package_name} (Exit Code: {e.returncode}):")
+        if e.stdout:
+            logger.error(f"Stdout:\n{e.stdout}")
+        if e.stderr:
+            logger.error(f"Stderr:\n{e.stderr}")
+        return False
 
 def _download_system_packages(system_packages, build_path, archs, ndk_version, ndk_api):
     """Downloads and compiles system packages specified."""
@@ -276,40 +364,23 @@ def _download_system_packages(system_packages, build_path, archs, ndk_version, n
     download_dir = os.path.join(build_path, "system_packages_src")
     os.makedirs(download_dir, exist_ok=True)
 
-    downloaded_packages_info = [] # Store (package_path, extracted_dir)
-    for pkg in system_packages:
-        logger.info(f"    - Downloading {pkg}...")
-        package_path = downloader.download_github_package(pkg, download_dir)
-        if not package_path:
-            logger.error(f"Failed to download system package: {pkg}")
+    downloaded_packages_dirs = []
+    for name, version in system_packages:
+        logger.info(f"    - Processing system package: {name}{f'=={version}' if version else ''}...")
+        # download_system_package downloads and extracts, returning the path to the extracted dir.
+        extracted_dir = downloader.download_system_package(name, version, download_dir)
+        if not extracted_dir:
+            logger.error(f"Failed to download and extract system package: {name}")
             return False
-        logger.success(f"    - Downloaded {pkg} to {package_path}")
-
-        package_name = os.path.basename(package_path).replace(".tar.gz", "").replace(".zip", "")
-        extracted_dir = os.path.join(download_dir, package_name)
-        
-        # Extract the downloaded archive
-        try:
-            if package_path.endswith(".tar.gz"):
-                with tarfile.open(package_path, "r:gz") as tar:
-                    tar.extractall(path=download_dir)
-            elif package_path.endswith(".zip"):
-                with zipfile.ZipFile(package_path, "r") as zip_ref:
-                    zip_ref.extractall(path=download_dir)
-            else:
-                logger.warning(f"Unsupported archive type for system package: {package_path}. Skipping extraction.")
-                continue
-            logger.info(f"    - Extracted {package_name} to {extracted_dir}")
-            downloaded_packages_info.append((package_path, extracted_dir))
-        except Exception as e:
-            logger.error(f"Error extracting system package {package_name}: {e}")
-            return False
+        logger.success(f"    - {name} ready in {extracted_dir}")
+        downloaded_packages_dirs.append(extracted_dir)
 
     # Now compile each downloaded system package for each architecture
-    for package_path, extracted_dir in downloaded_packages_info:
+    for extracted_dir in downloaded_packages_dirs:
+        package_name = os.path.basename(extracted_dir)
         for arch in archs:
             if not _compile_system_package(extracted_dir, arch, ndk_version, ndk_api):
-                logger.error(f"Failed to compile {os.path.basename(package_path)} for {arch}. Aborting.")
+                logger.error(f"Failed to compile {package_name} for {arch}. Aborting.")
                 return False
 
     logger.success("  - All system packages downloaded and compiled.")
@@ -558,7 +629,13 @@ def build_android(config, verbose):
             logger.error("Python version not specified in droidbuilder.toml. Aborting.")
             return False
 
-        # Set up environment for each architecture
+        # Download and compile system packages first
+        if system_packages:
+            if not _download_system_packages(system_packages, build_path, archs, ndk_version, ndk_api):
+                logger.error("Failed to download and compile system packages. Aborting.")
+                return False
+
+        # Set up environment for each architecture and build Python
         for arch in archs:
             if not _setup_python_build_environment(ndk_version, ndk_api, arch):
                 logger.error(f"Failed to set up build environment for {arch}. Aborting.")
@@ -572,12 +649,6 @@ def build_android(config, verbose):
         if requirements:
             if not _download_python_packages(requirements, build_path, archs, ndk_version, ndk_api):
                 logger.error("Failed to download Python packages. Aborting.")
-                return False
-
-        # Download system packages
-        if system_packages:
-            if not _download_system_packages(system_packages, build_path, archs, ndk_version, ndk_api):
-                logger.error("Failed to download system packages. Aborting.")
                 return False
 
         # Create Android project structure
