@@ -125,7 +125,7 @@ def download_pypi_package(req, download_path="."):
 
 
 
-def download_system_package(package_name, download_path="."):
+def download_system_package(package_name, version=None, download_path="."):
     """
     Downloads a system package using Repology API.
     """
@@ -141,22 +141,35 @@ def download_system_package(package_name, download_path="."):
             logger.error(f"No data found for package '{package_name}' on Repology.")
             return None
 
-        # Find latest stable version and its srcurl
-        latest_stable = None
-        for pkg in data:
-            if pkg.get("status") == "newest":
-                latest_stable = pkg
-                break
+        # Find the package to download
+        package_to_download = None
+        if version:
+            for pkg in data:
+                if pkg.get("version") == version:
+                    package_to_download = pkg
+                    break
+            if not package_to_download:
+                logger.warning(f"Could not find version '{version}' for '{package_name}' on Repology. Falling back to latest.")
+                # Fallback to latest if version not found
+                for pkg in data:
+                    if pkg.get("status") == "newest":
+                        package_to_download = pkg
+                        break
+        else:
+            for pkg in data:
+                if pkg.get("status") == "newest":
+                    package_to_download = pkg
+                    break
         
-        if not latest_stable:
-            logger.error(f"Could not find a 'newest' stable release for '{package_name}' on Repology.")
+        if not package_to_download:
+            logger.error(f"Could not find a suitable release for '{package_name}' on Repology.")
             return None
 
-        srcurls = latest_stable.get("srcurls")
+        srcurls = package_to_download.get("srcurls")
         if srcurls:
             url = srcurls[0]
         else:
-            homepage = latest_stable.get("homepage")
+            homepage = package_to_download.get("homepage")
             if homepage:
                 url = homepage
             else:

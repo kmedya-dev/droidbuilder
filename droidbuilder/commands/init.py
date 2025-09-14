@@ -43,7 +43,7 @@ def init(ctx):
         manifest_file = _prompt_for_input("Path to custom AndroidManifest.xml (leave empty for default)", "")
         intent_filters_file = _prompt_for_input("Path to custom intent_filters.xml (leave empty for none)", "")
         cmdline_tools_tag = _prompt_for_input("Android Command Line Tools Tag (e.g., 9123335)", "9123335", validation_func=str.isdigit)
-        requirements = _prompt_for_list_input("Python Requirements (comma-separated: e.g., py2jib)", "")
+        python_packages = _prompt_for_list_input("Python Requirements (comma-separated: e.g., py2jib)", "")
         
         android_sdk_version = _prompt_for_input("Android SDK Version (e.g., 34)", "34", validation_func=str.isdigit)
         android_min_sdk_version = _prompt_for_input("Android Minimum SDK Version (e.g., 21)", "21", validation_func=str.isdigit)
@@ -64,8 +64,10 @@ def init(ctx):
                 "target_platforms": target_platforms,
                 "package_domain": package_domain,
                 "build_type": build_type,
-                "requirements": requirements,
-                "system_packages": system_packages,
+                "requirements": {
+			"python_packages": python_packages,
+	                "system_packages": system_packages,
+		},
             },
             "android": {
                 "sdk_version": android_sdk_version,

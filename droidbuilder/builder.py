@@ -366,7 +366,12 @@ def _download_system_packages(system_packages, build_path, archs, ndk_version, n
     os.makedirs(download_dir, exist_ok=True)
 
     downloaded_packages_dirs = []
-    for name, version in system_packages:
+    for package_spec in system_packages:
+        if '==' in package_spec:
+            name, version = package_spec.split('==', 1)
+        else:
+            name, version = package_spec, None
+            
         logger.info(f"    - Processing system package: {name}{f'=={version}' if version else ''}...")
         # download_system_package downloads and extracts, returning the path to the extracted dir.
         extracted_dir = downloader.download_system_package(name, version, download_dir)
