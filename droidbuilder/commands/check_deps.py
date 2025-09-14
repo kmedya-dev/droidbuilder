@@ -2,6 +2,7 @@ import click
 import os
 import ast
 import stdlib_list
+from .. import config
 from ..utils.dependencies import get_explicit_dependencies
 from ..cli_logger import logger
 
@@ -59,7 +60,11 @@ def get_implicit_python_dependencies(path="."):
 def check_deps(ctx):
     """Check for discrepancies between explicit and implicit dependencies."""
     path = ctx.obj["path"]
-    explicit_deps_str, _ = get_explicit_dependencies(path)
+    conf = config.load_config(path=path)
+    if not conf:
+        logger.error("Error: Could not load project configuration.")
+        return
+    explicit_deps_str, _ = get_explicit_dependencies(conf)
     implicit_deps = get_implicit_python_dependencies(path)
 
     explicit_deps = {dep.split("==")[0].strip() for dep in explicit_deps_str}

@@ -6,7 +6,7 @@ import shutil
 import sys
 import contextlib
 import subprocess
-from .cli_logger import logger # Assuming cli_logger is accessible
+from ..cli_logger import logger # Assuming cli_logger is accessible
 
 # -------------------- Helpers: safe paths & extraction --------------------
 
