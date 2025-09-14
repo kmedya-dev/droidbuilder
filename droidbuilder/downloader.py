@@ -128,7 +128,7 @@ def download_python_dependencies(path="."):
     Downloads all system dependencies.
     """
     _, python_packages = config.get("project", {}).get("requirements", [])
-   for package_name, _ in python_packages:
+    for package_name, _ in python_packages:
         download_pypi_package(req, download_path)
 
 def download_system_package(package_name, download_path="."):
