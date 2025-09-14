@@ -16,6 +16,8 @@ from .commands.version import version
 from .commands.log import log
 from .commands.update_deps import update_deps
 
+from .commands.check_deps import check_deps
+
 @click.group()
 @click.option("--path", "-p", default=".", help="Path to the project directory.")
 @click.pass_context
@@ -39,6 +41,8 @@ cli.add_command(config)
 cli.add_command(version)
 cli.add_command(log)
 cli.add_command(update_deps)
+
+cli.add_command(check_deps)
 
 if __name__ == '__main__':
     try:

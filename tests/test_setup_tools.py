@@ -24,7 +24,7 @@ class TestSetupTools(unittest.TestCase):
         setup_tools(conf)
         mock_install_cmdline_tools.assert_called_with('9123335')
         mock_accept_licenses.assert_called_once()
-        mock_install_sdk_packages.assert_called_with('34')
+        mock_install_sdk_packages.assert_called_with('34', unittest.mock.ANY)
         mock_install_ndk.assert_called_with('25.2.9519653', unittest.mock.ANY)
         mock_install_jdk.assert_called_with('11')
 

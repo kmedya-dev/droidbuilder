@@ -6,15 +6,8 @@ import subprocess
 from .cli_logger import logger
 from . import config
 from . import utils
-from . import dependencies
 
 INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
-
-# This maps a dependency name to its GitHub owner/repo.
-REPO_MAPPING = {
-    "openssl": "openssl/openssl",
-    "xz": "tukaani-project/xz",
-}
 
 
 def download_python_source(version):
@@ -130,82 +123,78 @@ def download_pypi_package(req, download_path="."):
         logger.error(f"An unexpected error occurred while downloading {package_name}: {e}")
         return None
 
-
-def _get_tarball_url(release, owner, repo, tag_name):
+def download_python_dependencies(path="."):
     """
-    Finds the tarball URL from a release's assets or falls back to the
-    auto-generated source archive.
+    Downloads all system dependencies.
     """
-    for asset in release.get("assets", []):
-        if asset["name"].endswith(".tar.gz"):
-            logger.info(f"  - Found release asset: {asset['name']}")
-            return asset["browser_download_url"]
+    _, python_packages = config.get("project", {}).get("requirements", [])
+   for package_name, _ in python_packages:
+        download_pypi_package(req, download_path)
 
-    fallback_url = f"https://github.com/{owner}/{repo}/archive/refs/tags/{tag_name}.tar.gz"
-    logger.info(f"  - No .tar.gz asset found, falling back to source archive: {fallback_url}")
-    return fallback_url
-
-
-def _get_latest_release_tag(owner, repo):
-    """Fetches the latest release to get its tag_name."""
-    url = f"https://api.github.com/repos/{owner}/{repo}/releases/latest"
-    logger.info(f"  - Fetching latest release from {url}")
-    response = requests.get(url)
-    response.raise_for_status()
-    release = response.json()
-    logger.info(f"  - Found latest tag: {release['tag_name']}")
-    return release["tag_name"], release
-
-
-def _find_release_tag_by_version(owner, repo, version):
-    """Scans all releases to find a tag that ends with the given version."""
-    url = f"https://api.github.com/repos/{owner}/{repo}/releases"
-    logger.info(f"  - Fetching all releases from {url} to find version '{version}'")
-    response = requests.get(url)
-    response.raise_for_status()
-    releases = response.json()
-
-    for release in releases:
-        tag_name = release["tag_name"]
-        if tag_name.endswith(version):
-            logger.info(f"  - Found matching tag '{tag_name}' for version '{version}'")
-            return tag_name, release
-
-    raise ValueError(f"Version '{version}' not found for '{owner}/{repo}'")
-
-
-def download_system_package(name, version, download_path="."):
-    """Downloads a system package from GitHub."""
-    logger.info(f"  - Downloading system package {name}{'==' + version if version else ' (latest)'}...")
+def download_system_package(package_name, download_path="."):
+    """
+    Downloads a system package using Repology API.
+    """
+    logger.info(f"  - Downloading system package {package_name}...")
+    api_url = f"https://repology.org/api/v1/project/{package_name}"
 
     try:
-        owner, repo = REPO_MAPPING[name].split("/")
-        release_info = None
-        tag_name = None
+        response = requests.get(api_url)
+        response.raise_for_status()
+        data = response.json()
 
-        if version:
-            tag_name, release_info = _find_release_tag_by_version(owner, repo, version)
-        else:
-            tag_name, release_info = _get_latest_release_tag(owner, repo)
-
-        if not tag_name:
-            logger.error(f"Error: Could not resolve a tag for {name}")
+        if not data:
+            logger.error(f"No data found for package '{package_name}' on Repology.")
             return None
 
-        url = _get_tarball_url(release_info, owner, repo, tag_name)
+        # Find latest stable version and its srcurl
+        latest_stable = None
+        for pkg in data:
+            if pkg.get("status") == "newest":
+                latest_stable = pkg
+                break
+        
+        if not latest_stable:
+            logger.error(f"Could not find a 'newest' stable release for '{package_name}' on Repology.")
+            return None
 
-        # Use a descriptive filename
-        filename = f"{name}-{version or 'latest'}.tar.gz"
+        srcurls = latest_stable.get("srcurls")
+        if srcurls:
+            url = srcurls[0]
+        else:
+            homepage = latest_stable.get("homepage")
+            if homepage:
+                url = homepage
+            else:
+                logger.error(f"No srcurls or homepage found for '{package_name}'.")
+                return None
+        
+        # Make sure the url is a tarball
+        if not (url.endswith(".tar.gz") or url.endswith(".tar.xz")):
+            logger.error(f"URL is not a tarball: {url}")
+            return None
 
-        extracted_path = utils.download_and_extract(url, download_path, filename)
+        filename = os.path.basename(url)
+        extract_dir = os.path.join(download_path, "sources", package_name)
+        
+        logger.info(f"Resolved URL: {url}")
+        
+        extracted_path = utils.download_and_extract(url, extract_dir, filename)
+
+        logger.info(f"Extracted to: {extracted_path}")
         return extracted_path
 
-    except KeyError:
-        logger.error(f"Error: No repository mapping found for '{name}'.")
-        return None
-    except (requests.HTTPError, ValueError) as e:
-        logger.error(f"Error: Failed to process {name}. Details: {e}")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error querying Repology API for '{package_name}': {e}")
         return None
     except Exception as e:
-        logger.error(f"An unexpected error occurred while processing {name}. Details: {e}")
+        logger.error(f"An unexpected error occurred while processing '{package_name}': {e}")
         return None
+
+def download_system_dependencies(path="."):
+    """
+    Downloads all system dependencies.
+    """
+    _, system_packages = config.get("project", {}).get("system_packages", [])
+   for package_name, _ in system_packages:
+        download_system_package(package_name, path)

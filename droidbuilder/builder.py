@@ -8,7 +8,7 @@ import zipfile
 from .cli_logger import logger
 from . import utils
 from . import downloader
-from . import dependencies
+from . import config
 
 INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
 BUILD_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder_build")
@@ -565,8 +565,7 @@ def build_android(config, verbose):
     build_type = project.get("build_type", "debug")
 
     # Get dependencies using the dependencies module
-    requirements = dependencies.get_python_dependencies()
-    _, system_packages = dependencies.get_explicit_dependencies()
+    requirements, system_packages = config.get_explicit_dependencies()
 
     # Android configs
     android_cfg = config.get("android", {})
