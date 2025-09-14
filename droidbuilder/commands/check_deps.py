@@ -2,7 +2,7 @@ import click
 import os
 import ast
 import stdlib_list
-from ..config import get_explicit_dependencies
+from ..utils.dependencies import get_explicit_dependencies
 from ..cli_logger import logger
 
 STDLIB_MODULES = frozenset(stdlib_list.stdlib_list())

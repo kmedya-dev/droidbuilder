@@ -123,13 +123,7 @@ def download_pypi_package(req, download_path="."):
         logger.error(f"An unexpected error occurred while downloading {package_name}: {e}")
         return None
 
-def download_python_dependencies(path="."):
-    """
-    Downloads all system dependencies.
-    """
-    _, python_packages = config.get("project", {}).get("requirements", [])
-    for package_name, _ in python_packages:
-        download_pypi_package(req, download_path)
+
 
 def download_system_package(package_name, download_path="."):
     """
@@ -191,10 +185,4 @@ def download_system_package(package_name, download_path="."):
         logger.error(f"An unexpected error occurred while processing '{package_name}': {e}")
         return None
 
-def download_system_dependencies(path="."):
-    """
-    Downloads all system dependencies.
-    """
-    _, system_packages = config.get("project", {}).get("system_packages", [])
-   for package_name, _ in system_packages:
-        download_system_package(package_name, path)
+
