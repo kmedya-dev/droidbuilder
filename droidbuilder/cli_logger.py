@@ -82,6 +82,7 @@ class Logger:
         print()
         sys.stdout.flush()
 
+        line = "" # Initialize line here
         for i, item in enumerate(iterable):
             yield item
 

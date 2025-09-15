@@ -8,7 +8,15 @@ build_type = "debug"
 
 [project.requirements]
 python_packages = []
-system_packages = ["openssl", "xz==5.6.2", "openssl==3.3.1"]
+system_packages = ["openssl", "xz==5.6.2", "sdl2"]
+
+[project.dependency_mapping]
+# Add explicit URLs for system packages if needed.
+# sdl2 = "https://libsdl.org/release/SDL2-2.30.2.tar.gz"
+
+[project.python_dependency_mapping]
+# Add explicit URLs for python packages if needed.
+# example_package = "https://example.com/example_package-1.0.0.tar.gz"
 
 [android]
 sdk_version = "34"

@@ -6,7 +6,7 @@ import shutil
 import sys
 import contextlib
 import subprocess
-from ..cli_logger import logger # Assuming cli_logger is accessible
+from ..cli_logger import logger
 
 # -------------------- Helpers: safe paths & extraction --------------------
 
@@ -71,6 +71,39 @@ def _safe_extract_tar(tar_ref: tarfile.TarFile, dest_dir: str, log_each=True):
                 os.chmod(member_path, member.mode)
 
 
+def extract(filepath, dest_dir):
+    """Extracts an archive file to a destination directory."""
+    os.makedirs(dest_dir, exist_ok=True)
+    filename = os.path.basename(filepath)
+
+    try:
+        if filename.endswith(".zip"):
+            with zipfile.ZipFile(filepath, 'r') as zip_ref:
+                _safe_extract_zip(zip_ref, dest_dir)
+        elif filename.endswith((".tar.gz", ".tgz", ".tar.xz")):
+            with tarfile.open(filepath, 'r:*') as tar_ref:
+                _safe_extract_tar(tar_ref, dest_dir)
+        else:
+            logger.warning(f"Unsupported archive type for {filename}. Skipping extraction.")
+            return None
+
+        # Remove archive after successful extraction
+        try:
+            os.remove(filepath)
+        except OSError:
+            pass
+
+        logger.success(f"Successfully extracted to {dest_dir}")
+        return dest_dir
+
+    except (zipfile.BadZipFile, tarfile.TarError, IOError) as e:
+        logger.error(f"Error during extraction: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during extraction: {e}")
+        logger.exception(*sys.exc_info())
+        return None
+
 # -------------------- Download & Extract --------------------
 
 def download_and_extract(url, dest_dir, filename=None, timeout=60):
@@ -83,19 +116,21 @@ def download_and_extract(url, dest_dir, filename=None, timeout=60):
     temp_filepath = filepath + ".tmp"
 
     try:
+        # Ensure the directory for the temp file exists
+        os.makedirs(os.path.dirname(temp_filepath), exist_ok=True) # Added this line
+
         with requests.get(url, stream=True, timeout=timeout) as r:
             r.raise_for_status()
             total_size = int(r.headers.get('content-length', 0))
 
             with open(temp_filepath, 'wb') as f:
-                chunks = r.iter_content(chunk_size=1024 * 256)  # 256KB chunks
-                iterable = logger.progress(
-                    chunks,
+                chunks = logger.progress(
+                    r.iter_content(chunk_size=1024 * 256),  # 256KB chunks
                     description=f"Downloading {filename}",
                     total=total_size,
                     unit="b"
                 )
-                for chunk in iterable:
+                for chunk in chunks:
                     if chunk:  # keep-alive chunks may be empty
                         f.write(chunk)
 
@@ -104,25 +139,7 @@ def download_and_extract(url, dest_dir, filename=None, timeout=60):
 
         logger.step_info(f"Archive:  {filename}")
 
-        if filename.endswith(".zip"):
-            with zipfile.ZipFile(filepath, 'r') as zip_ref:
-                _safe_extract_zip(zip_ref, dest_dir)
-        elif filename.endswith((".tar.gz", ".tgz")):
-            # filter mode enforces gz; tarfile.open auto-detects too
-            with tarfile.open(filepath, 'r:*') as tar_ref:
-                _safe_extract_tar(tar_ref, dest_dir)
-        else:
-            logger.warning(f"Unsupported archive type for {filename}. Skipping extraction.")
-            return
-
-        # Remove archive after successful extraction
-        try:
-            os.remove(filepath)
-        except OSError:
-            pass
-
-        logger.success(f"Successfully extracted to {dest_dir}")
-        return dest_dir
+        return extract(filepath, dest_dir)
 
     except requests.exceptions.RequestException as e:
         logger.error(f"Error downloading the file: {e}")
@@ -130,8 +147,8 @@ def download_and_extract(url, dest_dir, filename=None, timeout=60):
         with contextlib.suppress(Exception):
             if os.path.exists(temp_filepath):
                 os.remove(temp_filepath)
-    except (zipfile.BadZipFile, tarfile.TarError, IOError) as e:
-        logger.error(f"Error during extraction: {e}")
+        return None
     except Exception as e:
         logger.error(f"An unexpected error occurred: {e}")
         logger.exception(*sys.exc_info())
+        return None

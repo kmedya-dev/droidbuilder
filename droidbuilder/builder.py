@@ -10,6 +10,7 @@ from . import utils
 from . import downloader
 from . import config
 from .utils.dependencies import get_explicit_dependencies
+from .utils.system_package import resolve_dependencies_recursively
 
 INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
 BUILD_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder_build")
@@ -254,7 +255,7 @@ def _compile_python_package(package_source_path, python_install_dir, arch, ndk_v
         logger.exception(*sys.exc_info())
         return False
 
-def _download_python_packages(requirements, build_path, archs, ndk_version, ndk_api):
+def _download_python_packages(requirements, python_dependency_mapping, build_path, archs, ndk_version, ndk_api):
     """Downloads and compiles Python packages specified in requirements."""
     logger.info("  - Downloading and compiling Python packages...")
     download_dir = os.path.join(build_path, "python_packages_src")
@@ -265,7 +266,15 @@ def _download_python_packages(requirements, build_path, archs, ndk_version, ndk_
         if req == "python3":
             continue
         logger.info(f"    - Downloading {req}...")
-        package_path = downloader.download_pypi_package(req, download_dir)
+
+        # Check if the package is in the dependency mapping
+        if req in python_dependency_mapping:
+            url = python_dependency_mapping[req]
+            logger.info(f"    - Found explicit URL in python_dependency_mapping: {url}")
+            package_path = downloader.download_from_url(url, download_dir)
+        else:
+            package_path = downloader.download_pypi_package(req, download_dir)
+
         if not package_path:
             logger.error(f"Failed to download Python package: {req}")
             return False
@@ -359,7 +368,7 @@ def _compile_system_package(package_source_path, arch, ndk_version, ndk_api):
             logger.error(f"Stderr:\n{e.stderr}")
         return False
 
-def _download_system_packages(system_packages, build_path, archs, ndk_version, ndk_api):
+def _download_system_packages(system_packages, dependency_mapping, build_path, archs, ndk_version, ndk_api):
     """Downloads and compiles system packages specified."""
     logger.info("  - Downloading and compiling system packages...")
     download_dir = os.path.join(build_path, "system_packages_src")
@@ -373,8 +382,17 @@ def _download_system_packages(system_packages, build_path, archs, ndk_version, n
             name, version = package_spec, None
             
         logger.info(f"    - Processing system package: {name}{f'=={version}' if version else ''}...")
-        # download_system_package downloads and extracts, returning the path to the extracted dir.
-        extracted_dir = downloader.download_system_package(name, version, download_dir)
+        
+        # Check if the package is in the dependency mapping
+        if name in dependency_mapping:
+            url = dependency_mapping[name]
+            logger.info(f"    - Found explicit URL in dependency_mapping: {url}")
+            extracted_dir = downloader.download_system_package(url, download_dir) # Call download_system_package with URL
+        else:
+            logger.error(f"Error: System package '{name}' is not explicitly mapped in 'dependency_mapping'. "
+                         "With Repology removed, all system packages must be explicitly mapped.")
+            return False
+
         if not extracted_dir:
             logger.error(f"Failed to download and extract system package: {name}")
             return False
@@ -571,7 +589,7 @@ def build_android(config, verbose):
     build_type = project.get("build_type", "debug")
 
     # Get dependencies using the dependencies module
-    requirements, system_packages = get_explicit_dependencies(config)
+    requirements, system_packages, dependency_mapping, python_dependency_mapping = get_explicit_dependencies(config)
 
     # Android configs
     android_cfg = config.get("android", {})
@@ -634,9 +652,13 @@ def build_android(config, verbose):
             logger.error("Python version not specified in droidbuilder.toml. Aborting.")
             return False
 
-        # Download and compile system packages first
+        # Resolve and download system packages
         if system_packages:
-            if not _download_system_packages(system_packages, build_path, archs, ndk_version, ndk_api):
+            resolved_system_packages = resolve_dependencies_recursively(system_packages, dependency_mapping)
+            if resolved_system_packages is None:
+                logger.error("Failed to resolve system package dependencies. Aborting.")
+                return False
+            if not _download_system_packages(resolved_system_packages, dependency_mapping, build_path, archs, ndk_version, ndk_api):
                 logger.error("Failed to download and compile system packages. Aborting.")
                 return False
 
@@ -652,7 +674,7 @@ def build_android(config, verbose):
 
         # Download Python packages
         if requirements:
-            if not _download_python_packages(requirements, build_path, archs, ndk_version, ndk_api):
+            if not _download_python_packages(requirements, python_dependency_mapping, build_path, archs, ndk_version, ndk_api):
                 logger.error("Failed to download Python packages. Aborting.")
                 return False
 
@@ -764,3 +786,4 @@ def build_android(config, verbose):
                 logger.info(f"Cleaned up temporary directory: {temp_bin_dir}")
             except OSError as e:
                 logger.warning(f"Could not clean up temporary directory {temp_bin_dir}: {e}")
+
