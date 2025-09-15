@@ -64,7 +64,7 @@ def check_deps(ctx):
     if not conf:
         logger.error("Error: Could not load project configuration.")
         return
-    explicit_deps_str, _ = get_explicit_dependencies(conf)
+    explicit_deps_str, _, _, _ = get_explicit_dependencies(conf)
     implicit_deps = get_implicit_python_dependencies(path)
 
     explicit_deps = {dep.split("==")[0].strip() for dep in explicit_deps_str}
