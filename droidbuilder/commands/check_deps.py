@@ -48,7 +48,7 @@ def get_implicit_python_dependencies(path="."):
     for file in python_files:
         if "venv" in file:
             continue
-        with open(file, "r") as f:
+        with open(file, "r", encoding="utf-8", errors="ignore") as f:
             source_code = f.read()
             imports = find_python_imports(source_code)
             all_imports.update(imports)
