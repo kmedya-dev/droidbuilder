@@ -48,7 +48,7 @@ def get_implicit_python_dependencies(path="."):
     for file in python_files:
         if "venv" in file:
             continue
-        logger.debug(f"Processing file: {file}")
+        # logger.debug(f"Processing file: {file}")
         with open(file, "r", encoding="utf-8", errors="ignore") as f:
             source_code = f.read()
             imports = find_python_imports(source_code)
@@ -65,7 +65,7 @@ def check_deps(ctx):
     if not conf:
         logger.error("Error: Could not load project configuration.")
         return
-    explicit_deps_str, _, _, _ = get_explicit_dependencies(conf)
+    explicit_deps_str, _, _ = get_explicit_dependencies(conf)
     implicit_deps = get_implicit_python_dependencies(path)
 
     explicit_deps = {dep.split("==")[0].strip() for dep in explicit_deps_str}

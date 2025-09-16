@@ -69,7 +69,7 @@ def clean(ctx):
                     items_removed += 1
                 except OSError as e:
                     logger.error(f"Error removing directory {path}: {e}")
-                    logger.info("Please check file permissions and ensure the directory is not in use.")
+                    # logger.info("Please check file permissions and ensure the directory is not in use.")
                 except Exception as e:
                     logger.error(f"An unexpected error occurred while removing {path}: {e}")
                     logger.exception(*sys.exc_info())
@@ -79,9 +79,9 @@ def clean(ctx):
         for item in os.listdir(INSTALL_DIR):
             path = os.path.join(INSTALL_DIR, item)
             if os.path.isdir(path):
-                logger.debug(f"Checking path for exclusion: {path}, basename: {os.path.basename(path)}")
+                # logger.debug(f"Checking path for exclusion: {path}, basename: {os.path.basename(path)}")
                 if any(os.path.basename(path).startswith(prefix) for prefix in EXCLUDE_PREFIXES):
-                    logger.info(f"Skipping excluded directory: {path}")
+                    # logger.info(f"Skipping excluded directory: {path}")
                     continue
 
                 logger.info(f"Attempting to remove directory {path}...")
