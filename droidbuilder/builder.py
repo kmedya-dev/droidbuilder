@@ -23,7 +23,8 @@ ARCH_COMPILER_PREFIXES = {
     "x86_64": "x86_64-linux-android",
 }
 
-def _setup_python_build_environment(ndk_version, ndk_api, arch):
+
+def _setup_python_build_environment(ndk_version, ndk_api, arch, system_packages):
     """Set up environment variables for cross-compiling Python."""
     logger.info(f"  - Setting up build environment for {arch} (NDK {ndk_version}, API {ndk_api})...")
 
@@ -41,6 +42,8 @@ def _setup_python_build_environment(ndk_version, ndk_api, arch):
     if not os.path.exists(sysroot):
         logger.error(f"Error: NDK sysroot not found at {sysroot}. Please check your NDK installation.")
         return False
+
+    
 
     compiler_prefix = ARCH_COMPILER_PREFIXES.get(arch)
     if not compiler_prefix:
@@ -71,6 +74,49 @@ def _setup_python_build_environment(ndk_version, ndk_api, arch):
     logger.info("  - Build environment set up.")
     return True
 
+def _disable_unnecessary_python_modules(python_source_dir):
+    """Disables unnecessary Python modules to reduce final binary size."""
+    logger.info("  - Disabling unnecessary Python modules...")
+    setup_local_path = os.path.join(python_source_dir, "Modules", "Setup.local")
+    
+    # Modules to keep enabled: _ssl, _sqlite3, _ctypes, zlib
+    disabled_modules = [
+        # Already disabled
+        "grp",
+        "_lzma",
+        "readline",
+        
+        # GUI
+        "_tkinter",
+        
+        # Database
+        "_gdbm",
+        "_dbm",
+        
+        # Other
+        "_posixshmem",
+        "_posixsubprocess",
+        "nis",
+        "ossaudiodev",
+        "spwd",
+        "syslog",
+        "winreg",
+        "winsound",
+    ]
+    
+    try:
+        with open(setup_local_path, "w") as f:
+            f.write("*disabled*\n")
+            for module in disabled_modules:
+                f.write(f"{module}\n")
+        logger.success("  - Unnecessary Python modules disabled.")
+        return True
+    except IOError as e:
+        logger.error(f"Error writing to {setup_local_path}: {e}")
+        return False
+
+
+
 def _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_path):
     """Build Python for a specific Android architecture."""
     logger.info(f"  - Building Python {python_version} for {arch}...")
@@ -93,6 +139,11 @@ def _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_
         f.write("ac_cv_file__dev_ptmx=yes\n")
         f.write("ac_cv_file__dev_ptc=no\n")
     os.environ["CONFIG_SITE"] = config_site_path
+
+    # Disable unnecessary Python modules
+    if not _disable_unnecessary_python_modules(python_source_dir):
+        return False
+
 
     # Get build triplet
     build_triplet = ""
@@ -210,14 +261,13 @@ def _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_
     logger.success(f"  - Python {python_version} built and installed for {arch}.")
     return True
 
-
 def _compile_python_package(package_source_path, python_install_dir, arch, ndk_version, ndk_api):
     """Compiles and installs a Python package for a specific Android architecture."""
     package_name = os.path.basename(package_source_path)
     logger.info(f"  - Compiling Python package {package_name} for {arch}...")
 
     # Set up environment for cross-compilation
-    if not _setup_python_build_environment(ndk_version, ndk_api, arch):
+    if not _setup_python_build_environment(ndk_version, ndk_api, arch, []):
         logger.error(f"Failed to set up build environment for {arch} for package {package_name}. Aborting.")
         return False
 
@@ -255,7 +305,7 @@ def _compile_python_package(package_source_path, python_install_dir, arch, ndk_v
         logger.exception(*sys.exc_info())
         return False
 
-def _download_python_packages(requirements, python_dependency_mapping, build_path, archs, ndk_version, ndk_api):
+def _download_python_packages(requirements, dependency_mapping, build_path, archs, ndk_version, ndk_api):
     """Downloads and compiles Python packages specified in requirements."""
     logger.info("  - Downloading and compiling Python packages...")
     download_dir = os.path.join(build_path, "python_packages_src")
@@ -268,9 +318,9 @@ def _download_python_packages(requirements, python_dependency_mapping, build_pat
         logger.info(f"    - Downloading {req}...")
 
         # Check if the package is in the dependency mapping
-        if req in python_dependency_mapping:
-            url = python_dependency_mapping[req]
-            logger.info(f"    - Found explicit URL in python_dependency_mapping: {url}")
+        if req in dependency_mapping:
+            url = dependency_mapping[req]
+            logger.info(f"    - Found explicit URL in dependency_mapping: {url}")
             package_path = downloader.download_from_url(url, download_dir)
         else:
             package_path = downloader.download_pypi_package(req, download_dir)
@@ -292,15 +342,34 @@ def _download_python_packages(requirements, python_dependency_mapping, build_pat
     logger.success("  - All Python packages downloaded and compiled.")
     return True
 
-def _compile_system_package(package_source_path, arch, ndk_version, ndk_api):
+def _compile_system_package(package_source_path, arch, ndk_version, ndk_api, system_packages, config, package_name_from_config):
     """Compiles and installs a system package for a specific Android architecture."""
     package_name = os.path.basename(package_source_path)
     logger.info(f"  - Compiling system package {package_name} for {arch}...")
 
     # Set up environment for cross-compilation
-    if not _setup_python_build_environment(ndk_version, ndk_api, arch):
+    if not _setup_python_build_environment(ndk_version, ndk_api, arch, system_packages):
         logger.error(f"Failed to set up build environment for {arch} for package {package_name}. Aborting.")
         return False
+
+    # Apply patches if specified in config
+    patches = config.get("build", {}).get("patches", {})
+    if package_name_from_config in patches:
+        for patch_file in patches[package_name_from_config]:
+            patch_path = os.path.join(os.getcwd(), patch_file)
+            if os.path.exists(patch_path):
+                logger.info(f"  - Applying patch {patch_file} to {package_name}...")
+                try:
+                    subprocess.run(["patch", "-p1", "-i", patch_path], check=True, cwd=package_source_path, capture_output=True, text=True)
+                except subprocess.CalledProcessError as e:
+                    logger.error(f"Failed to apply patch {patch_file}: {e}")
+                    if e.stdout:
+                        logger.error(f"Patch Stdout:\n{e.stdout}")
+                    if e.stderr:
+                        logger.error(f"Patch Stderr:\n{e.stderr}")
+                    return False
+            else:
+                logger.warning(f"  - Patch file not found: {patch_file}")
 
     # The destination for the compiled libraries
     install_dir = os.path.join(INSTALL_DIR, "system_libs", arch)
@@ -327,7 +396,7 @@ def _compile_system_package(package_source_path, arch, ndk_version, ndk_api):
         return False
         
     host_triplet = ARCH_COMPILER_PREFIXES.get(arch)
-    build_triplet = subprocess.check_output(['uname', '-m', '-s']).decode().strip().replace(' ', '-').lower()
+    build_triplet = subprocess.check_output(['dpkg-architecture', '-q', 'DEB_HOST_MULTIARCH']).decode().strip()
 
     configure_cmd = [
         "./configure",
@@ -368,13 +437,16 @@ def _compile_system_package(package_source_path, arch, ndk_version, ndk_api):
             logger.error(f"Stderr:\n{e.stderr}")
         return False
 
-def _download_system_packages(system_packages, dependency_mapping, build_path, archs, ndk_version, ndk_api):
+
+
+def _download_system_packages(system_packages, dependency_mapping, build_path, archs, ndk_version, ndk_api, config):
     """Downloads and compiles system packages specified."""
     logger.info("  - Downloading and compiling system packages...")
     download_dir = os.path.join(build_path, "system_packages_src")
     os.makedirs(download_dir, exist_ok=True)
 
-    downloaded_packages_dirs = []
+    downloaded_packages = []
+    used_apt_fallback = False
     for package_spec in system_packages:
         if '==' in package_spec:
             name, version = package_spec.split('==', 1)
@@ -387,25 +459,39 @@ def _download_system_packages(system_packages, dependency_mapping, build_path, a
         if name in dependency_mapping:
             url = dependency_mapping[name]
             logger.info(f"    - Found explicit URL in dependency_mapping: {url}")
-            extracted_dir = downloader.download_system_package(url, download_dir) # Call download_system_package with URL
+            extracted_dir = downloader.download_system_package(url, os.path.join(download_dir)) # Call download_system_package with URL
+            if not extracted_dir:
+                logger.error(f"Failed to download and extract system package: {name}")
+                return False
+            logger.success(f"    - {name} ready in {extracted_dir}")
+            downloaded_packages.append((name, extracted_dir))
         else:
-            logger.error(f"Error: System package '{name}' is not explicitly mapped in 'dependency_mapping'. "
-                         "With Repology removed, all system packages must be explicitly mapped.")
+            logger.error(f"No dependency mapping found for {name}. Aborting.")
             return False
-
-        if not extracted_dir:
-            logger.error(f"Failed to download and extract system package: {name}")
-            return False
-        logger.success(f"    - {name} ready in {extracted_dir}")
-        downloaded_packages_dirs.append(extracted_dir)
 
     # Now compile each downloaded system package for each architecture
-    for extracted_dir in downloaded_packages_dirs:
-        package_name = os.path.basename(extracted_dir)
+    for name, original_extracted_dir in downloaded_packages:
+        package_name = os.path.basename(original_extracted_dir)
         for arch in archs:
-            if not _compile_system_package(extracted_dir, arch, ndk_version, ndk_api):
+            # Create a temporary directory for the current architecture's build
+            arch_specific_build_dir = os.path.join(download_dir, f"{package_name}-{arch}")
+            try:
+                # Copy the original extracted source to the temporary directory
+                shutil.copytree(original_extracted_dir, arch_specific_build_dir, dirs_exist_ok=True)
+                logger.info(f"  - Copied {package_name} source to {arch_specific_build_dir} for {arch} build.")
+            except (shutil.Error, OSError) as e:
+                logger.error(f"Error copying {package_name} source for {arch} build: {e}")
+                return False
+
+            if not _compile_system_package(arch_specific_build_dir, arch, ndk_version, ndk_api, system_packages, config, name):
                 logger.error(f"Failed to compile {package_name} for {arch}. Aborting.")
                 return False
+            # Clean up the temporary directory after compilation for this arch
+            try:
+                shutil.rmtree(arch_specific_build_dir)
+                logger.info(f"  - Cleaned up temporary build directory: {arch_specific_build_dir}")
+            except OSError as e:
+                logger.warning(f"Could not clean up temporary build directory {arch_specific_build_dir}: {e}")
 
     logger.success("  - All system packages downloaded and compiled.")
     return True
@@ -571,7 +657,6 @@ def _copy_user_python_code(build_path, main_file):
 
     return True
 
-
 def build_android(config, verbose):
     """Build the Android application."""
     logger.info("Building Android application...")
@@ -589,7 +674,7 @@ def build_android(config, verbose):
     build_type = project.get("build_type", "debug")
 
     # Get dependencies using the dependencies module
-    requirements, system_packages, dependency_mapping, python_dependency_mapping = get_explicit_dependencies(config)
+    requirements, system_packages, dependency_mapping = get_explicit_dependencies(config)
 
     # Android configs
     android_cfg = config.get("android", {})
@@ -653,18 +738,19 @@ def build_android(config, verbose):
             return False
 
         # Resolve and download system packages
+
         if system_packages:
             resolved_system_packages = resolve_dependencies_recursively(system_packages, dependency_mapping)
             if resolved_system_packages is None:
                 logger.error("Failed to resolve system package dependencies. Aborting.")
                 return False
-            if not _download_system_packages(resolved_system_packages, dependency_mapping, build_path, archs, ndk_version, ndk_api):
+            if not _download_system_packages(resolved_system_packages, dependency_mapping, build_path, archs, ndk_version, ndk_api, config):
                 logger.error("Failed to download and compile system packages. Aborting.")
                 return False
 
         # Set up environment for each architecture and build Python
         for arch in archs:
-            if not _setup_python_build_environment(ndk_version, ndk_api, arch):
+            if not _setup_python_build_environment(ndk_version, ndk_api, arch, system_packages):
                 logger.error(f"Failed to set up build environment for {arch}. Aborting.")
                 return False
             
@@ -674,7 +760,7 @@ def build_android(config, verbose):
 
         # Download Python packages
         if requirements:
-            if not _download_python_packages(requirements, python_dependency_mapping, build_path, archs, ndk_version, ndk_api):
+            if not _download_python_packages(requirements, dependency_mapping, build_path, archs, ndk_version, ndk_api):
                 logger.error("Failed to download Python packages. Aborting.")
                 return False
 
@@ -752,6 +838,7 @@ def build_android(config, verbose):
             try:
                 shutil.move(generated_apk_path, os.path.join(dist_dir, apk_name))
                 logger.success(f"Build successful! APK available at {os.path.join(dist_dir, apk_name)}")
+                
                 return True
             except (shutil.Error, OSError) as e:
                 logger.error(f"Error moving generated APK to dist directory: {e}")
@@ -766,6 +853,8 @@ def build_android(config, verbose):
                         try:
                             shutil.move(os.path.join(root, f), os.path.join(dist_dir, f)) # Use original filename if found
                             logger.success(f"Build successful! APK available at {os.path.join(dist_dir, f)}")
+                            if used_apt_fallback:
+                                logger.warning("⚠️ Some dependencies were installed from host packages instead of cross-compiled sources. APK may crash at runtime due to ABI mismatch")
                             found_apk = True
                             break
                         except (shutil.Error, OSError) as e:
@@ -786,4 +875,3 @@ def build_android(config, verbose):
                 logger.info(f"Cleaned up temporary directory: {temp_bin_dir}")
             except OSError as e:
                 logger.warning(f"Could not clean up temporary directory {temp_bin_dir}: {e}")
-

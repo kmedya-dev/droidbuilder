@@ -1,6 +1,5 @@
 import click
 from .. import installer
-from .. import downloader
 from ..cli_logger import logger # Import logger
 import shutil
 import os
@@ -31,8 +30,6 @@ def uninstall(ctx, tool_name):
         for gradle_version in installed_tools.get("gradle", []):
             tools_to_uninstall.append(f"gradle-{gradle_version}")
         
-        tools_to_uninstall.append("python-source")
-
         tools_to_uninstall = list(dict.fromkeys(tools_to_uninstall))
 
         for tool in tools_to_uninstall:

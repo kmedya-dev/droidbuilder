@@ -67,6 +67,7 @@ def init(ctx):
                 "requirements": {
 			"python_packages": python_packages,
 	                "system_packages": system_packages,
+			"dependency_mapping": {},
 		},
             },
             "android": {

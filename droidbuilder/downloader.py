@@ -9,6 +9,7 @@ from .utils.file_manager import download_and_extract
 from .utils.python_package import resolve_python_package
 
 INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
+DOWNLOAD_DIR = os.path.join(INSTALL_DIR, "downloads")
 
 
 def download_python_source(version):
@@ -104,16 +105,30 @@ def download_pypi_package(req, download_path="."):
         return None
 
 
-def download_system_package(url, download_path="."):
+def download_system_package(system_package, download_path=DOWNLOAD_DIR):
     """
     Downloads a system package from a direct URL.
     """
-    logger.info(f"  - Downloading system package from URL: {url}...")
-    
-    filename = os.path.basename(url)
+    logger.info(f"  - Downloading system package from URL: {system_package}...")
+
+    filename = os.path.basename(system_package)
     extract_dir = os.path.join(download_path, "sources", filename.split('.')[0]) # Use filename for extract dir
-    
-    extracted_path = download_and_extract(url, extract_dir, filename)
+
+    extracted_path = download_and_extract(system_package, extract_dir, filename)
+
+    if extracted_path:
+        # Check if there is a single directory inside the extracted path
+        items = os.listdir(extracted_path)
+        if len(items) == 1 and os.path.isdir(os.path.join(extracted_path, items[0])):
+            single_dir = os.path.join(extracted_path, items[0])
+            try:
+                # Move contents up
+                for item in os.listdir(single_dir):
+                    shutil.move(os.path.join(single_dir, item), extracted_path)
+                os.rmdir(single_dir)
+            except (shutil.Error, OSError) as e:
+                logger.error(f"Error moving or cleaning up system package files: {e}")
+                return None
 
     logger.info(f"Extracted to: {extracted_path}")
     return extracted_path

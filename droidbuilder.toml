@@ -6,22 +6,10 @@ target_platforms = [ "android",]
 package_domain = "org.test"
 build_type = "debug"
 
-[project.requirements]
-python_packages = []
-system_packages = ["openssl", "xz==5.6.2", "sdl2"]
-
-[project.dependency_mapping]
-# Add explicit URLs for system packages if needed.
-# sdl2 = "https://libsdl.org/release/SDL2-2.30.2.tar.gz"
-
-[project.python_dependency_mapping]
-# Add explicit URLs for python packages if needed.
-# example_package = "https://example.com/example_package-1.0.0.tar.gz"
-
 [android]
-sdk_version = "34"
-ndk_version = "25.2.9519653"
-min_sdk_version = "21"
+sdk_version = "36"
+ndk_version = "28.2.13676358"
+min_sdk_version = "24"
 ndk_api = "24"
 archs = [ "arm64-v8a", "armeabi-v7a",]
 cmdline_tools_version = "13114758"
@@ -30,8 +18,22 @@ intent_filters_file = ""
 accept_sdk_license = "non-interactive"
 
 [java]
-jdk_version = "11"
-gradle_version = "8.7"
+jdk_version = "21"
+gradle_version = "9.0.0"
 
 [python]
 python_version = "3.12.1"
+
+[project.requirements]
+python_packages = ["kivy"]
+system_packages = ["libffi", "uuid", "sdl2"]
+
+[project.requirements.dependency_mapping]
+sdl2 = "https://github.com/libsdl-org/SDL/releases/download/release-2.30.3/SDL2-2.30.3.tar.gz"
+libffi = "https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz"
+uuid = "https://www.kernel.org/pub/linux/utils/util-linux/v2.40/util-linux-2.40.1.tar.gz"
+
+[build]
+
+[build.patches]
+sdl2 = ["sdl2-alooper.patch"]

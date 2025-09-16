@@ -10,8 +10,6 @@ from colorama import Fore, Style, init
 init(autoreset=True)
 
 LOG_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder", "logs")
-os.makedirs(LOG_DIR, exist_ok=True)
-
 class Logger:
     def __init__(self):
         self.log_file = os.path.join(
@@ -23,6 +21,9 @@ class Logger:
         return datetime.datetime.now().strftime("%H:%M:%S")
 
     def _log(self, level, message, color, stream=sys.stdout, prefix="", show_timestamp=True):
+        # Ensure the log directory exists before writing
+        os.makedirs(LOG_DIR, exist_ok=True)
+
         if show_timestamp:
             timestamp = self._get_timestamp()
             log_message = f"[{timestamp}] [{level}] {prefix}{message}\n"

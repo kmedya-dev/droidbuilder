@@ -11,7 +11,6 @@ def get_explicit_dependencies(conf):
         python_packages = []
         system_packages = []
 
-    dependency_mapping = project_config.get("dependency_mapping", {})
-    python_dependency_mapping = project_config.get("python_dependency_mapping", {})
+    dependency_mapping = requirements.get("dependency_mapping", {})
 
-    return python_packages, system_packages, dependency_mapping, python_dependency_mapping
+    return python_packages, system_packages, dependency_mapping

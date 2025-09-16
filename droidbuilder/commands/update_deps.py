@@ -2,6 +2,7 @@ import click
 import toml
 import subprocess
 import sys
+import os
 from ..cli_logger import logger
 
 @click.command()
