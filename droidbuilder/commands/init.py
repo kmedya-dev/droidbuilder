@@ -1,3 +1,4 @@
+
 import click
 import os
 import sys
@@ -42,7 +43,7 @@ def init(ctx):
         archs = _prompt_for_list_input("Target Architectures (comma-separated: e.g., arm64-v8a,armeabi-v7a)", "arm64-v8a,armeabi-v7a")
         manifest_file = _prompt_for_input("Path to custom AndroidManifest.xml (leave empty for default)", "")
         intent_filters_file = _prompt_for_input("Path to custom intent_filters.xml (leave empty for none)", "")
-        cmdline_tools_tag = _prompt_for_input("Android Command Line Tools Tag (e.g., 9123335)", "9123335", validation_func=str.isdigit)
+        cmdline_tools_tag = _prompt_for_input("Android Command Line Tools Tag (e.g., 13114758)", "13114758", validation_func=str.isdigit)
         python_packages = _prompt_for_list_input("Python Requirements (comma-separated: e.g., py2jib)", "")
         
         android_sdk_version = _prompt_for_input("Android SDK Version (e.g., 34)", "34", validation_func=str.isdigit)
@@ -50,7 +51,7 @@ def init(ctx):
         android_ndk_api = _prompt_for_input("Android NDK API (e.g., 24)", "24", validation_func=str.isdigit)
         android_ndk_version = _prompt_for_input("Android NDK Version (e.g., 25.2.9519653)", "25.2.9519653")
         
-        java_jdk_version = _prompt_for_input("Java JDK Version (e.g., 11)", "11", validation_func=str.isdigit)
+        java_jdk_version = _prompt_for_input("Java JDK Version (e.g., 17)", "17", validation_func=str.isdigit)
         java_gradle_version = _prompt_for_input("Java Gradle Version (e.g., 8.7)", "8.7")
         python_version = _prompt_for_input("Python Version for cross-compilation (e.g., 3.9.13)", "3.9.13")
         accept_sdk_license = _prompt_for_input("Accept SDK licenses automatically?", "interactive", type=click.Choice(['interactive', 'non-interactive']))

@@ -66,14 +66,13 @@ class TestBuilder(unittest.TestCase):
     @patch('droidbuilder.builder.downloader.download_python_source', return_value=True)
     @patch('os.path.exists', return_value=True)
     @patch('os.makedirs')
-    @patch('subprocess.run')
+    @patch('droidbuilder.builder.subprocess.run')
     @patch('requests.get')
-    def test_build_android_system_packages_flow(self, mock_requests_get, mock_subprocess_run, mock_makedirs, mock_exists, mock_download_python_source, mock_resolve_dependencies_recursively, mock_download_from_url, mock_download_system_package, mock_logger):
-        mock_requests_get.side_effect = [
-            MagicMock(json=MagicMock(return_value=[{"version": "1.1.1k", "status": "newest", "srcurls": ["http://example.com/openssl-1.1.1k.tar.gz"], "dependencies": []}]), raise_for_status=lambda: None),
-            MagicMock(iter_content=lambda chunk_size: [b'test'], headers={'content-length': '4'}, raise_for_status=lambda: None)
-        ]
-        mock_resolve_dependencies_recursively.return_value = ["openssl", "sdl2"]
+    @patch('droidbuilder.utils.system_package.subprocess.run')
+    def test_build_android_system_packages_flow(self, mock_logger, mock_download_system_package, mock_download_from_url, mock_resolve_dependencies_recursively, mock_download_python_source, mock_exists, mock_makedirs, mock_builder_subprocess_run, mock_requests_get, mock_system_package_subprocess_run):
+        mock_system_package_subprocess_run.return_value = MagicMock(returncode=0, stdout="Homepage: http://example.com/openssl", stderr="")
+        mock_builder_subprocess_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        mock_resolve_dependencies_recursively.return_value = {"openssl": "http://example.com/openssl-1.1.1k.tar.gz", "sdl2": "https://libsdl.org/release/SDL2-2.30.2.tar.gz"}
         mock_download_system_package.return_value = "/path/to/extracted_dir_openssl"
         mock_download_from_url.return_value = "/path/to/extracted_dir_sdl2"
         
@@ -98,15 +97,20 @@ class TestBuilder(unittest.TestCase):
     @patch('droidbuilder.builder.downloader.download_python_source', return_value=True)
     @patch('os.path.exists', return_value=True)
     @patch('os.makedirs')
-    @patch('subprocess.run')
+    @patch('droidbuilder.builder.subprocess.run')
     @patch('requests.get')
-    def test_build_android_python_packages_flow(self, mock_requests_get, mock_subprocess_run, mock_makedirs, mock_exists, mock_download_python_source, mock_download_from_url, mock_download_pypi_package, mock_logger):
+    @patch('droidbuilder.utils.dependencies.get_explicit_dependencies')
+    @patch('droidbuilder.utils.system_package.subprocess.run')
+    def test_build_android_python_packages_flow(self, mock_logger, mock_download_pypi_package, mock_download_from_url, mock_download_python_source, mock_exists, mock_makedirs, mock_builder_subprocess_run, mock_requests_get, mock_get_explicit_dependencies, mock_system_package_subprocess_run):
+        mock_system_package_subprocess_run.return_value = MagicMock(returncode=0, stdout="Homepage: http://example.com/openssl", stderr="")
+        mock_builder_subprocess_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
         mock_requests_get.side_effect = [
             MagicMock(json=MagicMock(return_value={"info": {"version": "1.0.0"}, "releases": {"1.0.0": [{"packagetype": "sdist", "url": "http://example.com/some_package-1.0.0.tar.gz"}]}}), raise_for_status=lambda: None),
             MagicMock(iter_content=lambda chunk_size: [b'test'], headers={'content-length': '4'}, raise_for_status=lambda: None)
         ]
         mock_download_pypi_package.return_value = "/path/to/extracted_dir_another_package"
         mock_download_from_url.return_value = "/path/to/extracted_dir_some_package"
+        mock_get_explicit_dependencies.return_value = (['some_package'], [], {'some_package': 'https://example.com/custom_some_package-2.0.0.zip'})
         
         with patch('droidbuilder.builder._compile_python_package', return_value=True):
             build_android(self.conf, False)

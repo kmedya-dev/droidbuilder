@@ -24,8 +24,9 @@ def get_explicit_dependencies(path="."):
     if not config:
         return [], []
 
-    python_packages = config.get("project", {}).get("requirements", [])
-    system_packages_str = config.get("project", {}).get("system_packages", [])
+    requirements = config.get("project", {}).get("requirements", {})
+    python_packages = requirements.get("python_packages", [])
+    system_packages_str = requirements.get("system_packages", [])
     
     system_packages = []
     for pkg_str in system_packages_str:

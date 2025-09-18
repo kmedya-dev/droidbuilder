@@ -354,6 +354,11 @@ def setup_tools(conf):
 
     all_successful = True
 
+    if jdk_version:
+        if not install_jdk(jdk_version):
+            logger.error(f"Failed to install Java JDK version {jdk_version}.")
+            all_successful = False
+
     if cmdline_tools_version:
         if not install_cmdline_tools(cmdline_tools_version):
             logger.error("Failed to install Android command-line tools.")
@@ -373,18 +378,31 @@ def setup_tools(conf):
         if not install_ndk(ndk_version, sdk_install_dir):
             logger.error(f"Failed to install Android NDK version {ndk_version}.")
             all_successful = False
-
-    if jdk_version:
-        if not install_jdk(jdk_version):
-            logger.error(f"Failed to install Java JDK version {jdk_version}.")
-            all_successful = False
     
     if gradle_version:
         if not install_gradle(gradle_version):
             logger.error(f"Failed to install Gradle version {gradle_version}.")
             all_successful = False
-    
+
+    if all_successful:
+        _create_env_file(sdk_install_dir, ndk_version, jdk_version)
+
     return all_successful
+
+def _create_env_file(sdk_install_dir, ndk_version, jdk_version):
+    """Create a shell script to set environment variables."""
+    env_file_path = os.path.join(os.getcwd(), ".droidbuilder", "env.sh")
+    os.makedirs(os.path.dirname(env_file_path), exist_ok=True)
+
+    with open(env_file_path, "w") as f:
+        f.write("#!/bin/bash\n")
+        f.write(f"export ANDROID_HOME={sdk_install_dir}\n")
+        f.write(f"export ANDROID_NDK_HOME={os.path.join(sdk_install_dir, 'ndk', ndk_version)}\n")
+        f.write(f"export JAVA_HOME={os.path.join(INSTALL_DIR, f'jdk-{jdk_version}')}\n")
+        f.write("export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_NDK_HOME:$JAVA_HOME/bin:$PATH\n")
+
+    logger.info(f"Environment script created at {env_file_path}")
+    logger.info("Run 'source .droidbuilder/env.sh' to set up your environment.")
 
 def list_installed_tools():
     """Scan the installation directory and list installed tools and versions."""
@@ -572,7 +590,7 @@ def check_environment():
     # Required tools
     sdk_version = conf.get("android", {}).get("sdk_version")
     if sdk_version:
-        if f"android-{sdk_version}" not in installed_tools["android_sdk"]:
+        if sdk_version not in installed_tools["android_sdk"]:
             logger.warning(f"Android SDK Platform {sdk_version} is not installed. Run 'droidbuilder install-tools'.")
             all_ok = False
 
@@ -582,7 +600,7 @@ def check_environment():
         all_ok = False
 
     jdk_version = conf.get("java", {}).get("jdk_version")
-    if jdk_version and f"jdk-{jdk_version}" not in installed_tools["java_jdk"]:
+    if jdk_version and jdk_version not in installed_tools["java_jdk"]:
         logger.warning(f"Java JDK version {jdk_version} is not installed. Run 'droidbuilder install-tools'.")
         all_ok = False
 

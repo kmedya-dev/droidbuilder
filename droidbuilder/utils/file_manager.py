@@ -77,12 +77,15 @@ def extract(filepath, dest_dir):
     filename = os.path.basename(filepath)
 
     try:
-        if filename.endswith(".zip"):
+        if tarfile.is_tarfile(filepath):
+            with tarfile.open(filepath, 'r:*') as tar:
+                tar.extractall(path=dest_dir)
+        elif zipfile.is_zipfile(filepath):
             with zipfile.ZipFile(filepath, 'r') as zip_ref:
-                _safe_extract_zip(zip_ref, dest_dir)
-        elif filename.endswith((".tar.gz", ".tgz", ".tar.xz")):
-            with tarfile.open(filepath, 'r:*') as tar_ref:
-                _safe_extract_tar(tar_ref, dest_dir)
+                zip_ref.extractall(dest_dir)
+        elif filename.endswith('.bz2'): # Added this condition
+            with tarfile.open(filepath, 'r:bz2') as tar: # Try to open as bz2 compressed tar
+                tar.extractall(path=dest_dir)
         else:
             logger.warning(f"Unsupported archive type for {filename}. Skipping extraction.")
             return None

@@ -15,6 +15,7 @@ from .commands.config import config
 from .commands.version import version
 from .commands.log import log
 from .commands.update_deps import update_deps
+from .commands.search_packages import search_packages
 
 from .commands.check_deps import check_deps
 
@@ -41,6 +42,7 @@ cli.add_command(config)
 cli.add_command(version)
 cli.add_command(log)
 cli.add_command(update_deps)
+cli.add_command(search_packages)
 
 cli.add_command(check_deps)
 

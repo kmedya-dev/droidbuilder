@@ -11,6 +11,7 @@ dependencies = [
     "colorama",
     "stdlib-list",
     "setuptools",
+    "packaging",
 ]
 [project.scripts]
 droidbuilder = "droidbuilder.main:cli"

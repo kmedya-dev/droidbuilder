@@ -7,10 +7,15 @@ def get_explicit_dependencies(conf):
     if isinstance(requirements, dict):
         python_packages = requirements.get("python_packages", [])
         system_packages = requirements.get("system_packages", [])
+        dependency_mapping = requirements.get("dependency_mapping", {})
+    elif isinstance(requirements, list):
+        # If 'requirements' is a list, assume it contains only python packages.
+        python_packages = requirements
+        system_packages = []
+        dependency_mapping = {}
     else:
         python_packages = []
         system_packages = []
-
-    dependency_mapping = requirements.get("dependency_mapping", {})
+        dependency_mapping = {}
 
     return python_packages, system_packages, dependency_mapping

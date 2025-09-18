@@ -391,6 +391,9 @@ def _compile_system_package(package_source_path, arch, ndk_version, ndk_api, sys
 
     # Configure command
     configure_script = os.path.join(package_source_path, "configure")
+    if package_name_from_config == "openssl":
+        configure_script = os.path.join(package_source_path, "Configure")
+
     if not os.path.exists(configure_script):
         logger.error(f"Error: Configure script not found at {configure_script}. The package might not use a standard configure script.")
         return False
@@ -398,14 +401,24 @@ def _compile_system_package(package_source_path, arch, ndk_version, ndk_api, sys
     host_triplet = ARCH_COMPILER_PREFIXES.get(arch)
     build_triplet = subprocess.check_output(['dpkg-architecture', '-q', 'DEB_HOST_MULTIARCH']).decode().strip()
 
-    configure_cmd = [
-        "./configure",
-        f"--host={host_triplet}",
-        f"--build={build_triplet}",
-        f"--prefix={install_dir}",
-        "--disable-shared",
-        "--enable-static",
-    ]
+    configure_cmd = []
+    if package_name_from_config == "openssl":
+        configure_cmd = [
+            "./Configure",
+            f"android-{arch}",
+            f"-D__ANDROID_API__={ndk_api}",
+            "no-shared",
+            f"--prefix={install_dir}",
+        ]
+    else:
+        configure_cmd = [
+            "./configure",
+            f"--host={host_triplet}",
+            f"--build={build_triplet}",
+            f"--prefix={install_dir}",
+            "--disable-shared",
+            "--enable-static",
+        ]
 
     logger.info(f"  - Running configure: {' '.join(configure_cmd)}")
     try:
@@ -439,35 +452,23 @@ def _compile_system_package(package_source_path, arch, ndk_version, ndk_api, sys
 
 
 
-def _download_system_packages(system_packages, dependency_mapping, build_path, archs, ndk_version, ndk_api, config):
+def _download_system_packages(resolved_system_packages, build_path, archs, ndk_version, ndk_api, config):
     """Downloads and compiles system packages specified."""
     logger.info("  - Downloading and compiling system packages...")
     download_dir = os.path.join(build_path, "system_packages_src")
     os.makedirs(download_dir, exist_ok=True)
 
     downloaded_packages = []
-    used_apt_fallback = False
-    for package_spec in system_packages:
-        if '==' in package_spec:
-            name, version = package_spec.split('==', 1)
-        else:
-            name, version = package_spec, None
-            
-        logger.info(f"    - Processing system package: {name}{f'=={version}' if version else ''}...")
+    for name, url in resolved_system_packages.items():
+        logger.info(f"    - Processing system package: {name}...")
         
-        # Check if the package is in the dependency mapping
-        if name in dependency_mapping:
-            url = dependency_mapping[name]
-            logger.info(f"    - Found explicit URL in dependency_mapping: {url}")
-            extracted_dir = downloader.download_system_package(url, os.path.join(download_dir)) # Call download_system_package with URL
-            if not extracted_dir:
-                logger.error(f"Failed to download and extract system package: {name}")
-                return False
-            logger.success(f"    - {name} ready in {extracted_dir}")
-            downloaded_packages.append((name, extracted_dir))
-        else:
-            logger.error(f"No dependency mapping found for {name}. Aborting.")
+        logger.info(f"    - Found URL: {url}")
+        extracted_dir = downloader.download_system_package(url, os.path.join(download_dir)) # Call download_system_package with URL
+        if not extracted_dir:
+            logger.error(f"Failed to download and extract system package: {name}")
             return False
+        logger.success(f"    - {name} ready in {extracted_dir}")
+        downloaded_packages.append((name, extracted_dir))
 
     # Now compile each downloaded system package for each architecture
     for name, original_extracted_dir in downloaded_packages:
@@ -483,7 +484,7 @@ def _download_system_packages(system_packages, dependency_mapping, build_path, a
                 logger.error(f"Error copying {package_name} source for {arch} build: {e}")
                 return False
 
-            if not _compile_system_package(arch_specific_build_dir, arch, ndk_version, ndk_api, system_packages, config, name):
+            if not _compile_system_package(arch_specific_build_dir, arch, ndk_version, ndk_api, list(resolved_system_packages.keys()), config, name):
                 logger.error(f"Failed to compile {package_name} for {arch}. Aborting.")
                 return False
             # Clean up the temporary directory after compilation for this arch
@@ -492,9 +493,6 @@ def _download_system_packages(system_packages, dependency_mapping, build_path, a
                 logger.info(f"  - Cleaned up temporary build directory: {arch_specific_build_dir}")
             except OSError as e:
                 logger.warning(f"Could not clean up temporary build directory {arch_specific_build_dir}: {e}")
-
-    logger.success("  - All system packages downloaded and compiled.")
-    return True
 
 def _create_android_project(project_name, package_domain, build_path):
     """Create a basic Android project structure by copying from template."""
@@ -744,7 +742,7 @@ def build_android(config, verbose):
             if resolved_system_packages is None:
                 logger.error("Failed to resolve system package dependencies. Aborting.")
                 return False
-            if not _download_system_packages(resolved_system_packages, dependency_mapping, build_path, archs, ndk_version, ndk_api, config):
+            if not _download_system_packages(resolved_system_packages, build_path, archs, ndk_version, ndk_api, config):
                 logger.error("Failed to download and compile system packages. Aborting.")
                 return False
 

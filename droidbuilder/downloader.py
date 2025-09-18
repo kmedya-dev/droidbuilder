@@ -112,7 +112,15 @@ def download_system_package(system_package, download_path=DOWNLOAD_DIR):
     logger.info(f"  - Downloading system package from URL: {system_package}...")
 
     filename = os.path.basename(system_package)
-    extract_dir = os.path.join(download_path, "sources", filename.split('.')[0]) # Use filename for extract dir
+    base_filename = filename
+    known_extensions = [".tar.gz", ".tar.bz2", ".tar.xz", ".tgz", ".zip"]
+    for ext in known_extensions:
+        if base_filename.endswith(ext):
+            base_filename = base_filename[:-len(ext)]
+            break
+    else:
+        base_filename, _ = os.path.splitext(base_filename)
+    extract_dir = os.path.join(download_path, "sources", base_filename)
 
     extracted_path = download_and_extract(system_package, extract_dir, filename)
 
@@ -139,10 +147,18 @@ def download_from_url(url, download_path="."):
     Downloads a file from a direct URL and extracts it.
     """
     logger.info(f"  - Downloading from URL: {url}...")
-    
+
     filename = os.path.basename(url)
-    extract_dir = os.path.join(download_path, "sources", filename.split('.')[0])
+    base_filename = filename
+    known_extensions = [".tar.gz", ".tar.bz2", ".tar.xz", ".tgz", ".zip"]
+    for ext in known_extensions:
+        if base_filename.endswith(ext):
+            base_filename = base_filename[:-len(ext)]
+            break
+    else:
+        base_filename, _ = os.path.splitext(base_filename)
+    extract_dir = os.path.join(download_path, "sources", base_filename)
 
     extracted_path = download_and_extract(url, extract_dir, filename)
-    
+
     return extracted_path
