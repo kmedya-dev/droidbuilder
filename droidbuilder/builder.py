@@ -70,7 +70,7 @@ def _setup_python_build_environment(ndk_version, ndk_api, arch, system_packages)
     os.environ["PATH"] = f"{toolchain_bin}:{os.environ['PATH']}"
 
     # Initialize cflags and ldflags with base values
-    cflags = f"-fPIC -DANDROID -I{sysroot}/usr/include"
+    cflags = f"-fPIC -DANDROID -D__ANDROID_API__={ndk_api} -I{sysroot}/usr/include"
     ldflags = f"-L{sysroot}/usr/lib/{compiler_prefix}/{ndk_api} -lm -ldl --sysroot={sysroot}"
 
     # Add system packages to CFLAGS and LDFLAGS if system_libs_dir exists
