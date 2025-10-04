@@ -1,36 +1,42 @@
+import requests
+from urllib.parse import quote_plus, unquote
 import click
-import json
-from droidbuilder.utils.system_package import resolve_system_package, find_tarball
-from droidbuilder.cli_logger import logger
+from html.parser import HTMLParser
+
+class DuckDuckGoSearchParser(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.found_links = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "a":
+            for attr, value in attrs:
+                if attr == "href" and value.startswith('//duckduckgo.com/l/?uddg='):
+                    # Extract the actual URL from the uddg parameter
+                    start_index = value.find('uddg=') + len('uddg=')
+                    end_index = value.find('&', start_index)
+                    if end_index == -1:
+                        end_index = len(value)
+                    encoded_url = value[start_index:end_index]
+                    decoded_url = unquote(encoded_url)
+                    self.found_links.append(decoded_url)
 
 @click.command()
-@click.argument('package_spec')
-def search(package_spec):
-    """Search for the download URL of a system package."""
-    if '==' in package_spec:
-        package_name, version = package_spec.split('==', 1)
-    else:
-        package_name, version = package_spec, None
+@click.argument('package_name')
+@click.argument('version', required=False, default="latest")
+def search(package_name, version):
+    query = f"{package_name} {version} official source tarball download link"
+    encoded = quote_plus(query)
+    url = f"https://duckduckgo.com/html/?q={encoded}"
+    headers = {"User-Agent": "Mozilla/5.0"}
+    resp = requests.get(url, headers=headers)
+    resp.raise_for_status()
 
-    logger.info(f"Attempting to resolve package '{package_name}' using system package manager...")
-    homepage = resolve_system_package(package_name)
+    parser = DuckDuckGoSearchParser()
+    parser.feed(resp.text)
 
-    if homepage:
-        logger.info(f"Found homepage: {homepage}")
-        tarball_url = find_tarball(homepage, package_name, version=version)
-        if tarball_url:
-            logger.success(f"Found tarball URL: {tarball_url}")
-            click.echo(tarball_url)
-        else:
-            logger.warning(f"Could not find a tarball on the homepage for '{package_name}'.")
-            logger.info("Initiating web search to find the official source tarball download.")
-            search_query = f"{package_name} official source tarball download"
-            print(json.dumps({"tool": "web_search", "query": search_query}))
-            logger.info("Please review the web search results and confirm the official source if prompted.")
+    if parser.found_links:
+        for link in parser.found_links:
+            click.echo(link)
     else:
-        logger.warning(f"Could not find homepage for '{package_name}' using system package manager.")
-        logger.info("Initiating web search to find the official homepage or a suitable download link.")
-        search_query = f"{package_name} official homepage download"
-        # Special output for the Gemini agent to interpret as a tool call
-        print(json.dumps({"tool": "web_search", "query": search_query}))
-        logger.info("Please review the web search results and confirm the official homepage if prompted.")
+        click.echo(f"No download links found for {package_name} {version}.")

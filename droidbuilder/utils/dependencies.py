@@ -2,20 +2,18 @@ from .. import config
 from ..cli_logger import logger
 
 def get_explicit_dependencies(conf):
-    project_config = conf.get("project", {})
-    requirements = project_config.get("requirements", {})
-    if isinstance(requirements, dict):
-        python_packages = requirements.get("python_packages", [])
-        system_packages = requirements.get("system_packages", [])
-        dependency_mapping = requirements.get("dependency_mapping", {})
-    elif isinstance(requirements, list):
-        # If 'requirements' is a list, assume it contains only python packages.
-        python_packages = requirements
-        system_packages = []
-        dependency_mapping = {}
-    else:
-        python_packages = []
-        system_packages = []
-        dependency_mapping = {}
+    app_config = conf.get("app", {})
+    dependency = app_config.get("dependency", {})
+    dependency_mapping = app_config.get("dependency_mapping", {})
+
+    python_packages = []
+    system_packages = []
+
+    if isinstance(dependency, dict):
+        python_packages = dependency.get("python_packages", [])
+        system_packages = dependency.get("system_packages", [])
+    elif isinstance(dependency, list):
+        # If 'dependency' is a list, assume it contains only python packages.
+        python_packages = dependency
 
     return python_packages, system_packages, dependency_mapping

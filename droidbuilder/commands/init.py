@@ -1,4 +1,3 @@
-
 import click
 import os
 import sys
@@ -28,12 +27,12 @@ def _prompt_for_list_input(prompt, default):
 @click.command()
 @click.pass_context
 def init(ctx):
-    """Initialize a new DroidBuilder project."""
-    logger.info("Initializing a new DroidBuilder project. Please provide the following details:")
+    """Initialize a new DroidBuilder app."""
+    logger.info("Initializing a new DroidBuilder app. Please provide the following details:")
 
     try:
-        project_name = _prompt_for_input("Project Name", "MyDroidApp")
-        project_version = _prompt_for_input("Project Version", "0.1")
+        app_name = _prompt_for_input("App Name", "MyAwesomeApp")
+        app_version = _prompt_for_input("App Version", "0.1")
         main_file = _prompt_for_input("Main Python File (e.g., main.py)", "main.py")
 
         target_platforms = _prompt_for_list_input("Target Platforms (comma-separated: android, ios, desktop)", "android")
@@ -58,26 +57,25 @@ def init(ctx):
         system_packages = _prompt_for_list_input("System Packages (comma-separated: e.g., openssl, sdl2)", "")
 
         conf = {
-            "project": {
-                "name": project_name,
-                "version": project_version,
+            "app": {
+                "name": app_name,
+                "package_domain": package_domain,
+                "version": app_version,
                 "main_file": main_file,
                 "target_platforms": target_platforms,
-                "package_domain": package_domain,
-                "build_type": build_type,
-                "requirements": {
+                "dependency": {
 			"python_packages": python_packages,
 	                "system_packages": system_packages,
-			"dependency_mapping": {},
 		},
+		"dependency_mapping": {},
             },
             "android": {
+                "cmdline_tools_version": cmdline_tools_tag,
                 "sdk_version": android_sdk_version,
                 "ndk_version": android_ndk_version,
                 "min_sdk_version": android_min_sdk_version,
                 "ndk_api": android_ndk_api,
                 "archs": archs,
-                "cmdline_tools_version": cmdline_tools_tag,
                 "manifest_file": manifest_file,
                 "intent_filters_file": intent_filters_file,
                 "accept_sdk_license": accept_sdk_license,
@@ -88,12 +86,16 @@ def init(ctx):
             },
             "python": {
                 "python_version": python_version,
-            }
+            },
+            "build": {
+		"type": build_type,
+		"patches": {}
+		}
         }
 
         try:
             config_module.save_config(conf, path=ctx.obj["path"])
-            logger.success(f"DroidBuilder project initialized successfully! Configuration saved to {os.path.join(ctx.obj['path'], config_module.CONFIG_FILE)}")
+            logger.success(f"DroidBuilder app initialized successfully! Configuration saved to {os.path.join(ctx.obj['path'], config_module.CONFIG_FILE)}")
             logger.info("Next steps: Run 'droidbuilder install-tools' to set up your development environment.")
         except IOError as e:
             logger.error(f"Error saving configuration file: {e}")
@@ -103,9 +105,11 @@ def init(ctx):
             logger.exception(*sys.exc_info())
 
     except click.Abort:
-        logger.warning("\nProject initialization aborted by user.")
+        logger.warning("\nApp initialization aborted by user.")
     except Exception as e:
         logger.error(f"An unexpected error occurred during initialization: {e}")
         logger.info("Please report this issue on the DroidBuilder GitHub page, providing the full error message.")
         logger.exception(*sys.exc_info())
+
+
 

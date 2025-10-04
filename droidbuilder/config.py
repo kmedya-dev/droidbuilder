@@ -41,5 +41,3 @@ def save_config(config, path="."):
         logger.error(f"An unexpected error occurred while saving configuration to {config_path}: {e}")
         logger.exception(*sys.exc_info())
         return False
-
-

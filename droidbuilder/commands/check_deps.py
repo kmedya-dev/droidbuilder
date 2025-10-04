@@ -65,7 +65,7 @@ def check_deps(ctx):
     if not conf:
         logger.error("Error: Could not load project configuration.")
         return
-    explicit_deps_str, _, _ = get_explicit_dependencies(conf)
+    _, explicit_deps_str, _, _ = get_explicit_dependencies(conf)
     implicit_deps = get_implicit_python_dependencies(path)
 
     explicit_deps = {dep.split("==")[0].strip() for dep in explicit_deps_str}
@@ -90,4 +90,4 @@ def check_deps(ctx):
         logger.warning("Found imported packages not listed in droidbuilder.toml:")
         for dep in sorted(list(missing_deps)):
             logger.warning(f"  - {dep}")
-        logger.info("Please add them to the [project.requirements] section of your droidbuilder.toml file.")
+        logger.info("Please add them to the [app.dependency] section of your droidbuilder.toml file.")

@@ -38,7 +38,7 @@ def build(ctx, platform, sdk_version, ndk_version, jdk_version, build_type, verb
     if sdk_version: conf.setdefault("android", {})["sdk_version"] = sdk_version
     if ndk_version: conf.setdefault("android", {})["ndk_version"] = ndk_version
     if jdk_version: conf.setdefault("java", {})["jdk_version"] = jdk_version
-    if build_type: conf.setdefault("project", {})["build_type"] = build_type
+    if build_type: conf.setdefault("app", {})["build_type"] = build_type
 
     build_successful = False
     try:

@@ -78,6 +78,10 @@ def clean(ctx):
     if os.path.exists(INSTALL_DIR) and os.path.isdir(INSTALL_DIR):
         for item in os.listdir(INSTALL_DIR):
             path = os.path.join(INSTALL_DIR, item)
+            if os.path.abspath(path) == os.path.join(INSTALL_DIR, "env.sh"):
+                # logger.info(f"Skipping removal of env.sh: {path}")
+                continue
+
             if os.path.isdir(path):
                 # logger.debug(f"Checking path for exclusion: {path}, basename: {os.path.basename(path)}")
                 if any(os.path.basename(path).startswith(prefix) for prefix in EXCLUDE_PREFIXES):
