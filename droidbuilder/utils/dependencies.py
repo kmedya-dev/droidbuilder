@@ -6,11 +6,11 @@ def get_explicit_dependencies(conf):
     dependency = app_config.get("dependency", {})
     dependency_mapping = app_config.get("dependency_mapping", {})
 
-    python_packages = []
-    system_packages = []
+    runtime_packages = []
+    buildtime_packages = []
 
     if isinstance(dependency, dict):
-        python_packages = dependency.get("python_packages", [])
-        system_packages = dependency.get("system_packages", [])
+        runtime_packages = dependency.get("runtime_packages", [])
+        buildtime_packages = dependency.get("buildtime_packages", [])
 
-    return python_packages, system_packages, dependency_mapping
+    return runtime_packages, buildtime_packages, dependency_mapping

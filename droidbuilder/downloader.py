@@ -104,14 +104,14 @@ def download_pypi_package(packages, download_path=DOWNLOAD_DIR):
         return None
 
 
-def download_system_package(system_package, download_path=DOWNLOAD_DIR):
+def download_system_package(system_package, download_path=DOWNLOAD_DIR, package_name=None):
     """
     Downloads a system package from a direct URL.
     """
     logger.info(f"  - Downloading system package from URL: {system_package}...")
 
     filename = os.path.basename(system_package)
-    base_filename = {package_name}
+    base_filename = filename
     known_extensions = [".tar.gz", ".tar.bz2", ".tar.xz", ".tgz", ".zip"]
     for ext in known_extensions:
         if base_filename.endswith(ext):
@@ -119,7 +119,10 @@ def download_system_package(system_package, download_path=DOWNLOAD_DIR):
             break
     else:
         base_filename, _ = os.path.splitext(base_filename)
-    extract_dir = os.path.join(download_path, "sources", base_filename)
+    
+    # Use provided package_name for extraction directory if available, otherwise use derived base_filename
+    final_extract_name = package_name if package_name else base_filename
+    extract_dir = os.path.join(download_path, "sources", final_extract_name)
 
     extracted_path = download_and_extract(system_package, extract_dir, filename)
 
@@ -141,14 +144,14 @@ def download_system_package(system_package, download_path=DOWNLOAD_DIR):
     return extracted_path
 
 
-def download_from_url(url, download_path=DOWNLOAD_DIR):
+def download_from_url(url, download_path=DOWNLOAD_DIR, package_name=None):
     """
     Downloads a file from a direct URL and extracts it.
     """
     logger.info(f"  - Downloading from URL: {url}...")
 
     filename = os.path.basename(url)
-    base_filename = {package_name}
+    base_filename = filename
     known_extensions = [".tar.gz", ".tar.bz2", ".tar.xz", ".tgz", ".zip"]
     for ext in known_extensions:
         if base_filename.endswith(ext):
@@ -156,7 +159,10 @@ def download_from_url(url, download_path=DOWNLOAD_DIR):
             break
     else:
         base_filename, _ = os.path.splitext(base_filename)
-    extract_dir = os.path.join(download_path, "sources", base_filename)
+    
+    # Use provided package_name for extraction directory if available, otherwise use derived base_filename
+    final_extract_name = package_name if package_name else base_filename
+    extract_dir = os.path.join(download_path, "sources", final_extract_name)
 
     extracted_path = download_and_extract(url, extract_dir, filename)
 

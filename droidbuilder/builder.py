@@ -25,7 +25,7 @@ ARCH_COMPILER_PREFIXES = {
 }
 
 
-def _setup_python_build_environment(ndk_version, ndk_api, arch, system_packages):
+def _setup_python_build_environment(ndk_version, ndk_api, arch, buildtime_packages):
     """Set up environment variables for cross-compiling Python."""
     logger.info(f"  - Setting up build environment for {arch} (NDK {ndk_version}, API {ndk_api})...")
 
@@ -63,11 +63,11 @@ def _setup_python_build_environment(ndk_version, ndk_api, arch, system_packages)
     cflags = f"-fPIC -DANDROID -D__ANDROID_API__={ndk_api} -I{sysroot}/usr/include"
     ldflags = f"-L{sysroot}/usr/lib/{compiler_prefix}/{ndk_api} -lm -ldl --sysroot={sysroot}"
 
-    # Add system packages to CFLAGS and LDFLAGS if system_libs_dir exists
-    system_libs_dir = os.path.join(INSTALL_DIR, "system_libs", arch)
-    if os.path.exists(system_libs_dir):
-        cflags += f" -I{system_libs_dir}/include"
-        ldflags += f" -L{system_libs_dir}/lib"
+    # Add system packages to CFLAGS and LDFLAGS if buildtime_libs_dir exists
+    buildtime_libs_dir = os.path.join(INSTALL_DIR, "buildtime_libs", arch)
+    if os.path.exists(buildtime_libs_dir):
+        cflags += f" -I{buildtime_libs_dir}/include"
+        ldflags += f" -L{buildtime_libs_dir}/lib"
 
     # Ensure NDK's readelf is in PATH
     ndk_readelf = os.path.join(toolchain_bin, "llvm-readelf")
@@ -290,19 +290,19 @@ def _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_
 def _compile_python_package(package_source_path, python_install_dir, arch, ndk_version, ndk_api):
     """Compiles and installs a Python package for a specific Android architecture."""
     package_name = os.path.basename(package_source_path)
-    logger.info(f"  - Compiling Python package {package_name} for {arch}...")
+    logger.info(f"  - Compiling runtime package {package_name} for {arch}...")
 
     # Set up environment for cross-compilation
     success, toolchain_bin, sysroot, cc_path, cxx_path, ar_path, ld_path, ranlib_path, strip_path, readelf_path, cflags, ldflags, ndk_root, compiler_prefix, env = _setup_python_build_environment(ndk_version, ndk_api, arch, [])
     if not success:
-        logger.error(f"Failed to set up build environment for {arch} for package {package_name}. Aborting.")
+        logger.error(f"Failed to set up build environment for {arch} for runtime package {package_name}. Aborting.")
         return False
 
     # Attempt to install using pip (preferred for Python packages)
     # Ensure pip is available in the cross-compiled Python environment
     python_bin = os.path.join(python_install_dir, "bin", "python3")
     if not os.path.exists(python_bin):
-        logger.error(f"Error: Cross-compiled Python interpreter not found at {python_bin}. Cannot install package {package_name}.")
+        logger.error(f"Error: Cross-compiled Python interpreter not found at {python_bin}. Cannot install runtime package {package_name}.")
         return False
 
     # Create a new environment for pip install to include CFLAGS and LDFLAGS
@@ -325,7 +325,7 @@ def _compile_python_package(package_source_path, python_install_dir, arch, ndk_v
         logger.success(f"    - Successfully compiled and installed {package_name} for {arch}.")
         return True
     except subprocess.CalledProcessError as e:
-        logger.error(f"Pip install failed for {package_name} (Exit Code: {e.returncode}):")
+        logger.error(f"Pip install failed for runtime package {package_name} (Exit Code: {e.returncode}):")
         if e.stdout:
             logger.error(f"Stdout:\n{e.stdout}")
         if e.stderr:
@@ -333,18 +333,18 @@ def _compile_python_package(package_source_path, python_install_dir, arch, ndk_v
         logger.info("Please check the package requirements and cross-compilation environment.")
         return False
     except Exception as e:
-        logger.error(f"An unexpected error occurred during pip install for {package_name}: {e}")
+        logger.error(f"An unexpected error occurred during pip install for runtime package {package_name}: {e}")
         logger.exception(*sys.exc_info())
         return False
 
-def _download_python_packages(requirements, dependency_mapping, build_path, archs, ndk_version, ndk_api):
+def _download_python_packages(runtime_packages, dependency_mapping, build_path, archs, ndk_version, ndk_api):
     """Downloads and compiles Python packages specified in requirements."""
-    logger.info("  - Downloading and compiling Python packages...")
-    download_dir = os.path.join(build_path, "python_packages_src")
+    logger.info("  - Downloading and compiling runtime packages...")
+    download_dir = os.path.join(build_path, "runtime_packages_src")
     os.makedirs(download_dir, exist_ok=True)
 
     downloaded_packages = []
-    for req in requirements:
+    for req in runtime_packages:
         if req == "python3":
             continue
         logger.info(f"    - Downloading {req}...")
@@ -353,7 +353,7 @@ def _download_python_packages(requirements, dependency_mapping, build_path, arch
         if req in dependency_mapping:
             url = dependency_mapping[req]
             logger.info(f"    - Found explicit URL in dependency_mapping: {url}")
-            package_path = downloader.download_from_url(url, download_dir)
+            package_path = downloader.download_from_url(url, download_dir, package_name=req)
         else:
             package_path = downloader.download_pypi_package(req, download_dir)
 
@@ -371,13 +371,13 @@ def _download_python_packages(requirements, dependency_mapping, build_path, arch
                 logger.error(f"Failed to compile {os.path.basename(package_path)} for {arch}. Aborting.")
                 return False
 
-    logger.success("  - All Python packages downloaded and compiled.")
+    logger.success("  - All runtime packages downloaded and compiled.")
     return True
 
-def _compile_system_package(package_source_path, arch, ndk_version, ndk_api, system_packages, package_config, package_name_from_config, config, cflags, ldflags, cc_path, cxx_path, ar_path, ld_path, ranlib_path, strip_path, readelf_path, ndk_root, env):
+def _compile_system_package(package_source_path, arch, ndk_version, ndk_api, buildtime_packages, package_config, package_name_from_config, config, cflags, ldflags, cc_path, cxx_path, ar_path, ld_path, ranlib_path, strip_path, readelf_path, ndk_root, env):
     """Compiles and installs a system package for a specific Android architecture."""
     package_name = os.path.basename(package_source_path)
-    logger.info(f"  - Compiling system package {package_name} for {arch}...")
+    logger.info(f"  - Compiling buildtime package {package_name} for {arch}...")
 
 
 
@@ -401,7 +401,7 @@ def _compile_system_package(package_source_path, arch, ndk_version, ndk_api, sys
                 logger.warning(f"  - Patch file not found: {patch_file}")
 
     # The destination for the compiled libraries
-    install_dir = os.path.join(INSTALL_DIR, "system_libs", arch)
+    install_dir = os.path.join(INSTALL_DIR, "buildtime_libs", arch)
     os.makedirs(install_dir, exist_ok=True)
 
     # Some packages need to generate a configure script first
@@ -498,23 +498,23 @@ def _compile_system_package(package_source_path, arch, ndk_version, ndk_api, sys
 
 def _download_system_packages(resolved_system_packages, build_path, archs, ndk_version, ndk_api, config, toolchain_bin_map, sysroot_map, cc_path_map, cxx_path_map, ar_path_map, ld_path_map, ranlib_path_map, strip_path_map, readelf_path_map, ndk_root_map):
     """Downloads and compiles system packages specified."""
-    logger.info("  - Downloading and compiling system packages...")
+    logger.info("  - Downloading and compiling buildtime packages...")
     download_dir = os.path.join(build_path, "system_packages_src")
     os.makedirs(download_dir, exist_ok=True)
 
     downloaded_packages = []
     for name, package_config in resolved_system_packages.items():
-        logger.info(f"    - Processing system package: {name}...")
+        logger.info(f"    - Processing buildtime package: {name}...")
         
         url = package_config.get("url")
         if not url:
-            logger.error(f"URL not found for system package: {name}")
+            logger.error(f"URL not found for buildtime package: {name}")
             return False
 
         logger.info(f"    - Found URL: {url}")
-        extracted_dir = downloader.download_system_package(url, os.path.join(download_dir)) # Call download_system_package with URL
+        extracted_dir = downloader.download_system_package(url, os.path.join(download_dir), package_name=name) # Call download_system_package with URL and package_name
         if not extracted_dir:
-            logger.error(f"Failed to download and extract system package: {name}")
+            logger.error(f"Failed to download and extract buildtime package: {name}")
             return False
         logger.success(f"    - {name} ready in {extracted_dir}")
         downloaded_packages.append((name, extracted_dir, package_config))
@@ -537,10 +537,10 @@ def _download_system_packages(resolved_system_packages, build_path, archs, ndk_v
 
             cflags = f"-fPIC -DANDROID -D__ANDROID_API__={ndk_api} --sysroot={sysroot}"
             ldflags = f"-L{sysroot}/usr/lib/{host_triplet}/{ndk_api} --sysroot={sysroot}"
-            system_libs_dir = os.path.join(INSTALL_DIR, "system_libs", arch)
-            if os.path.exists(system_libs_dir):
-                cflags += f" -I{system_libs_dir}/include"
-                ldflags += f" -L{system_libs_dir}/lib"
+            buildtime_libs_dir = os.path.join(INSTALL_DIR, "buildtime_libs", arch)
+            if os.path.exists(buildtime_libs_dir):
+                cflags += f" -I{buildtime_libs_dir}/include"
+                ldflags += f" -L{buildtime_libs_dir}/lib"
 
             # Create a temporary directory for the current architecture's build
             arch_specific_build_dir = os.path.join(download_dir, f"{package_name}-{arch}")
@@ -646,8 +646,8 @@ def _configure_android_project(build_path, project_name, package_domain, app_ver
 
 
 def _copy_assets_to_android_project(build_path, archs):
-    """Copy compiled Python interpreter, modules, and system libraries to Android project assets/jniLibs."""
-    logger.info("  - Copying Python and system assets to Android project...")
+    """Copy compiled Python interpreter, modules, and buildtime libraries to Android project assets/jniLibs."""
+    logger.info("  - Copying Python and buildtime assets to Android project...")
 
     assets_dir = os.path.join(build_path, "app", "src", "main", "assets")
     jni_libs_dir = os.path.join(build_path, "app", "src", "main", "jniLibs")
@@ -675,22 +675,22 @@ def _copy_assets_to_android_project(build_path, archs):
             logger.info("Please check directory permissions and ensure enough disk space is available.")
             return False
 
-        # Copy system libraries (assuming they are compiled and placed in INSTALL_DIR/system_libs/{arch})
-        system_libs_source_dir = os.path.join(INSTALL_DIR, "system_libs", arch)
-        dest_system_libs_dir = os.path.join(jni_libs_dir, arch)
+        # Copy system libraries (assuming they are compiled and placed in INSTALL_DIR/buildtime_libs/{arch})
+        buildtime_libs_source_dir = os.path.join(INSTALL_DIR, "buildtime_libs", arch)
+        dest_buildtime_libs_dir = os.path.join(jni_libs_dir, arch)
 
-        if os.path.exists(system_libs_source_dir):
+        if os.path.exists(buildtime_libs_source_dir):
             try:
-                shutil.copytree(system_libs_source_dir, dest_system_libs_dir, dirs_exist_ok=True)
-                logger.info(f"    - Copied system libraries for {arch} to {dest_system_libs_dir}")
+                shutil.copytree(buildtime_libs_source_dir, dest_buildtime_libs_dir, dirs_exist_ok=True)
+                logger.info(f"    - Copied buildtime libraries for {arch} to {dest_buildtime_libs_dir}")
             except (shutil.Error, OSError) as e:
-                logger.error(f"Error copying system libraries for {arch} from {system_libs_source_dir} to {dest_system_libs_dir}: {e}")
+                logger.error(f"Error copying buildtime libraries for {arch} from {buildtime_libs_source_dir} to {dest_buildtime_libs_dir}: {e}")
                 logger.info("Please check directory permissions and ensure enough disk space is available.")
                 return False
         else:
-            logger.warning(f"    - No system libraries found for {arch} at {system_libs_source_dir}. Skipping.")
+            logger.warning(f"    - No buildtime libraries found for {arch} at {buildtime_libs_source_dir}. Skipping.")
 
-    logger.success("  - Python and system assets copied.")
+    logger.success("  - Python and buildtime assets copied.")
     return True
 
 def _copy_user_python_code(build_path, main_file):
@@ -741,7 +741,7 @@ def build_android(config, verbose):
     build_type = project.get("build_type", "debug")
 
     # Get dependencies using the dependencies module
-    requirements, system_packages, dependency_mapping = get_explicit_dependencies(config)
+    runtime_packages, buildtime_packages, dependency_mapping = get_explicit_dependencies(config)
 
     # Android configs
     android_cfg = config.get("android", {})
@@ -811,7 +811,7 @@ def build_android(config, verbose):
         env_map = {}
 
         for arch in archs:
-            success, toolchain_bin, sysroot, cc_path, cxx_path, ar_path, ld_path, ranlib_path, strip_path, readelf_path, cflags, ldflags, ndk_root, compiler_prefix, env = _setup_python_build_environment(ndk_version, ndk_api, arch, system_packages)
+            success, toolchain_bin, sysroot, cc_path, cxx_path, ar_path, ld_path, ranlib_path, strip_path, readelf_path, cflags, ldflags, ndk_root, compiler_prefix, env = _setup_python_build_environment(ndk_version, ndk_api, arch, buildtime_packages)
             if not success:
                 logger.error(f"Failed to set up build environment for {arch}. Aborting.")
                 return False
@@ -831,13 +831,13 @@ def build_android(config, verbose):
             env_map[arch] = env
 
         # Resolve and download system packages
-        if system_packages:
-            resolved_system_packages = resolve_dependencies_recursively(system_packages, dependency_mapping)
+        if buildtime_packages:
+            resolved_system_packages = resolve_dependencies_recursively(buildtime_packages, dependency_mapping)
             if resolved_system_packages is None:
-                logger.error("Failed to resolve system package dependencies. Aborting.")
+                logger.error("Failed to resolve buildtime package dependencies. Aborting.")
                 return False
             if not _download_system_packages(resolved_system_packages, build_path, archs, ndk_version, ndk_api, config, toolchain_bin_map, sysroot_map, cc_path_map, cxx_path_map, ar_path_map, ld_path_map, ranlib_path_map, strip_path_map, readelf_path_map, ndk_root_map):
-                logger.error("Failed to download and compile system packages. Aborting.")
+                logger.error("Failed to download and compile buildtime packages. Aborting.")
                 return False
 
         # Download Python source
@@ -856,9 +856,9 @@ def build_android(config, verbose):
                 return False
 
         # Download Python packages
-        if requirements:
-            if not _download_python_packages(requirements, dependency_mapping, build_path, archs, ndk_version, ndk_api):
-                logger.error("Failed to download Python packages. Aborting.")
+        if runtime_packages:
+            if not _download_python_packages(runtime_packages, dependency_mapping, build_path, archs, ndk_version, ndk_api):
+                logger.error("Failed to download runtime packages. Aborting.")
                 return False
 
         # Create Android project structure
@@ -871,7 +871,7 @@ def build_android(config, verbose):
             logger.error("Failed to configure Android project. Aborting.")
             return False
 
-        # Copy Python and system assets
+        # Copy Python and buildtime assets
         if not _copy_assets_to_android_project(build_path, archs):
             logger.error("Failed to copy assets to Android project. Aborting.")
             return False
