@@ -12,8 +12,5 @@ def get_explicit_dependencies(conf):
     if isinstance(dependency, dict):
         python_packages = dependency.get("python_packages", [])
         system_packages = dependency.get("system_packages", [])
-    elif isinstance(dependency, list):
-        # If 'dependency' is a list, assume it contains only python packages.
-        python_packages = dependency
 
     return python_packages, system_packages, dependency_mapping
