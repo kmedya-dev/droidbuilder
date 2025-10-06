@@ -1,7 +1,8 @@
 import click
 import sys
+import traceback
 import os
-from ..cli_logger import logger, get_latest_log_file, LOG_DIR
+from ..cli_logger import get_latest_log_file, LOG_DIR
 from colorama import Fore, Style
 
 @click.command()
@@ -11,13 +12,13 @@ def log(filename, list_files):
     """Display a specific log file or the latest log file, or list all log files."""
     if list_files:
         if not os.path.exists(LOG_DIR):
-            logger.info("Log directory does not exist.")
+            sys.stdout.write("Log directory does not exist.")
             return
         log_files = [f for f in os.listdir(LOG_DIR) if f.endswith(".log")]
         if not log_files:
-            logger.info("No log files found.")
+            sys.stdout.write("No log files found.")
             return
-        logger.info("Available log files:")
+        sys.stdout.write("Available log files:")
         for f in sorted(log_files):
             print(f"  {f}")
         return
@@ -29,10 +30,10 @@ def log(filename, list_files):
         log_file = get_latest_log_file()
 
     if not log_file or not os.path.exists(log_file):
-        logger.info("No log files found.")
+        sys.stdout.write("No log files found.")
         return
 
-    logger.info(f"Displaying log file: {log_file}")
+    sys.stdout.write(f"Displaying log file: {log_file}")
     try:
         with open(log_file, 'r') as f:
             for line in f:
@@ -51,8 +52,8 @@ def log(filename, list_files):
                     color = Fore.CYAN
                 print(f"{color}{line.strip()}{Style.RESET_ALL}")
     except IOError as e:
-        logger.error(f"Error reading log file {log_file}: {e}")
-        logger.info("Please check file permissions.")
+        sys.stderr.write(f"Error reading log file {log_file}: {e}")
+        sys.stdout.write("Please check file permissions.")
     except Exception as e:
-        logger.error(f"An unexpected error occurred while reading log file {log_file}: {e}")
-        logger.exception(*sys.exc_info())
+        sys.stderr.write(f"An unexpected error occurred while reading log file {log_file}: {e}")
+        traceback.print_exc(file=sys.stderr)
