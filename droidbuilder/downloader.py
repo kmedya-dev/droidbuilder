@@ -67,20 +67,19 @@ def download_python_source(version):
     return source_dir
 
 
-def download_pypi_package(req, download_path="."):
+def download_pypi_package(packages, download_path=DOWNLOAD_DIR):
     """
     Downloads a package from PyPI, respecting the specified version.
     """
-    if "==" in req:
-        package_name, version = req.split("==", 1)
+    if "==" in package_spec:
+        name, version = package_spec.split("==", 1)
     else:
-        package_name = req
-        version = None
+        name, version = package_spec, None
 
-    logger.info(f"  - Processing Python package: {package_name}{'==' + version if version else ' (latest)'}")
+    logger.info(f"  - Processing Python package: {name}{'==' + version if version else ' (latest)'}")
     
-    try: # Added try block
-        url, resolved_version = resolve_python_package(package_name, version)
+    try:
+        url, resolved_version = resolve_python_package(name, version)
         if not url:
             return None
 
@@ -98,10 +97,10 @@ def download_pypi_package(req, download_path="."):
         return file_path
 
     except requests.exceptions.RequestException as e:
-        logger.error(f"Error downloading {package_name}: {e}")
+        logger.error(f"Error downloading {name}: {e}")
         return None
     except Exception as e:
-        logger.error(f"An unexpected error occurred while downloading {package_name}: {e}")
+        logger.error(f"An unexpected error occurred while downloading {name}: {e}")
         return None
 
 
@@ -112,7 +111,7 @@ def download_system_package(system_package, download_path=DOWNLOAD_DIR):
     logger.info(f"  - Downloading system package from URL: {system_package}...")
 
     filename = os.path.basename(system_package)
-    base_filename = filename
+    base_filename = {package_name}
     known_extensions = [".tar.gz", ".tar.bz2", ".tar.xz", ".tgz", ".zip"]
     for ext in known_extensions:
         if base_filename.endswith(ext):
@@ -142,14 +141,14 @@ def download_system_package(system_package, download_path=DOWNLOAD_DIR):
     return extracted_path
 
 
-def download_from_url(url, download_path="."):
+def download_from_url(url, download_path=DOWNLOAD_DIR):
     """
     Downloads a file from a direct URL and extracts it.
     """
     logger.info(f"  - Downloading from URL: {url}...")
 
     filename = os.path.basename(url)
-    base_filename = filename
+    base_filename = {package_name}
     known_extensions = [".tar.gz", ".tar.bz2", ".tar.xz", ".tgz", ".zip"]
     for ext in known_extensions:
         if base_filename.endswith(ext):

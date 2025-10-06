@@ -59,16 +59,6 @@ def _setup_python_build_environment(ndk_version, ndk_api, arch, system_packages)
     strip_path = f"{toolchain_bin}/llvm-strip"
     readelf_path = f"{toolchain_bin}/llvm-readelf"
 
-    os.environ["AR"] = ar_path
-    os.environ["CC"] = cc_path
-    os.environ["CXX"] = cxx_path
-    os.environ["LD"] = ld_path
-    os.environ["RANLIB"] = ranlib_path
-    os.environ["STRIP"] = strip_path
-    os.environ["READELF"] = readelf_path
-    os.environ["SYSROOT"] = sysroot
-    os.environ["PATH"] = f"{toolchain_bin}:{os.environ['PATH']}"
-
     # Initialize cflags and ldflags with base values
     cflags = f"-fPIC -DANDROID -D__ANDROID_API__={ndk_api} -I{sysroot}/usr/include"
     ldflags = f"-L{sysroot}/usr/lib/{compiler_prefix}/{ndk_api} -lm -ldl --sysroot={sysroot}"
@@ -86,12 +76,24 @@ def _setup_python_build_environment(ndk_version, ndk_api, arch, system_packages)
     else:
         logger.info(f"  - NDK readelf found at {ndk_readelf}")
 
-    # Try to set PYTHON_FOR_BUILD and PYTHON_FOR_HOST for configure script
-    os.environ["PYTHON_FOR_BUILD"] = sys.executable
-    os.environ["PYTHON_FOR_HOST"] = sys.executable
+    # Prepare environment variables for subprocesses
+    env = os.environ.copy()
+    env["AR"] = ar_path
+    env["CC"] = cc_path
+    env["CXX"] = cxx_path
+    env["LD"] = ld_path
+    env["RANLIB"] = ranlib_path
+    env["STRIP"] = strip_path
+    env["READELF"] = readelf_path
+    env["SYSROOT"] = sysroot
+    env["PATH"] = f"{toolchain_bin}:{env['PATH']}"
+    env["PYTHON_FOR_BUILD"] = sys.executable
+    env["PYTHON_FOR_HOST"] = sys.executable
+    env["CFLAGS"] = cflags
+    env["LDFLAGS"] = ldflags
 
     logger.info("  - Build environment set up.")
-    return True, toolchain_bin, sysroot, cc_path, cxx_path, ar_path, ld_path, ranlib_path, strip_path, readelf_path, cflags, ldflags, ndk_root, compiler_prefix
+    return True, toolchain_bin, sysroot, cc_path, cxx_path, ar_path, ld_path, ranlib_path, strip_path, readelf_path, cflags, ldflags, ndk_root, compiler_prefix, env
 
 def _disable_unnecessary_python_modules(python_source_dir):
     """Disables unnecessary Python modules to reduce final binary size."""
@@ -137,7 +139,7 @@ def _disable_unnecessary_python_modules(python_source_dir):
 
 
 
-def _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_path, toolchain_bin, sysroot, cc_path, cxx_path, ar_path, ld_path, ranlib_path, strip_path, readelf_path, compiler_prefix):
+def _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_path, toolchain_bin, sysroot, cc_path, cxx_path, ar_path, ld_path, ranlib_path, strip_path, readelf_path, compiler_prefix, env):
     """Build Python for a specific Android architecture."""
     logger.info(f"  - Building Python {python_version} for {arch}...")
 
@@ -222,17 +224,8 @@ def _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_
     ]
 
     logger.info(f"  - Running configure: {' '.join(configure_cmd)}")
-    original_env = os.environ.copy()
     try:
-        os.environ["CC"] = cc_path
-        os.environ["CXX"] = cxx_path
-        os.environ["AR"] = ar_path
-        os.environ["LD"] = ld_path
-        os.environ["RANLIB"] = ranlib_path
-        os.environ["STRIP"] = strip_path
-        os.environ["READELF"] = readelf_path
-        os.environ["SYSROOT"] = sysroot
-        subprocess.run(configure_cmd, check=True, cwd=python_source_dir, capture_output=True, text=True)
+        subprocess.run(configure_cmd, check=True, cwd=python_source_dir, capture_output=True, text=True, env=env)
     except subprocess.CalledProcessError as e:
         logger.error(f"Python configure failed (Exit Code: {e.returncode}):")
         if e.stdout:
@@ -253,7 +246,7 @@ def _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_
     make_cmd = ["make", "-j", str(os.cpu_count())]
     logger.info(f"  - Running make: {' '.join(make_cmd)}")
     try:
-        subprocess.run(make_cmd, check=True, cwd=python_source_dir, capture_output=True, text=True)
+        subprocess.run(make_cmd, check=True, cwd=python_source_dir, capture_output=True, text=True, env=env)
     except subprocess.CalledProcessError as e:
         logger.error(f"Python make failed (Exit Code: {e.returncode}):")
         if e.stdout:
@@ -274,7 +267,7 @@ def _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_
     make_install_cmd = ["make", "install"]
     logger.info(f"  - Running make install: {' '.join(make_install_cmd)}")
     try:
-        subprocess.run(make_install_cmd, check=True, cwd=python_source_dir, capture_output=True, text=True)
+        subprocess.run(make_install_cmd, check=True, cwd=python_source_dir, capture_output=True, text=True, env=env)
     except subprocess.CalledProcessError as e:
         logger.error(f"Python make install failed (Exit Code: {e.returncode}):")
         if e.stdout:
@@ -300,7 +293,7 @@ def _compile_python_package(package_source_path, python_install_dir, arch, ndk_v
     logger.info(f"  - Compiling Python package {package_name} for {arch}...")
 
     # Set up environment for cross-compilation
-    success, toolchain_bin, sysroot, cc_path, cxx_path, ar_path, ld_path, ranlib_path, strip_path, readelf_path, cflags, ldflags, ndk_root, compiler_prefix = _setup_python_build_environment(ndk_version, ndk_api, arch, [])
+    success, toolchain_bin, sysroot, cc_path, cxx_path, ar_path, ld_path, ranlib_path, strip_path, readelf_path, cflags, ldflags, ndk_root, compiler_prefix, env = _setup_python_build_environment(ndk_version, ndk_api, arch, [])
     if not success:
         logger.error(f"Failed to set up build environment for {arch} for package {package_name}. Aborting.")
         return False
@@ -313,18 +306,9 @@ def _compile_python_package(package_source_path, python_install_dir, arch, ndk_v
         return False
 
     # Create a new environment for pip install to include CFLAGS and LDFLAGS
-    pip_env = os.environ.copy()
-    pip_env["CC"] = cc_path
-    pip_env["CXX"] = cxx_path
-    pip_env["AR"] = ar_path
-    pip_env["LD"] = ld_path
-    pip_env["RANLIB"] = ranlib_path
-    pip_env["STRIP"] = strip_path
-    pip_env["READELF"] = readelf_path
-    pip_env["SYSROOT"] = sysroot
+    pip_env = env.copy() # Use the env returned by _setup_python_build_environment
     pip_env["CFLAGS"] = cflags
     pip_env["LDFLAGS"] = ldflags
-    pip_env["PATH"] = f"{toolchain_bin}:{pip_env['PATH']}"
 
     # Try to install using the cross-compiled pip
     pip_install_cmd = [
@@ -390,7 +374,7 @@ def _download_python_packages(requirements, dependency_mapping, build_path, arch
     logger.success("  - All Python packages downloaded and compiled.")
     return True
 
-def _compile_system_package(package_source_path, arch, ndk_version, ndk_api, system_packages, package_config, package_name_from_config, config, cflags, ldflags, cc_path, cxx_path, ar_path, ld_path, ranlib_path, strip_path, readelf_path, ndk_root):
+def _compile_system_package(package_source_path, arch, ndk_version, ndk_api, system_packages, package_config, package_name_from_config, config, cflags, ldflags, cc_path, cxx_path, ar_path, ld_path, ranlib_path, strip_path, readelf_path, ndk_root, env):
     """Compiles and installs a system package for a specific Android architecture."""
     package_name = os.path.basename(package_source_path)
     logger.info(f"  - Compiling system package {package_name} for {arch}...")
@@ -471,18 +455,19 @@ def _compile_system_package(package_source_path, arch, ndk_version, ndk_api, sys
 
     if configure_cmd:
         logger.info(f"  - Running configure: {' '.join(configure_cmd)}")
-        original_env = os.environ.copy()
+        # Use the env passed from _setup_python_build_environment
+        # original_env = os.environ.copy() # Removed
         try:
-            os.environ["CC"] = cc_path
-            os.environ["CXX"] = cxx_path
-            os.environ["AR"] = ar_path
-            os.environ["LD"] = ld_path
-            os.environ["RANLIB"] = ranlib_path
-            os.environ["STRIP"] = strip_path
-            os.environ["READELF"] = readelf_path
-            os.environ["CFLAGS"] = cflags
-            os.environ["LDFLAGS"] = ldflags
-            subprocess.run(configure_cmd, check=True, cwd=package_source_path, capture_output=True, text=True)
+            # os.environ["CC"] = cc_path # Removed
+            # os.environ["CXX"] = cxx_path # Removed
+            # os.environ["AR"] = ar_path # Removed
+            # os.environ["LD"] = ld_path # Removed
+            # os.environ["RANLIB"] = ranlib_path # Removed
+            # os.environ["STRIP"] = strip_path # Removed
+            # os.environ["READELF"] = readelf_path # Removed
+            # os.environ["CFLAGS"] = cflags # Removed
+            # os.environ["LDFLAGS"] = ldflags # Removed
+            subprocess.run(configure_cmd, check=True, cwd=package_source_path, capture_output=True, text=True, env=env)
         except subprocess.CalledProcessError as e:
             logger.error(f"Configure failed for {package_name} (Exit Code: {e.returncode}):")
             if e.stdout:
@@ -490,16 +475,16 @@ def _compile_system_package(package_source_path, arch, ndk_version, ndk_api, sys
             if e.stderr:
                 logger.error(f"Stderr:\n{e.stderr}")
             return False
-        finally:
-            os.environ.clear()
-            os.environ.update(original_env)
+        # finally: # Removed
+        #     os.environ.clear() # Removed
+        #     os.environ.update(original_env) # Removed
 
     # Make and make install
     logger.info(f"  - Running make: {' '.join(build_cmd)}")
     try:
-        subprocess.run(build_cmd, check=True, cwd=package_source_path, capture_output=True, text=True)
+        subprocess.run(build_cmd, check=True, cwd=package_source_path, capture_output=True, text=True, env=env)
         logger.info(f"  - Running make install: {' '.join(install_cmd)}")
-        subprocess.run(install_cmd, check=True, cwd=package_source_path, capture_output=True, text=True)
+        subprocess.run(install_cmd, check=True, cwd=package_source_path, capture_output=True, text=True, env=env)
         logger.success(f"  - Successfully compiled and installed {package_name} for {arch}.")
         return True
     except subprocess.CalledProcessError as e:
@@ -509,7 +494,6 @@ def _compile_system_package(package_source_path, arch, ndk_version, ndk_api, sys
         if e.stderr:
             logger.error(f"Stderr:\n{e.stderr}")
         return False
-
 
 
 def _download_system_packages(resolved_system_packages, build_path, archs, ndk_version, ndk_api, config, toolchain_bin_map, sysroot_map, cc_path_map, cxx_path_map, ar_path_map, ld_path_map, ranlib_path_map, strip_path_map, readelf_path_map, ndk_root_map):
@@ -568,7 +552,7 @@ def _download_system_packages(resolved_system_packages, build_path, archs, ndk_v
                 logger.error(f"Error copying {package_name} source for {arch} build: {e}")
                 return False
 
-            if not _compile_system_package(arch_specific_build_dir, arch, ndk_version, ndk_api, list(resolved_system_packages.keys()), package_config, name, config, cflags, ldflags, cc_path, cxx_path, ar_path, ld_path, ranlib_path, strip_path, readelf_path, ndk_root_map[arch]):
+            if not _compile_system_package(arch_specific_build_dir, arch, ndk_version, ndk_api, list(resolved_system_packages.keys()), package_config, name, config, cflags, ldflags, cc_path, cxx_path, ar_path, ld_path, ranlib_path, strip_path, readelf_path, ndk_root_map[arch], env_map[arch]):
                 logger.error(f"Failed to compile {package_name} for {arch}. Aborting.")
                 return False
             # Clean up the temporary directory after compilation for this arch
@@ -824,9 +808,10 @@ def build_android(config, verbose):
         cflags_map = {}
         ldflags_map = {}
         ndk_root_map = {}
+        env_map = {}
 
         for arch in archs:
-            success, toolchain_bin, sysroot, cc_path, cxx_path, ar_path, ld_path, ranlib_path, strip_path, readelf_path, cflags, ldflags, ndk_root, compiler_prefix = _setup_python_build_environment(ndk_version, ndk_api, arch, system_packages)
+            success, toolchain_bin, sysroot, cc_path, cxx_path, ar_path, ld_path, ranlib_path, strip_path, readelf_path, cflags, ldflags, ndk_root, compiler_prefix, env = _setup_python_build_environment(ndk_version, ndk_api, arch, system_packages)
             if not success:
                 logger.error(f"Failed to set up build environment for {arch}. Aborting.")
                 return False
@@ -843,6 +828,7 @@ def build_android(config, verbose):
             ldflags_map[arch] = ldflags
             ndk_root_map[arch] = ndk_root
             compiler_prefix_map[arch] = compiler_prefix
+            env_map[arch] = env
 
         # Resolve and download system packages
         if system_packages:
@@ -865,7 +851,7 @@ def build_android(config, verbose):
 
         # Set up environment for each architecture and build Python
         for arch in archs:
-            if not _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_path, toolchain_bin_map[arch], sysroot_map[arch], cc_path_map[arch], cxx_path_map[arch], ar_path_map[arch], ld_path_map[arch], ranlib_path_map[arch], strip_path_map[arch], readelf_path_map[arch], compiler_prefix_map[arch]):
+            if not _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_path, toolchain_bin_map[arch], sysroot_map[arch], cc_path_map[arch], cxx_path_map[arch], ar_path_map[arch], ld_path_map[arch], ranlib_path_map[arch], strip_path_map[arch], readelf_path_map[arch], compiler_prefix_map[arch], env_map[arch]):
                 logger.error(f"Failed to build Python for {arch}. Aborting.")
                 return False
 
