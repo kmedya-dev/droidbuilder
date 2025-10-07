@@ -840,6 +840,24 @@ def build_android(config, verbose):
                 logger.error("Failed to download and compile buildtime packages. Aborting.")
                 return False
 
+            # AFTER system packages are downloaded and compiled, update CFLAGS and LDFLAGS in env_map
+            for arch in archs:
+                buildtime_libs_dir = os.path.join(INSTALL_DIR, "buildtime_libs", arch)
+                if os.path.exists(buildtime_libs_dir):
+                    current_cflags = env_map[arch].get("CFLAGS", "")
+                    current_ldflags = env_map[arch].get("LDFLAGS", "")
+                    
+                    # Append only if not already present to avoid duplication
+                    if f"-I{buildtime_libs_dir}/include" not in current_cflags:
+                        current_cflags += f" -I{buildtime_libs_dir}/include"
+                    if f"-L{buildtime_libs_dir}/lib" not in current_ldflags:
+                        current_ldflags += f" -L{buildtime_libs_dir}/lib"
+                    
+                    env_map[arch]["CFLAGS"] = current_cflags
+                    env_map[arch]["LDFLAGS"] = current_ldflags
+                    logger.info(f"  - Updated CFLAGS for {arch}: {env_map[arch]['CFLAGS']}")
+                    logger.info(f"  - Updated LDFLAGS for {arch}: {env_map[arch]['LDFLAGS']}")
+
         # Download Python source
         if python_version:
             if not downloader.download_python_source(python_version):
