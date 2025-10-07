@@ -496,7 +496,7 @@ def _compile_system_package(package_source_path, arch, ndk_version, ndk_api, bui
         return False
 
 
-def _download_system_packages(resolved_system_packages, build_path, archs, ndk_version, ndk_api, config, toolchain_bin_map, sysroot_map, cc_path_map, cxx_path_map, ar_path_map, ld_path_map, ranlib_path_map, strip_path_map, readelf_path_map, ndk_root_map):
+def _download_system_packages(resolved_system_packages, build_path, archs, ndk_version, ndk_api, config, toolchain_bin_map, sysroot_map, cc_path_map, cxx_path_map, ar_path_map, ld_path_map, ranlib_path_map, strip_path_map, readelf_path_map, ndk_root_map, env_map):
     """Downloads and compiles system packages specified."""
     logger.info("  - Downloading and compiling buildtime packages...")
     download_dir = os.path.join(build_path, "system_packages_src")
@@ -836,7 +836,7 @@ def build_android(config, verbose):
             if resolved_system_packages is None:
                 logger.error("Failed to resolve buildtime package dependencies. Aborting.")
                 return False
-            if not _download_system_packages(resolved_system_packages, build_path, archs, ndk_version, ndk_api, config, toolchain_bin_map, sysroot_map, cc_path_map, cxx_path_map, ar_path_map, ld_path_map, ranlib_path_map, strip_path_map, readelf_path_map, ndk_root_map):
+            if not _download_system_packages(resolved_system_packages, build_path, archs, ndk_version, ndk_api, config, toolchain_bin_map, sysroot_map, cc_path_map, cxx_path_map, ar_path_map, ld_path_map, ranlib_path_map, strip_path_map, readelf_path_map, ndk_root_map, env_map):
                 logger.error("Failed to download and compile buildtime packages. Aborting.")
                 return False
 
