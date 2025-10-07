@@ -509,7 +509,7 @@ def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version,
     try:
         subprocess.run(build_cmd, check=True, cwd=buildtime_package_source_path, capture_output=True, text=True, env=env)
         logger.info(f"  - Running make install: {' '.join(install_cmd)}")
-        subprocess.run(install_cmd, check=True, cwd=buildtime_package_source_path, capture_output=True, text=True, env=env)rue, text=True, env=env)
+        subprocess.run(install_cmd, check=True, cwd=buildtime_package_source_path, capture_output=True, text=True, env=env)
         logger.success(f"  - Successfully compiled and installed {package_name} for {arch}.")
         return True
     except subprocess.CalledProcessError as e:
