@@ -71,10 +71,10 @@ def download_pypi_package(packages, download_path=DOWNLOAD_DIR):
     """
     Downloads a package from PyPI, respecting the specified version.
     """
-    if "==" in package_spec:
-        name, version = package_spec.split("==", 1)
+    if "==" in packages:
+        name, version = packages.split("==", 1)
     else:
-        name, version = package_spec, None
+        name, version = packages, None
 
     logger.info(f"  - Processing Python package: {name}{'==' + version if version else ' (latest)'}")
     
