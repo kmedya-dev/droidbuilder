@@ -6,7 +6,7 @@ import subprocess
 from .cli_logger import logger
 from . import config
 from .utils.file_manager import download_and_extract
-from .utils.python_package import resolve_python_package
+from .utils.runtime_package import resolve_runtime_package
 
 INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
 DOWNLOAD_DIR = os.path.join(INSTALL_DIR, "downloads")
@@ -79,7 +79,7 @@ def download_pypi_package(packages, download_path=DOWNLOAD_DIR):
     logger.info(f"  - Processing Python package: {name}{'==' + version if version else ' (latest)'}")
     
     try:
-        url, resolved_version = resolve_python_package(name, version)
+        url, resolved_version = resolve_runtime_package(name, version)
         if not url:
             return None
 
@@ -104,13 +104,13 @@ def download_pypi_package(packages, download_path=DOWNLOAD_DIR):
         return None
 
 
-def download_system_package(system_package, download_path=DOWNLOAD_DIR, package_name=None):
+def download_buildtime_package(buildtime_package, download_path=DOWNLOAD_DIR, package_name=None):
     """
-    Downloads a system package from a direct URL.
+    Downloads a buildtime package from a direct URL.
     """
-    logger.info(f"  - Downloading system package from URL: {system_package}...")
+    logger.info(f"  - Downloading buildtime package from URL: {buildtime_package}...")
 
-    filename = os.path.basename(system_package)
+    filename = os.path.basename(buildtime_package)
     base_filename = filename
     known_extensions = [".tar.gz", ".tar.bz2", ".tar.xz", ".tgz", ".zip"]
     for ext in known_extensions:
@@ -124,7 +124,7 @@ def download_system_package(system_package, download_path=DOWNLOAD_DIR, package_
     final_extract_name = package_name if package_name else base_filename
     extract_dir = os.path.join(download_path, "sources", final_extract_name)
 
-    extracted_path = download_and_extract(system_package, extract_dir, filename)
+    extracted_path = download_and_extract(buildtime_package, extract_dir, filename)
 
     if extracted_path:
         # Check if there is a single directory inside the extracted path
@@ -137,7 +137,7 @@ def download_system_package(system_package, download_path=DOWNLOAD_DIR, package_
                     shutil.move(os.path.join(single_dir, item), extracted_path)
                 os.rmdir(single_dir)
             except (shutil.Error, OSError) as e:
-                logger.error(f"Error moving or cleaning up system package files: {e}")
+                logger.error(f"Error moving or cleaning up buildtime package files: {e}")
                 return None
 
     logger.info(f"Extracted to: {extracted_path}")

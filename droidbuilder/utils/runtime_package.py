@@ -1,7 +1,7 @@
 import requests
 from ..cli_logger import logger
 
-def resolve_python_package(package_name, version=None):
+def resolve_runtime_package(package_name, version=None):
     """
     Resolves a Python package to a source URL using the PyPI API.
     """

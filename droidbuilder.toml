@@ -24,8 +24,8 @@ gradle_version = "9.0.0"
 python_version = "3.12.1"
 
 [app.dependency]
-python_packages = []
-system_packages = ["libffi"]
+runtime_packages = []
+buildtime_packages = ["libffi"]
 
 [app.dependency_mapping]
 libffi = "https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz"

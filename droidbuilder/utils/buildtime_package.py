@@ -3,7 +3,7 @@ from ..cli_logger import logger
 
 def resolve_dependencies_recursively(packages, dependency_mapping):
     """
-    Resolves system packages against the dependency mapping.
+    Resolves buildtime packages against the dependency mapping.
     If a package is not in the mapping, it attempts to find the URL.
     Returns a dictionary mapping package names to their URLs.
     """
@@ -22,7 +22,7 @@ def resolve_dependencies_recursively(packages, dependency_mapping):
             resolved_packages[name] = {"url": dependency_mapping[name]}
             logger.info(f"Found mapping for '{name}': {dependency_mapping[name]}")
         else:
-            logger.warning(f"System package '{name}' is not explicitly mapped in your droidbuilder.toml.")
+            logger.warning(f"buildtime package '{name}' is not explicitly mapped in your droidbuilder.toml.")
             logger.error("Please add its URL to [app.dependency_mapping]")
             return None
 

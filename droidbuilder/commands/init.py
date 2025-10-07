@@ -43,7 +43,7 @@ def init(ctx):
         manifest_file = _prompt_for_input("Path to custom AndroidManifest.xml (leave empty for default)", "")
         intent_filters_file = _prompt_for_input("Path to custom intent_filters.xml (leave empty for none)", "")
         cmdline_tools_tag = _prompt_for_input("Android Command Line Tools Tag (e.g., 13114758)", "13114758", validation_func=str.isdigit)
-        python_packages = _prompt_for_list_input("Python Requirements (comma-separated: e.g., py2jib)", "")
+        runtime_packages = _prompt_for_list_input("Runtime Packages (comma-separated: e.g., kivy, pyjnius)", "")
         
         android_sdk_version = _prompt_for_input("Android SDK Version (e.g., 34)", "34", validation_func=str.isdigit)
         android_min_sdk_version = _prompt_for_input("Android Minimum SDK Version (e.g., 21)", "21", validation_func=str.isdigit)
@@ -54,7 +54,7 @@ def init(ctx):
         java_gradle_version = _prompt_for_input("Java Gradle Version (e.g., 8.7)", "8.7")
         python_version = _prompt_for_input("Python Version for cross-compilation (e.g., 3.9.13)", "3.9.13")
         accept_sdk_license = _prompt_for_input("Accept SDK licenses automatically?", "interactive", type=click.Choice(['interactive', 'non-interactive']))
-        system_packages = _prompt_for_list_input("System Packages (comma-separated: e.g., openssl, sdl2)", "")
+        buildtime_packages = _prompt_for_list_input("Buildtime Packages (comma-separated: e.g., openssl, libffi)", "")
 
         conf = {
             "app": {
@@ -64,8 +64,8 @@ def init(ctx):
                 "main_file": main_file,
                 "target_platforms": target_platforms,
                 "dependency": {
-			"python_packages": python_packages,
-	                "system_packages": system_packages,
+			"runtime_packages": runtime_packages,
+	                "buildtime_packages": buildtime_packages,
 		},
 		"dependency_mapping": {},
             },
