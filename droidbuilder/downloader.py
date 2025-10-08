@@ -46,18 +46,6 @@ def download_python_source(version):
         logger.error(f"Error downloading and extracting Python source: {e}")
         return False
 
-    # The archive extracts to a directory like 'Python-3.9.13'. We want to move the contents up.
-    extracted_dir = os.path.join(source_dir, f"Python-{version}")
-    if os.path.isdir(extracted_dir):
-        try:
-            # Move contents up
-            for item in os.listdir(extracted_dir):
-                shutil.move(os.path.join(extracted_dir, item), source_dir)
-            os.rmdir(extracted_dir)
-        except (shutil.Error, OSError) as e:
-            logger.error(f"Error moving or cleaning up Python source files: {e}")
-            return False
-
     # Verify that configure script exists
     if not os.path.exists(os.path.join(source_dir, "configure")):
         logger.error("Error: 'configure' script not found in Python source. The download or extraction might have failed.")
@@ -84,9 +72,14 @@ def download_and_extract_pypi_package(packages, download_path=DOWNLOAD_DIR):
             return None
 
         file_name = os.path.basename(url)
-        
+        base_filename, _ = os.path.splitext(file_name)
+        if base_filename.endswith(".tar"): # Handle .tar.gz, .tar.bz2, etc.
+            base_filename, _ = os.path.splitext(base_filename)
+
+        extract_dir = os.path.join(download_path, "sources", base_filename)
+
         # Use download_and_extract from file_manager
-        extracted_path = download_and_extract(url, download_path, file_name)
+        extracted_path = download_and_extract(url, extract_dir, file_name)
         
         return extracted_path
 
@@ -117,21 +110,6 @@ def download_buildtime_package(buildtime_package, download_path=DOWNLOAD_DIR, pa
 
     extracted_path = download_and_extract(buildtime_package, extract_dir, filename)
 
-    if extracted_path:
-        # Check if there is a single directory inside the extracted path
-        items = os.listdir(extracted_path)
-        if len(items) == 1 and os.path.isdir(os.path.join(extracted_path, items[0])):
-            single_dir = os.path.join(extracted_path, items[0])
-            try:
-                # Move contents up
-                for item in os.listdir(single_dir):
-                    shutil.move(os.path.join(single_dir, item), extracted_path)
-                os.rmdir(single_dir)
-            except (shutil.Error, OSError) as e:
-                logger.error(f"Error moving or cleaning up buildtime package files: {e}")
-                return None
-
-    logger.info(f"Extracted to: {extracted_path}")
     return extracted_path
 
 

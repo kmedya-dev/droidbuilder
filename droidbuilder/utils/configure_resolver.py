@@ -1,4 +1,5 @@
 import os
+import sys
 
 from ..cli_logger import logger
 
@@ -32,15 +33,31 @@ def resolve_config_type(package_config: dict, package_name: str, package_source_
     configure_cmd = []
     build_cmd = ["make", "-j", str(os.cpu_count())]
     install_cmd = ["make", "install"]
+    autogen_cmd = []
+    autoreconf_cmd = []
 
     # Check for existence of build system files
     cmake_lists_path = os.path.join(package_source_path, "CMakeLists.txt")
     specialized_configure_path = os.path.join(package_source_path, "Configure")
     standard_configure_path = os.path.join(package_source_path, "configure")
+    autogen_script_path = os.path.join(package_source_path, "autogen.sh")
+    configure_ac_path = os.path.join(package_source_path, "configure.ac")
+    configure_in_path = os.path.join(package_source_path, "configure.in")
 
     has_cmake = os.path.exists(cmake_lists_path)
     has_specialized_configure = os.path.exists(specialized_configure_path)
     has_standard_configure = os.path.exists(standard_configure_path)
+    has_autogen_script = os.path.exists(autogen_script_path)
+    has_configure_ac = os.path.exists(configure_ac_path)
+    has_configure_in = os.path.exists(configure_in_path)
+
+    if has_autogen_script:
+        autogen_cmd = [autogen_script_path]
+
+    # New logic for autoreconf
+    if not has_standard_configure and (has_configure_ac or has_configure_in):
+        logger.info(f"  - 'configure' script not found, but 'configure.ac' or 'configure.in' exists for {package_name}. Adding autoreconf command.")
+        autoreconf_cmd = ["autoreconf", "-fi"]
 
     # Determine the effective config_type and script to use
     effective_config_type = None
@@ -128,6 +145,31 @@ def resolve_config_type(package_config: dict, package_name: str, package_source_
                 f"CFLAGS={cflags}",
                 f"LDFLAGS={ldflags}",
             ]
+    elif config_type == "python":
+        logger.info(f"  - Using Python configure script for {package_name}.")
+        configure_cmd = [
+            os.path.join(package_source_path, "configure"),
+            f"--host={host_triplet}",
+            f"--build={build_triplet}",
+            "--enable-shared",
+            "--disable-ipv6",
+            "--without-ensurepip",
+            f"--prefix={install_dir}",
+            f"--with-build-python={sys.executable}",
+            f"CFLAGS={cflags} -isysroot {os.path.join(os.getenv('NDK_HOME'), 'sysroot')}",
+            f"LDFLAGS={ldflags}",
+        ]
+    elif config_type == "pip":
+        logger.info(f"  - Generating pip install command for {package_name}.")
+        configure_cmd = []
+        build_cmd = []
+        install_cmd = [
+            os.path.join(install_dir, "bin", "python3"), # Path to target Python interpreter
+            "-m", "pip", "install",
+            "--no-deps", # Dependencies are handled explicitly by droidbuilder
+            "--target", install_dir, # Install into the target Python environment
+            package_source_path # Path to the downloaded package source (sdist)
+        ]
     elif effective_config_type is None:  # No configure script found or used
         configure_cmd = []
     else:
@@ -137,4 +179,6 @@ def resolve_config_type(package_config: dict, package_name: str, package_source_
         "configure_command": configure_cmd,
         "build_command": build_cmd,
         "install_command": install_cmd,
+        "autogen_command": autogen_cmd,
+        "autoreconf_command": autoreconf_cmd,
     }

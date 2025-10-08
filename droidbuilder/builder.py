@@ -12,6 +12,7 @@ from . import config
 from .utils.dependencies import get_explicit_dependencies
 from .utils.buildtime_package import resolve_dependencies_recursively
 from .utils.configure_resolver import resolve_config_type
+from .utils import patch_resolver
 
 INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
 BUILD_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder/build")
@@ -206,22 +207,29 @@ def _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_
         ldflags += f" -L{buildtime_libs_dir}/lib"
 
     # Configure command
-    configure_script = os.path.join(python_source_dir, "configure")
-    if not os.path.exists(configure_script):
-        logger.error(f"Error: Configure script not found at {configure_script}. Python source might be incomplete.")
-        return False
-    configure_cmd = [
-        configure_script,
-        f"--host={host_triplet}",
-        f"--build={build_triplet}",
-        "--enable-shared",
-        "--disable-ipv6",
-        "--without-ensurepip",
-        f"--prefix={python_install_dir}",
-        f"--with-build-python={sys.executable}",
-        f"CFLAGS={cflags} -isysroot {sysroot}",
-        f"LDFLAGS={ldflags}",
-    ]
+    commands = resolve_config_type(
+        package_config={"config_type": "python"},
+        package_name="python",
+        package_source_path=python_source_dir,
+        arch=arch,
+        ndk_api=ndk_api,
+        install_dir=python_install_dir,
+        build_triplet=build_triplet,
+        host_triplet=host_triplet,
+        cflags=cflags,
+        ldflags=ldflags,
+        cc=cc_path,
+        cxx=cxx_path,
+        ar=ar_path,
+        ld=ld_path,
+        ranlib=ranlib_path,
+        strip=strip_path,
+        readelf=readelf_path,
+    )
+
+    configure_cmd = commands["configure_command"]
+    make_cmd = commands["build_command"]
+    make_install_cmd = commands["install_command"]
 
     logger.info(f"  - Running configure: {' '.join(configure_cmd)}")
     try:
@@ -310,14 +318,30 @@ def _compile_runtime_package(runtime_package_source_path, python_install_dir, ar
     pip_env["CFLAGS"] = cflags
     pip_env["LDFLAGS"] = ldflags
 
-    # Try to install using the cross-compiled pip
-    pip_install_cmd = [
-        sys.executable,  # Use host python to run pip
-        "-m", "pip", "install",
-        "--no-deps", # Don't try to resolve dependencies, we'll handle them explicitly
-        "--target", python_install_dir, # Install into the target Python environment
-        runtime_package_source_path # Path to the downloaded package source (sdist)
-    ]
+    # Get pip install command from configure_resolver
+    # We need to pass a dummy package_config with config_type="pip"
+    # The actual package_config for runtime packages is not directly available here,
+    # but resolve_config_type only cares about config_type for "pip"
+    pip_commands = resolve_config_type(
+        package_config={"config_type": "pip"},
+        package_name=package_name,
+        package_source_path=runtime_package_source_path,
+        arch=arch,
+        ndk_api=ndk_api,
+        install_dir=python_install_dir, # This is the target install dir
+        build_triplet="", # Not relevant for pip
+        host_triplet="", # Not relevant for pip
+        cflags=cflags,
+        ldflags=ldflags,
+        cc=cc_path,
+        cxx=cxx_path,
+        ar=ar_path,
+        ld=ld_path,
+        ranlib=ranlib_path,
+        strip=strip_path,
+        readelf=readelf_path,
+    )
+    pip_install_cmd = pip_commands["install_command"]
 
     logger.info(f"    - Running pip install: {' '.join(pip_install_cmd)}")
     try:
@@ -366,25 +390,9 @@ def _download_runtime_packages(runtime_packages, dependency_mapping, build_path,
             return False
         logger.success(f"    - Downloaded and extracted {runtime_package} to {extracted_path}")
 
-        # --- START: Added Patching Logic ---
-        patches = config.get("build", {}).get("patches", {})
-        if package_name in patches:
-            for patch_file in patches[package_name]:
-                patch_path = os.path.join(os.getcwd(), patch_file)
-                if os.path.exists(patch_path):
-                    logger.info(f"  - Applying patch {patch_file} to {package_name}...")
-                    try:
-                        subprocess.run(["patch", "-p1", "-i", patch_path], check=True, cwd=extracted_path, capture_output=True, text=True)
-                    except subprocess.CalledProcessError as e:
-                        logger.error(f"Failed to apply patch {patch_file}: {e}")
-                        if e.stdout:
-                            logger.error(f"Patch Stdout:\n{e.stdout}")
-                        if e.stderr:
-                            logger.error(f"Patch Stderr:\n{e.stderr}")
-                        return False
-                else:
-                    logger.warning(f"  - Patch file not found: {patch_file}")
-        # --- END: Added Patching Logic ---
+        # Apply patches if specified in config
+        if not patch_resolver.apply_patches(package_name, extracted_path, config):
+            return False
 
         for arch in archs:
             python_install_dir = os.path.join(build_path, "python-install", arch)
@@ -405,34 +413,31 @@ def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version,
 
 
     # Apply patches if specified in config
-    patches = config.get("build", {}).get("patches", {})
-    if package_name_from_config in patches:
-        for patch_file in patches[package_name_from_config]:
-            patch_path = os.path.join(os.getcwd(), patch_file)
-            if os.path.exists(patch_path):
-                logger.info(f"  - Applying patch {patch_file} to {package_name}...")
-                try:
-                    subprocess.run(["patch", "-p1", "-i", patch_path], check=True, cwd=buildtime_package_source_path, capture_output=True, text=True)
-                except subprocess.CalledProcessError as e:
-                    logger.error(f"Failed to apply patch {patch_file}: {e}")
-                    if e.stdout:
-                        logger.error(f"Patch Stdout:\n{e.stdout}")
-                    if e.stderr:
-                        logger.error(f"Patch Stderr:\n{e.stderr}")
-                    return False
-            else:
-                logger.warning(f"  - Patch file not found: {patch_file}")
+    if not patch_resolver.apply_patches(package_name_from_config, buildtime_package_source_path, config):
+        return False
 
     # The destination for the compiled libraries
     install_dir = os.path.join(INSTALL_DIR, "buildtime_libs", arch)
     os.makedirs(install_dir, exist_ok=True)
 
-    # Some packages need to generate a configure script first
-    autogen_script = os.path.join(buildtime_package_source_path, "autogen.sh")
-    if os.path.exists(autogen_script):
+    autoreconf_cmd = commands["autoreconf_command"]
+    if autoreconf_cmd:
+        logger.info(f"  - Running autoreconf for {package_name}...")
+        try:
+            subprocess.run(autoreconf_cmd, check=True, cwd=buildtime_package_source_path, capture_output=True, text=True)
+        except subprocess.CalledProcessError as e:
+            logger.error(f"autoreconf failed for {package_name} (Exit Code: {e.returncode}):")
+            if e.stdout:
+                logger.error(f"Stdout:\n{e.stdout}")
+            if e.stderr:
+                logger.error(f"Stderr:\n{e.stderr}")
+            return False
+
+    autogen_cmd = commands["autogen_command"]
+    if autogen_cmd:
         logger.info(f"  - Running autogen.sh for {package_name}...")
         try:
-            subprocess.run(["./autogen.sh"], check=True, cwd=buildtime_package_source_path, capture_output=True, text=True)
+            subprocess.run(autogen_cmd, check=True, cwd=buildtime_package_source_path, capture_output=True, text=True)
         except subprocess.CalledProcessError as e:
             logger.error(f"autogen.sh failed for {package_name} (Exit Code: {e.returncode}):")
             if e.stdout:
