@@ -350,14 +350,17 @@ def _download_runtime_packages(runtime_packages, dependency_mapping, build_path,
         logger.info(f"    - Processing Python package: {runtime_package}...")
 
         package_name = runtime_package.split("==")[0]
+        
+        package_download_dir = os.path.join(download_dir, package_name)
+        os.makedirs(package_download_dir, exist_ok=True)
 
         # Download and extract the package
         if runtime_package in dependency_mapping:
             url = dependency_mapping[runtime_package]
             logger.info(f"    - Found explicit URL in dependency_mapping: {url}")
-            extracted_path = downloader.download_from_url(url, download_dir, package_name=package_name)
+            extracted_path = downloader.download_from_url(url, package_download_dir, package_name=package_name)
         else:
-            extracted_path = downloader.download_and_extract_pypi_package(runtime_package, download_dir)
+            extracted_path = downloader.download_and_extract_pypi_package(runtime_package, package_download_dir)
 
         if not extracted_path:
             logger.error(f"Failed to download and extract runtime package: {runtime_package}")
