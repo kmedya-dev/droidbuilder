@@ -343,7 +343,6 @@ def _download_runtime_packages(runtime_packages, dependency_mapping, build_path,
     download_dir = os.path.join(build_path, "runtime_packages_src")
     os.makedirs(download_dir, exist_ok=True)
 
-    processed_packages = []
     for runtime_package in runtime_packages:
         if runtime_package == "python3":
             continue
@@ -387,14 +386,10 @@ def _download_runtime_packages(runtime_packages, dependency_mapping, build_path,
                     logger.warning(f"  - Patch file not found: {patch_file}")
         # --- END: Added Patching Logic ---
 
-        processed_packages.append(extracted_path)
-
-    # Now compile each processed package for each architecture
-    for package_path in processed_packages:
         for arch in archs:
             python_install_dir = os.path.join(build_path, "python-install", arch)
-            if not _compile_runtime_package(package_path, python_install_dir, arch, ndk_version, ndk_api):
-                logger.error(f"Failed to compile {os.path.basename(package_path)} for {arch}. Aborting.")
+            if not _compile_runtime_package(extracted_path, python_install_dir, arch, ndk_version, ndk_api):
+                logger.error(f"Failed to compile {os.path.basename(extracted_path)} for {arch}. Aborting.")
                 return False
 
     logger.success("  - All runtime packages downloaded, patched, and compiled.")
