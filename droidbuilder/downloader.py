@@ -67,9 +67,9 @@ def download_python_source(version):
     return source_dir
 
 
-def download_pypi_package(packages, download_path=DOWNLOAD_DIR):
+def download_and_extract_pypi_package(packages, download_path=DOWNLOAD_DIR):
     """
-    Downloads a package from PyPI, respecting the specified version.
+    Downloads and extracts a package from PyPI, respecting the specified version.
     """
     if "==" in packages:
         name, version = packages.split("==", 1)
@@ -84,23 +84,14 @@ def download_pypi_package(packages, download_path=DOWNLOAD_DIR):
             return None
 
         file_name = os.path.basename(url)
-        file_path = os.path.join(download_path, file_name)
+        
+        # Use download_and_extract from file_manager
+        extracted_path = download_and_extract(url, download_path, file_name)
+        
+        return extracted_path
 
-        logger.info(f"  - Downloading {url} to {file_path}")
-
-        with requests.get(url, stream=True) as r:
-            r.raise_for_status()
-            with open(file_path, "wb") as f:
-                for chunk in r.iter_content(chunk_size=8192):
-                    f.write(chunk)
-
-        return file_path
-
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error downloading {name}: {e}")
-        return None
     except Exception as e:
-        logger.error(f"An unexpected error occurred while downloading {name}: {e}")
+        logger.error(f"An unexpected error occurred while downloading and extracting {name}: {e}")
         return None
 
 
