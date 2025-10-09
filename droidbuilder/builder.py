@@ -361,7 +361,7 @@ def _compile_runtime_package(runtime_package_source_path, python_install_dir, ar
         logger.exception(*sys.exc_info())
         return False
 
-def _download_runtime_packages(runtime_packages, dependency_mapping, build_path, archs, ndk_version, ndk_api, config):
+def _download_runtime_packages(runtime_packages, dependency_mapping, build_path, archs, ndk_version, ndk_api, config, verbose=False):
     """Downloads, patches, and compiles runtime packages specified in dependencies."""
     logger.info("  - Downloading, patching, and compiling runtime packages...")
     download_dir = os.path.join(build_path, "runtime_packages_src")
@@ -381,9 +381,9 @@ def _download_runtime_packages(runtime_packages, dependency_mapping, build_path,
         if runtime_package in dependency_mapping:
             url = dependency_mapping[runtime_package]
             logger.info(f"    - Found explicit URL in dependency_mapping: {url}")
-            extracted_path = downloader.download_from_url(url, package_download_dir, package_name=package_name)
+            extracted_path = downloader.download_from_url(url, package_download_dir, package_name=package_name, verbose=verbose)
         else:
-            extracted_path = downloader.download_and_extract_pypi_package(runtime_package, package_download_dir)
+            extracted_path = downloader.download_and_extract_pypi_package(runtime_package, package_download_dir, verbose=verbose)
 
         if not extracted_path:
             logger.error(f"Failed to download and extract runtime package: {runtime_package}")
@@ -524,7 +524,7 @@ def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version,
         return False
 
 
-def _download_buildtime_packages(resolved_buildtime_packages, build_path, archs, ndk_version, ndk_api, config, toolchain_bin_map, sysroot_map, cc_path_map, cxx_path_map, ar_path_map, ld_path_map, ranlib_path_map, strip_path_map, readelf_path_map, ndk_root_map, env_map):
+def _download_buildtime_packages(resolved_buildtime_packages, build_path, archs, ndk_version, ndk_api, config, toolchain_bin_map, sysroot_map, cc_path_map, cxx_path_map, ar_path_map, ld_path_map, ranlib_path_map, strip_path_map, readelf_path_map, ndk_root_map, env_map, verbose=False):
     """Downloads and compiles buildtime packages specified."""
     logger.info("  - Downloading and compiling buildtime packages...")
     download_dir = os.path.join(build_path, "buildtime_packages_src")
@@ -540,7 +540,7 @@ def _download_buildtime_packages(resolved_buildtime_packages, build_path, archs,
             return False
 
         logger.info(f"    - Found URL: {url}")
-        extracted_dir = downloader.download_buildtime_package(url, os.path.join(download_dir), package_name=name) # Call download_buildtime_package with URL and package_name
+        extracted_dir = downloader.download_buildtime_package(url, os.path.join(download_dir), package_name=name, verbose=verbose) # Call download_buildtime_package with URL and package_name
         if not extracted_dir:
             logger.error(f"Failed to download and extract buildtime package: {name}")
             return False
@@ -864,7 +864,7 @@ def build_android(config, verbose):
             if resolved_buildtime_packages is None:
                 logger.error("Failed to resolve buildtime package dependencies. Aborting.")
                 return False
-            if not _download_buildtime_packages(resolved_buildtime_packages, build_path, archs, ndk_version, ndk_api, config, toolchain_bin_map, sysroot_map, cc_path_map, cxx_path_map, ar_path_map, ld_path_map, ranlib_path_map, strip_path_map, readelf_path_map, ndk_root_map, env_map):
+            if not _download_buildtime_packages(resolved_buildtime_packages, build_path, archs, ndk_version, ndk_api, config, toolchain_bin_map, sysroot_map, cc_path_map, cxx_path_map, ar_path_map, ld_path_map, ranlib_path_map, strip_path_map, readelf_path_map, ndk_root_map, env_map, verbose=verbose):
                 logger.error("Failed to download and compile buildtime packages. Aborting.")
                 return False
 
@@ -888,7 +888,7 @@ def build_android(config, verbose):
 
         # Download Python source
         if python_version:
-            if not downloader.download_python_source(python_version):
+            if not downloader.download_python_source(python_version, verbose=verbose):
                 logger.error("Failed to download Python source. Aborting.")
                 return False
         else:
@@ -903,7 +903,7 @@ def build_android(config, verbose):
 
         # Download runtime packages
         if runtime_packages:
-            if not _download_runtime_packages(runtime_packages, dependency_mapping, build_path, archs, ndk_version, ndk_api, config):
+            if not _download_runtime_packages(runtime_packages, dependency_mapping, build_path, archs, ndk_version, ndk_api, config, verbose=verbose):
                 logger.error("Failed to download runtime packages. Aborting.")
                 return False
 

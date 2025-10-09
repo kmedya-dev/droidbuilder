@@ -5,8 +5,9 @@ from .. import installer
 from ..cli_logger import logger
 
 @click.command()
+@click.option("--verbose", is_flag=True, help="Enable verbose output.")
 @click.pass_context
-def install_tools(ctx):
+def install_tools(ctx, verbose):
     """Install required SDK, NDK, and JDK versions."""
     logger.info("Installing DroidBuilder tools...")
     conf = None
@@ -26,7 +27,7 @@ def install_tools(ctx):
         return False
     
     try:
-        if installer.setup_tools(conf):
+        if installer.setup_tools(conf, verbose=verbose):
             logger.success("Tool installation complete.")
             return True
         else:

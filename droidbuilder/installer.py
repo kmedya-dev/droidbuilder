@@ -80,7 +80,7 @@ def _check_sdk_manager(sdk_install_dir):
         return False
     return True
 
-def install_cmdline_tools(cmdline_tools_version):
+def install_cmdline_tools(cmdline_tools_version, verbose=False):
     """Install the Android command-line tools."""
     sdk_install_dir = os.path.join(INSTALL_DIR, "android-sdk")
     if _check_sdk_manager(sdk_install_dir):
@@ -91,7 +91,7 @@ def install_cmdline_tools(cmdline_tools_version):
     sdk_url = f"https://dl.google.com/android/repository/commandlinetools-linux-{cmdline_tools_version}_latest.zip"
 
     try:
-        utils.download_and_extract(sdk_url, sdk_install_dir)
+        utils.download_and_extract(sdk_url, sdk_install_dir, verbose=verbose)
         os.chmod(sdk_install_dir, 0o755) # Ensure permissions are correct after extraction
     except Exception as e:
         logger.error(f"Error downloading and extracting command-line tools: {e}")
@@ -230,7 +230,7 @@ def install_ndk(version, sdk_install_dir, actual_jdk_dir):
 
 # -------------------- JDK --------------------
 
-def install_jdk(version):
+def install_jdk(version, verbose=False):
     """Install Java Development Kit (JDK)."""
     jdk_install_dir = os.path.join(INSTALL_DIR, f"jdk-{version}")
     if os.path.exists(jdk_install_dir):
@@ -254,7 +254,7 @@ def install_jdk(version):
         return False
 
     try:
-        utils.download_and_extract(jdk_url, jdk_install_dir)
+        utils.download_and_extract(jdk_url, jdk_install_dir, verbose=verbose)
     except Exception as e:
         logger.error(f"Error downloading and extracting JDK: {e}")
         return False
@@ -287,7 +287,7 @@ def _get_gradle_download_url(version):
     return f"https://services.gradle.org/distributions/gradle-{version}-bin.zip"
 
 
-def install_gradle(version):
+def install_gradle(version, verbose=False):
     """Install Gradle."""
     gradle_install_dir = os.path.join(INSTALL_DIR, f"gradle-{version}")
     if os.path.exists(gradle_install_dir):
@@ -310,7 +310,7 @@ def install_gradle(version):
         return False
 
     try:
-        utils.download_and_extract(gradle_url, gradle_install_dir, f"gradle-{version}-bin.zip")
+        utils.download_and_extract(gradle_url, gradle_install_dir, f"gradle-{version}-bin.zip", verbose=verbose)
     except Exception as e:
         logger.error(f"Error downloading and extracting Gradle: {e}")
         return False
@@ -382,7 +382,7 @@ def _accept_sdk_licenses(sdk_install_dir, actual_jdk_dir):
 
 # -------------------- Orchestrators --------------------
 
-def setup_tools(conf):
+def setup_tools(conf, verbose=False):
     """Install all the required tools."""
     logger.info("Setting up development tools...")
     sdk_version = conf.get("android", {}).get("sdk_version")
@@ -404,7 +404,7 @@ def setup_tools(conf):
                 break
 
     if jdk_version:
-        if not install_jdk(jdk_version):
+        if not install_jdk(jdk_version, verbose=verbose):
             logger.error(f"Failed to install Java JDK version {jdk_version}.")
             all_successful = False
 
@@ -421,7 +421,7 @@ def setup_tools(conf):
         os.environ["JAVA_HOME"] = actual_jdk_dir
 
     if cmdline_tools_version:
-        if not install_cmdline_tools(cmdline_tools_version):
+        if not install_cmdline_tools(cmdline_tools_version, verbose=verbose):
             logger.error("Failed to install Android command-line tools.")
             all_successful = False
 
@@ -441,7 +441,7 @@ def setup_tools(conf):
             all_successful = False
     
     if gradle_version:
-        if not install_gradle(gradle_version):
+        if not install_gradle(gradle_version, verbose=verbose):
             logger.error(f"Failed to install Gradle version {gradle_version}.")
             all_successful = False
 
