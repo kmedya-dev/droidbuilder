@@ -40,14 +40,22 @@ class Logger:
 
     def step_info(self, message, indent=0, overwrite=False, verbose=False):
         prefix = " " * indent
-        if overwrite and not verbose:
-            line = f"{prefix}{message}"
-            terminal_width = shutil.get_terminal_size().columns
-            sys.stdout.write("\r" + " " * terminal_width + "\r")
-            sys.stdout.write(line)
-            sys.stdout.flush()
-        else:
+        if verbose:
             self._log("", message, Fore.CYAN, prefix=prefix, show_timestamp=False)
+        else:
+            line = f"{prefix}{message}"
+            # Overwrite same line
+            terminal_width = shutil.get_terminal_size().columns
+            if terminal_width < len(line):
+                # for small display
+                sys.stdout.write("\x1b[F\x1b[F\r")
+                print(line)
+            else:
+                # for large display
+                sys.stdout.write("\x1b[F\r")
+                print(line)
+            sys.stdout.flush()
+
 
     def success(self, message):
         self._log("SUCCESS", message, Fore.GREEN, prefix=f"{Style.BRIGHT}✓ {Style.RESET_ALL}{Fore.GREEN}")
@@ -90,7 +98,6 @@ class Logger:
         print()
         sys.stdout.flush()
 
-        line = "" # Initialize line here
         for i, item in enumerate(iterable):
             yield item
 
@@ -134,17 +141,17 @@ class Logger:
                 f"{time.strftime('%M:%S', time.gmtime(elapsed+eta))}"
             )
 
-        # Overwrite same line
-        terminal_width = shutil.get_terminal_size().columns
-        if terminal_width < len(line):
-            # for small display
-            sys.stdout.write("\x1b[F\x1b[F\r")
-            print(line)
-        else:
-            # for large display
-            sys.stdout.write("\x1b[F\r")
-            print(line)
-        sys.stdout.flush()
+            # Overwrite same line
+            terminal_width = shutil.get_terminal_size().columns
+            if terminal_width < len(line):
+                # for small display
+                sys.stdout.write("\x1b[F\x1b[F\r")
+                print(line)
+            else:
+                # for large display
+                sys.stdout.write("\x1b[F\r")
+                print(line)
+            sys.stdout.flush()
 
         # completion message
         print("\n✅ Download complete!")

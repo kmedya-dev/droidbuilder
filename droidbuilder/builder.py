@@ -420,32 +420,6 @@ def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version,
     install_dir = os.path.join(INSTALL_DIR, "buildtime_libs", arch)
     os.makedirs(install_dir, exist_ok=True)
 
-    autoreconf_cmd = commands["autoreconf_command"]
-    if autoreconf_cmd:
-        logger.info(f"  - Running autoreconf for {package_name}...")
-        try:
-            subprocess.run(autoreconf_cmd, check=True, cwd=buildtime_package_source_path, capture_output=True, text=True)
-        except subprocess.CalledProcessError as e:
-            logger.error(f"autoreconf failed for {package_name} (Exit Code: {e.returncode}):")
-            if e.stdout:
-                logger.error(f"Stdout:\n{e.stdout}")
-            if e.stderr:
-                logger.error(f"Stderr:\n{e.stderr}")
-            return False
-
-    autogen_cmd = commands["autogen_command"]
-    if autogen_cmd:
-        logger.info(f"  - Running autogen.sh for {package_name}...")
-        try:
-            subprocess.run(autogen_cmd, check=True, cwd=buildtime_package_source_path, capture_output=True, text=True)
-        except subprocess.CalledProcessError as e:
-            logger.error(f"autogen.sh failed for {package_name} (Exit Code: {e.returncode}):")
-            if e.stdout:
-                logger.error(f"Stdout:\n{e.stdout}")
-            if e.stderr:
-                logger.error(f"Stderr:\n{e.stderr}")
-            return False
-
     host_triplet = ARCH_COMPILER_PREFIXES.get(arch)
     build_triplet = ""
     if sys.platform == "linux" and os.uname().machine == "x86_64":
@@ -476,6 +450,32 @@ def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version,
         strip=strip_path,
         readelf=readelf_path,
     )
+
+    autoreconf_cmd = commands["autoreconf_command"]
+    if autoreconf_cmd:
+        logger.info(f"  - Running autoreconf for {package_name}...")
+        try:
+            subprocess.run(autoreconf_cmd, check=True, cwd=buildtime_package_source_path, capture_output=True, text=True)
+        except subprocess.CalledProcessError as e:
+            logger.error(f"autoreconf failed for {package_name} (Exit Code: {e.returncode}):")
+            if e.stdout:
+                logger.error(f"Stdout:\n{e.stdout}")
+            if e.stderr:
+                logger.error(f"Stderr:\n{e.stderr}")
+            return False
+
+    autogen_cmd = commands["autogen_command"]
+    if autogen_cmd:
+        logger.info(f"  - Running autogen.sh for {package_name}...")
+        try:
+            subprocess.run(autogen_cmd, check=True, cwd=buildtime_package_source_path, capture_output=True, text=True)
+        except subprocess.CalledProcessError as e:
+            logger.error(f"autogen.sh failed for {package_name} (Exit Code: {e.returncode}):")
+            if e.stdout:
+                logger.error(f"Stdout:\n{e.stdout}")
+            if e.stderr:
+                logger.error(f"Stderr:\n{e.stderr}")
+            return False
 
     configure_cmd = commands["configure_command"]
     build_cmd = commands["build_command"]
