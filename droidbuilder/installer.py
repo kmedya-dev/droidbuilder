@@ -102,16 +102,16 @@ def install_cmdline_tools(cmdline_tools_version, verbose=False):
     ct = os.path.join(root, "cmdline-tools")
 
     actual_tools_root = None
-    if os.path.exists(os.path.join(ct, "bin')):
+    if os.path.exists(os.path.join(ct, "bin")):
         actual_tools_root = ct
-    elif os.path.exists(os.path.join(ct, "cmdline-tools", "bin')):
+    elif os.path.exists(os.path.join(ct, "cmdline-tools", "bin")):
         actual_tools_root = os.path.join(ct, "cmdline-tools")
     else:
         # fallback: try to find a single folder containing bin/
         try:
             for item in os.listdir(root):
                 candidate = os.path.join(root, item)
-                if os.path.isdir(candidate) and os.path.exists(os.path.join(candidate, "bin')):
+                if os.path.isdir(candidate) and os.path.exists(os.path.join(candidate, "bin")):
                     actual_tools_root = candidate
                     break
         except OSError as e:
