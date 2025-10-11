@@ -18,6 +18,7 @@ from .commands.log import log
 from .commands.update_deps import update_deps
 
 from .commands.check_deps import check_deps
+from .commands.search_dependency import search_dependency
 
 @click.group()
 @click.option("--path", "-p", default=".", help="Path to the project directory.")
@@ -45,6 +46,7 @@ cli.add_command(update_deps)
 
 
 cli.add_command(check_deps)
+cli.add_command(search_dependency)
 
 if __name__ == '__main__':
     try:

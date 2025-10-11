@@ -3,11 +3,13 @@ import sys
 import time
 import traceback
 import os
-import shutil
 from colorama import Fore, Style, init
 
 # Initialize Colorama
-init(autoreset=True)
+if sys.platform == 'win32':
+    init(autoreset=True, strip=True, convert=True)
+else:
+    init(autoreset=True, strip=False, convert=False)
 
 LOG_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder", "logs")
 class Logger:
@@ -16,9 +18,28 @@ class Logger:
             LOG_DIR,
             f"droidbuilder_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
         )
+        self._last_line_count = 0
 
     def _get_timestamp(self):
         return datetime.datetime.now().strftime("%H:%M:%S")
+
+    def _get_wrapped_line_count(self, text, width):
+        if not width:
+            return 1  # Cannot wrap if no width, assume 1 line
+
+        if not text:
+            return 1  # An empty text still prints one line
+
+        lines = 0
+        for line in text.split('\n'):
+            lines += (len(line) + width - 1) // width or 1
+        return lines
+
+    def format_time(self, seconds):
+        seconds = int(seconds)
+        h, rem = divmod(seconds, 3600)
+        m, s = divmod(rem, 60)
+        return f"{h:02d}:{m:02d}:{s:02d}"
 
     def _log(self, level, message, color, stream=sys.stdout, prefix="", show_timestamp=True):
         # Ensure the log directory exists before writing
@@ -40,35 +61,36 @@ class Logger:
 
     def step_info(self, message, indent=0, overwrite=False, verbose=False):
         prefix = " " * indent
-        if verbose:
-            self._log("", message, Fore.CYAN, prefix=prefix, show_timestamp=False)
-        else:
+        if overwrite and not verbose:
             line = f"{prefix}{message}"
-            # Overwrite same line
-            terminal_width = shutil.get_terminal_size().columns
-            if terminal_width < len(line):
-                # for small display
-                sys.stdout.write("\x1b[F\x1b[F\r")
-                print(line)
-            else:
-                # for large display
-                sys.stdout.write("\x1b[F\r")
-                print(line)
+            terminal_width = int(os.environ.get("COLUMNS", default=80))
+            
+            # Move cursor up and clear lines
+            sys.stdout.write(f"\x1b[{self._last_line_count}F\r\x1b[J")
+            
+            self._last_line_count = self._get_wrapped_line_count(line, terminal_width)
+            print(line)
             sys.stdout.flush()
-
+        else:
+            self._last_line_count = 0
+            self._log("", message, Fore.CYAN, prefix=prefix, show_timestamp=False)
 
     def success(self, message):
+        self._last_line_count = 0
         self._log("SUCCESS", message, Fore.GREEN, prefix=f"{Style.BRIGHT}✓ {Style.RESET_ALL}{Fore.GREEN}")
 
     def warning(self, message):
+        self._last_line_count = 0
         self._log("WARNING", message, Fore.YELLOW, stream=sys.stderr,
                   prefix=f"{Style.BRIGHT}⚠ {Style.RESET_ALL}{Fore.YELLOW}")
 
     def error(self, message):
+        self._last_line_count = 0
         self._log("ERROR", message, Fore.RED, stream=sys.stderr,
                   prefix=f"{Style.BRIGHT}✖ {Style.RESET_ALL}{Fore.RED}")
 
     def debug(self, message):
+        self._last_line_count = 0
         self._log("DEBUG", message, Fore.WHITE + Style.DIM)
 
     # -------- Progress bar method --------
@@ -97,6 +119,8 @@ class Logger:
         print(f"{description}...")
         print()
         sys.stdout.flush()
+        
+        self._last_line_count = 0
 
         for i, item in enumerate(iterable):
             yield item
@@ -131,33 +155,36 @@ class Logger:
                     speed_unit, speed_divisor = ("GB/s", 1024*1024*1024)
             else:
                 speed_unit, speed_divisor = ("it/s", 1)
+            
+            try:
+                eta_str = self.format_time(eta)
+            except (ValueError, OverflowError, OSError):
+                eta_str = "∞"
 
             line = (
                 f"{percent*100:3.0f}% | "
                 f"{bar} | "
                 f"{format_size(current_val)}/{format_size(total)} • "
                 f"{speed/speed_divisor:.1f} {speed_unit} • "
-                f"{time.strftime('%M:%S', time.gmtime(elapsed))}/"
-                f"{time.strftime('%M:%S', time.gmtime(elapsed+eta))}"
+                f"{self.format_time(elapsed)}/"
+                f"{eta_str}"
             )
 
             # Overwrite same line
-            terminal_width = shutil.get_terminal_size().columns
-            if terminal_width < len(line):
-                # for small display
-                sys.stdout.write("\x1b[F\x1b[F\r")
-                print(line)
-            else:
-                # for large display
-                sys.stdout.write("\x1b[F\r")
-                print(line)
+            terminal_width = int(os.environ.get("COLUMNS", default=80))
+            sys.stdout.write(f"\x1b[{self._last_line_count}F\r\x1b[J")
+            
+            self._last_line_count = self._get_wrapped_line_count(line, terminal_width)
+            print(line)
             sys.stdout.flush()
 
         # completion message
         print("\n✅ Download complete!")
+        self._last_line_count = 0
 
     # -------- Exception logging --------
     def exception(self, exc_type, exc_value, exc_traceback):
+        self._last_line_count = 0
         self.error(f"An unhandled exception occurred: {exc_value}")
         formatted_lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
         for line in formatted_lines:
@@ -171,8 +198,9 @@ logger = Logger()
 
 def get_latest_log_file():
     """Return the path to the latest log file."""
+    if not os.path.exists(LOG_DIR):
+        return None
     log_files = [os.path.join(LOG_DIR, f) for f in os.listdir(LOG_DIR) if f.endswith(".log")]
     if not log_files:
         return None
     return max(log_files, key=os.path.getctime)
-	
