@@ -91,7 +91,7 @@ def install_cmdline_tools(cmdline_tools_version, verbose=False):
     sdk_url = f"https://dl.google.com/android/repository/commandlinetools-linux-{cmdline_tools_version}_latest.zip"
 
     try:
-        utils.download_and_extract(sdk_url, sdk_install_dir, verbose=verbose)
+        download_and_extract(sdk_url, sdk_install_dir, verbose=verbose)
         os.chmod(sdk_install_dir, 0o755) # Ensure permissions are correct after extraction
     except Exception as e:
         logger.error(f"Error downloading and extracting command-line tools: {e}")
@@ -274,7 +274,7 @@ def install_jdk(version, verbose=False):
         return False
 
     try:
-        utils.download_and_extract(jdk_url, jdk_install_dir, verbose=verbose)
+        download_and_extract(jdk_url, jdk_install_dir, verbose=verbose)
     except Exception as e:
         logger.error(f"Error downloading and extracting JDK: {e}")
         return False
@@ -330,7 +330,7 @@ def install_gradle(version, verbose=False):
         return False
 
     try:
-        utils.download_and_extract(gradle_url, gradle_install_dir, f"gradle-{version}-bin.zip", verbose=verbose)
+        download_and_extract(gradle_url, gradle_install_dir, f"gradle-{version}-bin.zip", verbose=verbose)
     except Exception as e:
         logger.error(f"Error downloading and extracting Gradle: {e}")
         return False

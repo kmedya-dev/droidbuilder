@@ -3,8 +3,8 @@ import os
 import ast
 import stdlib_list
 from .. import config
-from ..utils.dependencies import get_explicit_dependencies
 from ..cli_logger import logger
+from ..utils import get_explicit_dependencies
 
 STDLIB_MODULES = frozenset(stdlib_list.stdlib_list())
 
