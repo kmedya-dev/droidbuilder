@@ -1,24 +1,6 @@
 import click
-from .commands.list_files import list_files
-from .commands.list_templates import list_templates
-from .commands.init import init
-from .commands.install_tools import install_tools
-from .commands.build import build
-from .commands.clean import clean
-from .commands.list_tools import list_tools
-from .commands.list_droids import list_droids
-from .commands.uninstall import uninstall
-from .commands.update import update
-from .commands.search import search
+from .commands import *
 
-from .commands.doctor import doctor
-from .commands.config import config
-from .commands.version import version
-from .commands.log import log
-from .commands.update_deps import update_deps
-
-from .commands.check_deps import check_deps
-from .commands.search_dependency import search_dependency
 
 @click.group()
 @click.option("--path", "-p", default=".", help="Path to the project directory.")

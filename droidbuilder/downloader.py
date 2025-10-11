@@ -3,10 +3,9 @@ import requests
 import tarfile
 import shutil
 import subprocess
-from .cli_logger import logger
 from . import config
-from .utils.file_manager import download_and_extract
-from .utils.runtime_package import resolve_runtime_package
+from .cli_logger import logger
+from .utils import download_and_extract, resolve_runtime_package
 
 INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
 DOWNLOAD_DIR = os.path.join(INSTALL_DIR, "downloads")
