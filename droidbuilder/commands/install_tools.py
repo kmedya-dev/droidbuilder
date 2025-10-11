@@ -30,24 +30,6 @@ def install_tools(ctx, verbose):
     try:
         if installer.setup_tools(conf, verbose=verbose):
             logger.success("Tool installation complete.")
-            env_file_path = os.path.join(os.path.expanduser("~"), ".droidbuilder", "env.sh")
-            if os.path.exists(env_file_path):
-                with open(env_file_path, "r") as f:
-                    for line in f:
-                        if line.startswith("export "):
-                            line = line.strip().replace("export ", "")
-                            parts = line.split("=", 1)
-                            if len(parts) == 2:
-                                key, value = parts
-                                if key == "PATH":
-                                    # Expand $PATH
-                                    if "$PATH" in value:
-                                        value = value.replace("$PATH", os.environ.get("PATH", ""))
-                                    # Also expand other variables
-                                    for var_key, var_value in os.environ.items():
-                                        value = value.replace(f"${var_key}", var_value)
-                                os.environ[key] = value
-                logger.info(f"Environment variables from {env_file_path} have been set for the current session.")
             return True
         else:
             logger.error("Tool installation failed. Please check the logs for details.")

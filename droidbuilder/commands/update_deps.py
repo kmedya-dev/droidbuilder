@@ -4,6 +4,7 @@ import subprocess
 import sys
 import os
 from ..cli_logger import logger
+from ..utils.command_executor import run_shell_command
 
 @click.command()
 def update_deps():
@@ -29,10 +30,19 @@ def update_deps():
         # Construct the pip install command
         command = [sys.executable, "-m", "pip", "install", "--upgrade"] + dependencies
 
-        process = subprocess.run(command, capture_output=True, text=True, check=True)
-        logger.info(process.stdout)
-        if process.stderr:
-            logger.warning(process.stderr)
+        stdout, stderr, returncode = run_shell_command(command)
+        if returncode != 0:
+            logger.error(f"Failed to update dependencies (Exit Code: {returncode}):")
+            if stdout:
+                logger.error(f"Stdout:\n{stdout}")
+            if stderr:
+                logger.error(f"Stderr:\n{stderr}")
+            logger.info("Please check your network connection and ensure the dependencies are correctly specified.")
+            return
+
+        logger.info(stdout)
+        if stderr:
+            logger.warning(stderr)
         logger.success("DroidBuilder dependencies updated successfully.")
 
     except FileNotFoundError: # Redundant due to os.path.exists check, but keeping for robustness
@@ -42,13 +52,6 @@ def update_deps():
     except IOError as e:
         logger.error(f"Error reading pyproject.toml: {e}")
         logger.info("Please check file permissions.")
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to update dependencies (Exit Code: {e.returncode}):")
-        if e.stdout:
-            logger.error(f"Stdout:\n{e.stdout}")
-        if e.stderr:
-            logger.error(f"Stderr:\n{e.stderr}")
-        logger.info("Please check your network connection and ensure the dependencies are correctly specified.")
     except FileNotFoundError:
         logger.error(f"Error: Python executable '{sys.executable}' or pip not found. Please ensure Python and pip are correctly installed and in your PATH.")
     except Exception as e:

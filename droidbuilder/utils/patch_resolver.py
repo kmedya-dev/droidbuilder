@@ -1,6 +1,7 @@
 import os
 import subprocess
 from ..cli_logger import logger
+from .command_executor import run_shell_command
 
 def apply_patches(package_name: str, package_source_path: str, config: dict) -> bool:
     """
@@ -24,24 +25,18 @@ def apply_patches(package_name: str, package_source_path: str, config: dict) -> 
             
             if os.path.exists(patch_path):
                 logger.info(f"    - Applying patch: {patch_file_relative_path}")
-                try:
-                    # Use -p1 for stripping one leading component from file names
-                    # Use -i to specify the patch file
-                    subprocess.run(
-                        ["patch", "-p1", "-i", patch_path],
-                        check=True,
-                        cwd=package_source_path,
-                        capture_output=True,
-                        text=True
-                    )
-                    logger.success(f"    - Successfully applied patch: {patch_file_relative_path}")
-                except subprocess.CalledProcessError as e:
-                    logger.error(f"    - Failed to apply patch {patch_file_relative_path}: {e}")
-                    if e.stdout:
-                        logger.error(f"      Patch Stdout:\n{e.stdout}")
-                    if e.stderr:
-                        logger.error(f"      Patch Stderr:\n{e.stderr}")
+                stdout, stderr, returncode = run_shell_command(
+                    ["patch", "-p1", "-i", patch_path],
+                    cwd=package_source_path
+                )
+                if returncode != 0:
+                    logger.error(f"    - Failed to apply patch {patch_file_relative_path}: (Exit Code: {returncode})")
+                    if stdout:
+                        logger.error(f"      Patch Stdout:\n{stdout}")
+                    if stderr:
+                        logger.error(f"      Patch Stderr:\n{stderr}")
                     return False
+                logger.success(f"    - Successfully applied patch: {patch_file_relative_path}")
             else:
                 logger.warning(f"    - Patch file not found: {patch_file_relative_path}. Skipping.")
     else:

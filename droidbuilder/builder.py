@@ -6,13 +6,10 @@ import sys
 import tarfile
 import zipfile
 from .cli_logger import logger
-from . import utils
+
 from . import downloader
-from . import config
-from .utils.dependencies import get_explicit_dependencies
-from .utils.buildtime_package import resolve_dependencies_recursively
-from .utils.configure_resolver import resolve_config_type
-from .utils import patch_resolver
+from .utils import get_explicit_dependencies, resolve_dependencies_recursively, resolve_config_type, patch_resolver, run_shell_command
+
 
 INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
 BUILD_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder/build")
@@ -171,25 +168,18 @@ def _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_
 
     # Clean previous build artifacts to prevent architecture conflicts
     logger.info("  - Cleaning previous build artifacts...")
-    try:
-        # We don't check for errors, as this will fail on the first run when no Makefile exists
-        subprocess.run(["make", "clean"], cwd=python_source_dir, capture_output=True, text=True)
-    except FileNotFoundError:
-        # Make might not be installed, but we'll let the build fail later if that's the case
-        pass
-
-
+    run_shell_command(["make", "clean"], cwd=python_source_dir)
 
     # Get build triplet
     build_triplet = ""
     if sys.platform == "linux" and os.uname().machine == "x86_64":
         build_triplet = "x86_64-linux-gnu"
     else:
-        try:
-            build_triplet = subprocess.check_output(["uname", "-m", "-s"]).decode().strip().replace(" ", "-").lower()
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Error determining build triplet: {e}")
+        stdout, stderr, returncode = run_shell_command(["uname", "-m", "-s"])
+        if returncode != 0:
+            logger.error(f"Error determining build triplet: {stderr}")
             return False
+        build_triplet = stdout.strip().replace(" ", "-").lower()
 
     # Get host triplet
     host_triplet = ARCH_COMPILER_PREFIXES.get(arch)
@@ -232,64 +222,40 @@ def _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_
     make_install_cmd = commands["install_command"]
 
     logger.info(f"  - Running configure: {' '.join(configure_cmd)}")
-    try:
-        subprocess.run(configure_cmd, check=True, cwd=python_source_dir, capture_output=True, text=True, env=env)
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Python configure failed (Exit Code: {e.returncode}):")
-        if e.stdout:
-            logger.error(f"Stdout:\n{e.stdout}")
-        if e.stderr:
-            logger.error(f"Stderr:\n{e.stderr}")
+    stdout, stderr, returncode = run_shell_command(configure_cmd, env=env, cwd=python_source_dir)
+    if returncode != 0:
+        logger.error(f"Python configure failed (Exit Code: {returncode}):")
+        if stdout:
+            logger.error(f"Stdout:\n{stdout}")
+        if stderr:
+            logger.error(f"Stderr:\n{stderr}")
         logger.info("Please check the Python source, NDK setup, and compiler paths.")
-        return False
-    except FileNotFoundError:
-        logger.error(f"Error: 'configure' command not found. Ensure your PATH is set correctly.")
-        return False
-    except Exception as e:
-        logger.error(f"An unexpected error occurred during configure: {e}")
-        logger.exception(*sys.exc_info())
         return False
 
     # Make command
     make_cmd = ["make", "-j", str(os.cpu_count())]
     logger.info(f"  - Running make: {' '.join(make_cmd)}")
-    try:
-        subprocess.run(make_cmd, check=True, cwd=python_source_dir, capture_output=True, text=True, env=env)
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Python make failed (Exit Code: {e.returncode}):")
-        if e.stdout:
-            logger.error(f"Stdout:\n{e.stdout}")
-        if e.stderr:
-            logger.error(f"Stderr:\n{e.stderr}")
+    stdout, stderr, returncode = run_shell_command(make_cmd, env=env, cwd=python_source_dir)
+    if returncode != 0:
+        logger.error(f"Python make failed (Exit Code: {returncode}):")
+        if stdout:
+            logger.error(f"Stdout:\n{stdout}")
+        if stderr:
+            logger.error(f"Stderr:\n{stderr}")
         logger.info("Please check the build logs for more details on the compilation error.")
-        return False
-    except FileNotFoundError:
-        logger.error(f"Error: 'make' command not found. Ensure 'make' is installed and in your PATH.")
-        return False
-    except Exception as e:
-        logger.error(f"An unexpected error occurred during make: {e}")
-        logger.exception(*sys.exc_info())
         return False
 
     # Make install command
     make_install_cmd = ["make", "install"]
     logger.info(f"  - Running make install: {' '.join(make_install_cmd)}")
-    try:
-        subprocess.run(make_install_cmd, check=True, cwd=python_source_dir, capture_output=True, text=True, env=env)
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Python make install failed (Exit Code: {e.returncode}):")
-        if e.stdout:
-            logger.error(f"Stdout:\n{e.stdout}")
-        if e.stderr:
-            logger.error(f"Stderr:\n{e.stderr}")
+    stdout, stderr, returncode = run_shell_command(make_install_cmd, env=env, cwd=python_source_dir)
+    if returncode != 0:
+        logger.error(f"Python make install failed (Exit Code: {returncode}):")
+        if stdout:
+            logger.error(f"Stdout:\n{stdout}")
+        if stderr:
+            logger.error(f"Stderr:\n{stderr}")
         logger.info("Please check the installation directory permissions and logs.")
-        return False
-    except FileNotFoundError:
-        logger.error(f"Error: 'make' command not found for install. Ensure 'make' is installed and in your PATH.")
-        return False
-    except Exception as e:
-        logger.error(f"An unexpected error occurred during make install: {e}")
-        logger.exception(*sys.exc_info())
         return False
 
     logger.success(f"  - Python {python_version} built and installed for {arch}.")
@@ -344,22 +310,18 @@ def _compile_runtime_package(runtime_package_source_path, python_install_dir, ar
     pip_install_cmd = pip_commands["install_command"]
 
     logger.info(f"    - Running pip install: {' '.join(pip_install_cmd)}")
-    try:
-        subprocess.run(pip_install_cmd, check=True, capture_output=True, text=True, env=pip_env)
-        logger.success(f"    - Successfully compiled and installed {package_name} for {arch}.")
-        return True
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Pip install failed for runtime package {package_name} (Exit Code: {e.returncode}):")
-        if e.stdout:
-            logger.error(f"Stdout:\n{e.stdout}")
-        if e.stderr:
-            logger.error(f"Stderr:\n{e.stderr}")
+    stdout, stderr, returncode = run_shell_command(pip_install_cmd, env=pip_env)
+    if returncode != 0:
+        logger.error(f"Pip install failed for runtime package {package_name} (Exit Code: {returncode}):")
+        if stdout:
+            logger.error(f"Stdout:\n{stdout}")
+        if stderr:
+            logger.error(f"Stderr:\n{stderr}")
         logger.info("Please check the runtime packages and cross-compilation environment.")
         return False
-    except Exception as e:
-        logger.error(f"An unexpected error occurred during pip install for runtime package {package_name}: {e}")
-        logger.exception(*sys.exc_info())
-        return False
+
+    logger.success(f"    - Successfully compiled and installed {package_name} for {arch}.")
+    return True
 
 def _download_runtime_packages(runtime_packages, dependency_mapping, build_path, archs, ndk_version, ndk_api, config, verbose=False):
     """Downloads, patches, and compiles runtime packages specified in dependencies."""
@@ -410,8 +372,6 @@ def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version,
     package_name = os.path.basename(buildtime_package_source_path)
     logger.info(f"  - Compiling buildtime package {package_name} for {arch}...")
 
-
-
     # Apply patches if specified in config
     if not patch_resolver.apply_patches(package_name_from_config, buildtime_package_source_path, config):
         return False
@@ -425,11 +385,11 @@ def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version,
     if sys.platform == "linux" and os.uname().machine == "x86_64":
         build_triplet = "x86_64-linux-gnu"
     else:
-        try:
-            build_triplet = subprocess.check_output(["uname", "-m", "-s"]).decode().strip().replace(" ", "-").lower()
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Error determining build triplet: {e}")
+        stdout, stderr, returncode = run_shell_command(["uname", "-m", "-s"])
+        if returncode != 0:
+            logger.error(f"Error determining build triplet: {stderr}")
             return False
+        build_triplet = stdout.strip().replace(" ", "-").lower()
 
     commands = resolve_config_type(
         package_config=package_config,
@@ -454,27 +414,25 @@ def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version,
     autoreconf_cmd = commands["autoreconf_command"]
     if autoreconf_cmd:
         logger.info(f"  - Running autoreconf for {package_name}...")
-        try:
-            subprocess.run(autoreconf_cmd, check=True, cwd=buildtime_package_source_path, capture_output=True, text=True)
-        except subprocess.CalledProcessError as e:
-            logger.error(f"autoreconf failed for {package_name} (Exit Code: {e.returncode}):")
-            if e.stdout:
-                logger.error(f"Stdout:\n{e.stdout}")
-            if e.stderr:
-                logger.error(f"Stderr:\n{e.stderr}")
+        stdout, stderr, returncode = run_shell_command(autoreconf_cmd, cwd=buildtime_package_source_path)
+        if returncode != 0:
+            logger.error(f"autoreconf failed for {package_name} (Exit Code: {returncode}):")
+            if stdout:
+                logger.error(f"Stdout:\n{stdout}")
+            if stderr:
+                logger.error(f"Stderr:\n{stderr}")
             return False
 
     autogen_cmd = commands["autogen_command"]
     if autogen_cmd:
         logger.info(f"  - Running autogen.sh for {package_name}...")
-        try:
-            subprocess.run(autogen_cmd, check=True, cwd=buildtime_package_source_path, capture_output=True, text=True)
-        except subprocess.CalledProcessError as e:
-            logger.error(f"autogen.sh failed for {package_name} (Exit Code: {e.returncode}):")
-            if e.stdout:
-                logger.error(f"Stdout:\n{e.stdout}")
-            if e.stderr:
-                logger.error(f"Stderr:\n{e.stderr}")
+        stdout, stderr, returncode = run_shell_command(autogen_cmd, cwd=buildtime_package_source_path)
+        if returncode != 0:
+            logger.error(f"autogen.sh failed for {package_name} (Exit Code: {returncode}):")
+            if stdout:
+                logger.error(f"Stdout:\n{stdout}")
+            if stderr:
+                logger.error(f"Stderr:\n{stderr}")
             return False
 
     configure_cmd = commands["configure_command"]
@@ -483,45 +441,38 @@ def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version,
 
     if configure_cmd:
         logger.info(f"  - Running configure: {' '.join(configure_cmd)}")
-        # Use the env passed from _setup_python_build_environment
-        # original_env = os.environ.copy() # Removed
-        try:
-            # os.environ["CC"] = cc_path # Removed
-            # os.environ["CXX"] = cxx_path # Removed
-            # os.environ["AR"] = ar_path # Removed
-            # os.environ["LD"] = ld_path # Removed
-            # os.environ["RANLIB"] = ranlib_path # Removed
-            # os.environ["STRIP"] = strip_path # Removed
-            # os.environ["READELF"] = readelf_path # Removed
-            # os.environ["CFLAGS"] = cflags # Removed
-            # os.environ["LDFLAGS"] = ldflags # Removed
-            subprocess.run(configure_cmd, check=True, cwd=buildtime_package_source_path, capture_output=True, text=True, env=env)
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Configure failed for {package_name} (Exit Code: {e.returncode}):")
-            if e.stdout:
-                logger.error(f"Stdout:\n{e.stdout}")
-            if e.stderr:
-                logger.error(f"Stderr:\n{e.stderr}")
+        stdout, stderr, returncode = run_shell_command(configure_cmd, env=env, cwd=buildtime_package_source_path)
+        if returncode != 0:
+            logger.error(f"Configure failed for {package_name} (Exit Code: {returncode}):")
+            if stdout:
+                logger.error(f"Stdout:\n{stdout}")
+            if stderr:
+                logger.error(f"Stderr:\n{stderr}")
             return False
-        # finally: # Removed
-        #     os.environ.clear() # Removed
-        #     os.environ.update(original_env) # Removed
 
     # Make and make install
     logger.info(f"  - Running make: {' '.join(build_cmd)}")
-    try:
-        subprocess.run(build_cmd, check=True, cwd=buildtime_package_source_path, capture_output=True, text=True, env=env)
-        logger.info(f"  - Running make install: {' '.join(install_cmd)}")
-        subprocess.run(install_cmd, check=True, cwd=buildtime_package_source_path, capture_output=True, text=True, env=env)
-        logger.success(f"  - Successfully compiled and installed {package_name} for {arch}.")
-        return True
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Make/install failed for {package_name} (Exit Code: {e.returncode}):")
-        if e.stdout:
-            logger.error(f"Stdout:\n{e.stdout}")
-        if e.stderr:
-            logger.error(f"Stderr:\n{e.stderr}")
+    stdout, stderr, returncode = run_shell_command(build_cmd, env=env, cwd=buildtime_package_source_path)
+    if returncode != 0:
+        logger.error(f"Make failed for {package_name} (Exit Code: {returncode}):")
+        if stdout:
+            logger.error(f"Stdout:\n{stdout}")
+        if stderr:
+            logger.error(f"Stderr:\n{stderr}")
         return False
+
+    logger.info(f"  - Running make install: {' '.join(install_cmd)}")
+    stdout, stderr, returncode = run_shell_command(install_cmd, env=env, cwd=buildtime_package_source_path)
+    if returncode != 0:
+        logger.error(f"Make install failed for {package_name} (Exit Code: {returncode}):")
+        if stdout:
+            logger.error(f"Stdout:\n{stdout}")
+        if stderr:
+            logger.error(f"Stderr:\n{stderr}")
+        return False
+
+    logger.success(f"  - Successfully compiled and installed {package_name} for {arch}.")
+    return True
 
 
 def _download_buildtime_packages(resolved_buildtime_packages, build_path, archs, ndk_version, ndk_api, config, toolchain_bin_map, sysroot_map, cc_path_map, cxx_path_map, ar_path_map, ld_path_map, ranlib_path_map, strip_path_map, readelf_path_map, ndk_root_map, env_map, verbose=False):
@@ -950,25 +901,14 @@ def build_android(config, verbose):
         gradle_build_cmd = [gradlew_path, build_task]
         logger.info(f"  - Running Gradle build: {' '.join(gradle_build_cmd)}")
 
-        try:
-            subprocess.run(gradle_build_cmd, check=True, cwd=build_path, capture_output=True, text=True)
-            logger.success("  - Android APK built successfully.")
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Gradle build failed (Exit Code: {e.returncode}):")
-            if e.stdout:
-                logger.error(f"Stdout:\n{e.stdout}")
-            if e.stderr:
-                logger.error(f"Stderr:\n{e.stderr}")
+        stdout, stderr, returncode = run_shell_command(gradle_build_cmd, cwd=build_path)
+        if returncode != 0:
+            logger.error(f"Gradle build failed (Exit Code: {returncode}):")
+            if stdout:
+                logger.error(f"Stdout:\n{stdout}")
+            if stderr:
+                logger.error(f"Stderr:\n{stderr}")
             logger.info("Please review the Gradle output above for specific errors and ensure your Android SDK and NDK are correctly installed and configured.")
-            return False
-        except (OSError, FileNotFoundError) as e:
-            logger.error(f"Error executing Gradle command: {e}")
-            logger.info("This might indicate an issue with your Java or Gradle installation, or incorrect permissions.")
-            return False
-        except Exception as e:
-            logger.error(f"An unexpected error occurred during Gradle build: {e}")
-            logger.info("Please report this issue to the DroidBuilder developers.")
-            logger.exception(*sys.exc_info())
             return False
 
         # Find the generated APK and move it to the dist dir

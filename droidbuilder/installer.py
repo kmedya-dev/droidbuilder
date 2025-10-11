@@ -11,8 +11,8 @@ import contextlib
 import json
 import importlib.util
 from . import config
-from . import utils
 from .cli_logger import logger
+from .utils import run_shell_command, download_and_extract
 
 INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
 
@@ -181,34 +181,26 @@ def install_sdk_packages(version, sdk_install_dir, actual_jdk_dir, verbose=False
     try:
         # Show installed packages
         logger.info("📃 Listing available SDK packages...")
-        with subprocess.Popen([sdk_manager, "--list"],
-                              stdout=subprocess.PIPE,
-                              stderr=subprocess.STDOUT,
-                              bufsize=1,
-                              universal_newlines=True,
-                              env=env) as p:
-            for line in p.stdout:
-                logger.step_info(line.strip(), overwrite=not verbose, verbose=verbose)
-        if p.returncode != 0:
-            raise subprocess.CalledProcessError(p.returncode, p.args)
+        lines, process = run_shell_command([sdk_manager, "--list"], stream_output=True, env=env)
+        for line in lines:
+            logger.step_info(line.strip(), overwrite=not verbose, verbose=verbose)
+        if process.returncode != 0:
+            raise subprocess.CalledProcessError(process.returncode, [sdk_manager, "--list"])
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to list SDK packages: {e}")
         return False
     try:
         logger.info(f"📦 Installing Android SDK components for API {version}...")
-        with subprocess.Popen([sdk_manager,
-                        f"platforms;android-{version}",
-                        f"build-tools;{version}.0.0",
-                        "platform-tools"],
-                              stdout=subprocess.PIPE,
-                              stderr=subprocess.STDOUT,
-                              bufsize=1,
-                              universal_newlines=True,
-                              env=env) as p:
-            for line in p.stdout:
-                logger.step_info(line.strip(), overwrite=not verbose, verbose=verbose)
-        if p.returncode != 0:
-            raise subprocess.CalledProcessError(p.returncode, p.args)
+        lines, process = run_shell_command([
+            sdk_manager,
+            f"platforms;android-{version}",
+            f"build-tools;{version}.0.0",
+            "platform-tools"
+        ], stream_output=True, env=env)
+        for line in lines:
+            logger.step_info(line.strip(), overwrite=not verbose, verbose=verbose)
+        if process.returncode != 0:
+            raise subprocess.CalledProcessError(process.returncode, [sdk_manager, f"platforms;android-{version}"])
         logger.info("  - Android SDK components installed.")
         return True
     except subprocess.CalledProcessError as e:
@@ -238,16 +230,11 @@ def install_ndk(version, sdk_install_dir, actual_jdk_dir, verbose=False):
 
     try:
         logger.info(f"📦 Installing Android NDK {version}...")
-        with subprocess.Popen([sdk_manager, f"ndk;{version}"],
-                              stdout=subprocess.PIPE,
-                              stderr=subprocess.STDOUT,
-                              bufsize=1,
-                              universal_newlines=True,
-                              env=env) as p:
-            for line in p.stdout:
-                logger.step_info(line.strip(), overwrite=not verbose, verbose=verbose)
-        if p.returncode != 0:
-            raise subprocess.CalledProcessError(p.returncode, p.args)
+        lines, process = run_shell_command([sdk_manager, f"ndk;{version}"], stream_output=True, env=env)
+        for line in lines:
+            logger.step_info(line.strip(), overwrite=not verbose, verbose=verbose)
+        if process.returncode != 0:
+            raise subprocess.CalledProcessError(process.returncode, [sdk_manager, f"ndk;{version}"])
 
         os.environ["ANDROID_NDK_HOME"] = ndk_path
         os.environ["PATH"] += os.pathsep + ndk_path
@@ -386,14 +373,12 @@ def _accept_sdk_licenses(sdk_install_dir, actual_jdk_dir):
     try:
         # The --licenses command is interactive. We pipe 'y' to it and let the output stream to the console.
         logger.info("Please follow the on-screen prompts to accept licenses.")
-        process = subprocess.run([sdk_manager, "--licenses"],
-                                 input='y\n' * 100,
-                                 text=True,
-                                 env=env,
-                                 check=False)
+        stdout, stderr, return_code = run_shell_command([sdk_manager, "--licenses"], input_data='y\n' * 100, env=env)
 
-        if process.returncode != 0:
-            logger.warning(f"sdkmanager --licenses exited with a non-zero code ({process.returncode}), which may be normal.")
+        if return_code != 0:
+            logger.warning(f"sdkmanager --licenses exited with a non-zero code ({return_code}), which may be normal.")
+            if stderr:
+                logger.warning(f"Stderr:\n{stderr}")
         
         logger.info("  - License acceptance process finished.")
         return True

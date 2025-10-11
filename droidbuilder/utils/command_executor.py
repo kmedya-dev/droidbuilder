@@ -1,66 +1,58 @@
 import subprocess
 import shlex
+from ..cli_logger import logger
 
-def run_shell_command(command_string):
+def run_shell_command(command, stream_output=False, env=None, input_data=None):
     """
-    Executes a shell command and returns its output, error, and exit code.
+    Executes a shell command, with options for streaming output and providing input.
 
     Args:
-        command_string: The command to execute as a string.
+        command (list): The command to execute as a list of strings.
+        stream_output (bool): If True, streams the output in real-time.
+        env (dict, optional): A dictionary of environment variables.
+        input_data (str, optional): Data to be passed to the command's stdin.
 
     Returns:
-        A tuple containing:
-        - stdout (str): The standard output of the command.
-        - stderr (str): The standard error of the command.
-        - exit_code (int): The exit code of the command.
+        If stream_output is True, returns a generator that yields output lines.
+        If stream_output is False, returns a tuple (stdout, stderr, return_code).
     """
     try:
-        # Use shlex.split to handle quoted arguments correctly and prevent
-        # shell injection vulnerabilities.
-        args = shlex.split(command_string)
+        if stream_output:
+            process = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                bufsize=1,
+                universal_newlines=True,
+                env=env
+            )
 
-        # Execute the command using subprocess.run
-        result = subprocess.run(
-            args,
-            capture_output=True,
-            text=True,  # Capture stdout/stderr as strings
-            check=False # Do not raise an exception for non-zero exit codes
-        )
+            def _generator():
+                for line in process.stdout:
+                    yield line
+                process.communicate()
+            return _generator(), process
 
-        return result.stdout, result.stderr, result.returncode
+        else:
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                env=env,
+                input=input_data,
+                check=False
+            )
+            return result.stdout, result.stderr, result.returncode
 
+    except FileNotFoundError as e:
+        logger.error(f"Command not found: {e.filename}")
+        if stream_output:
+            return iter([]), type('obj', (object,), {'returncode': -1})
+        else:
+            return "", str(e), -1
     except Exception as e:
-        # Handle exceptions that might occur during command execution
-        return "", str(e), -1
-
-# --- Example Usage ---
-
-# 1. Successful command
-print("--- Running a successful command ---")
-stdout, stderr, exit_code = run_shell_command("ls -l")
-if exit_code == 0:
-    print("Command executed successfully.")
-    print("Exit Code:", exit_code)
-    print("STDOUT:")
-    print(stdout)
-else:
-    print("Command failed.")
-    print("Exit Code:", exit_code)
-    print("STDERR:")
-    print(stderr)
-
-print("\n" + "="*20 + "\n")
-
-# 2. Command that produces an error
-print("--- Running a command that fails ---")
-stdout, stderr, exit_code = run_shell_command("ls non_existent_directory")
-if exit_code == 0:
-    print("Command executed successfully.")
-    print("Exit Code:", exit_code)
-    print("STDOUT:")
-    print(stdout)
-else:
-    print("Command failed.")
-    print("Exit Code:", exit_code)
-    print("STDERR:")
-    print(stderr)
+        logger.error(f"An unexpected error occurred: {e}")
+        if stream_output:
+            return iter([]), type('obj', (object,), {'returncode': -1})
+        else:
+            return "", str(e), -1
