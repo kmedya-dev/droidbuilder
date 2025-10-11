@@ -164,7 +164,7 @@ def install_cmdline_tools(cmdline_tools_version, verbose=False):
     os.environ["PATH"] += os.pathsep + os.path.join(sdk_install_dir, "cmdline-tools", "latest", "bin")
     return True
 
-def install_sdk_packages(version, sdk_install_dir, actual_jdk_dir):
+def install_sdk_packages(version, sdk_install_dir, actual_jdk_dir, verbose=False):
     """Install Android SDK packages."""
     sdk_manager = _get_sdk_manager(sdk_install_dir)
     if not _check_sdk_manager(sdk_install_dir):
@@ -181,16 +181,34 @@ def install_sdk_packages(version, sdk_install_dir, actual_jdk_dir):
     try:
         # Show installed packages
         logger.info("📃 Listing available SDK packages...")
-        subprocess.run([sdk_manager, "--list"], check=True, env=env)
+        with subprocess.Popen([sdk_manager, "--list"],
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT,
+                              bufsize=1,
+                              universal_newlines=True,
+                              env=env) as p:
+            for line in p.stdout:
+                logger.step_info(line.strip(), overwrite=not verbose, verbose=verbose)
+        if p.returncode != 0:
+            raise subprocess.CalledProcessError(p.returncode, p.args)
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to list SDK packages: {e}")
         return False
     try:
         logger.info(f"📦 Installing Android SDK components for API {version}...")
-        subprocess.run([sdk_manager,
+        with subprocess.Popen([sdk_manager,
                         f"platforms;android-{version}",
                         f"build-tools;{version}.0.0",
-                        "platform-tools"], check=True, env=env)
+                        "platform-tools"],
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT,
+                              bufsize=1,
+                              universal_newlines=True,
+                              env=env) as p:
+            for line in p.stdout:
+                logger.step_info(line.strip(), overwrite=not verbose, verbose=verbose)
+        if p.returncode != 0:
+            raise subprocess.CalledProcessError(p.returncode, p.args)
         logger.info("  - Android SDK components installed.")
         return True
     except subprocess.CalledProcessError as e:
@@ -202,7 +220,7 @@ def install_sdk_packages(version, sdk_install_dir, actual_jdk_dir):
 
 # -------------------- Android NDK --------------------
 
-def install_ndk(version, sdk_install_dir, actual_jdk_dir):
+def install_ndk(version, sdk_install_dir, actual_jdk_dir, verbose=False):
     """Install Android NDK."""
     ndk_path = os.path.join(sdk_install_dir, "ndk", version)
     if os.path.exists(ndk_path):
@@ -220,7 +238,16 @@ def install_ndk(version, sdk_install_dir, actual_jdk_dir):
 
     try:
         logger.info(f"📦 Installing Android NDK {version}...")
-        subprocess.run([sdk_manager, f"ndk;{version}"], check=True, env=env)
+        with subprocess.Popen([sdk_manager, f"ndk;{version}"],
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT,
+                              bufsize=1,
+                              universal_newlines=True,
+                              env=env) as p:
+            for line in p.stdout:
+                logger.step_info(line.strip(), overwrite=not verbose, verbose=verbose)
+        if p.returncode != 0:
+            raise subprocess.CalledProcessError(p.returncode, p.args)
 
         os.environ["ANDROID_NDK_HOME"] = ndk_path
         os.environ["PATH"] += os.pathsep + ndk_path
@@ -434,12 +461,12 @@ def setup_tools(conf, verbose=False):
             all_successful = False
 
     if sdk_version:
-        if not install_sdk_packages(sdk_version, sdk_install_dir, actual_jdk_dir):
+        if not install_sdk_packages(sdk_version, sdk_install_dir, actual_jdk_dir, verbose=verbose):
             logger.error(f"Failed to install Android SDK Platform {sdk_version}.")
             all_successful = False
 
     if ndk_version:
-        if not install_ndk(ndk_version, sdk_install_dir, actual_jdk_dir):
+        if not install_ndk(ndk_version, sdk_install_dir, actual_jdk_dir, verbose=verbose):
             logger.error(f"Failed to install Android NDK version {ndk_version}.")
             all_successful = False
     
@@ -569,7 +596,7 @@ def update_tool(tool_name):
             logger.error("Could not retrieve available JDK versions. Cannot update JDK.")
             return False
         latest_jdk = available_jdks[0] # Assuming the first one is the latest or desired
-        if not install_jdk(latest_jdk):
+        if not install_jdk(latest_jdk, verbose=True):
             success = False
             logger.error(f"Failed to install latest JDK version {latest_jdk}.")
     elif tool_name.lower() == 'android-sdk':
@@ -584,7 +611,7 @@ def update_tool(tool_name):
 
         if installed_tools["android_cmdline_tools"] or cmdline_tools_version:
             logger.info("Updating Android command-line tools...")
-            if not install_cmdline_tools(cmdline_tools_version):
+            if not install_cmdline_tools(cmdline_tools_version, verbose=True):
                 success = False
                 logger.error("Failed to update Android command-line tools.")
         else:
@@ -593,7 +620,7 @@ def update_tool(tool_name):
         if installed_tools["android_sdk"] or sdk_version:
             logger.info("Updating Android SDK packages...")
             actual_jdk_dir = os.path.join(INSTALL_DIR, f"jdk-{conf.get('java',{}).get('jdk_version')}")
-            if not install_sdk_packages(sdk_version, sdk_install_dir, actual_jdk_dir):
+            if not install_sdk_packages(sdk_version, sdk_install_dir, actual_jdk_dir, verbose=True):
                 success = False
                 logger.error("Failed to update Android SDK packages.")
         else:

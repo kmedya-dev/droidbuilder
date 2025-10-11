@@ -116,8 +116,7 @@ class Logger:
                 return f"{bytes_val / 1024:.1f} KB"
             return f"{int(bytes_val)} B"
 
-        print(f"{description}...")
-        print()
+        print(f"{description}...\n")
         sys.stdout.flush()
         
         self._last_line_count = 0
