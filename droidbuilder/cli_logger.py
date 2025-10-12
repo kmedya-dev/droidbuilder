@@ -3,6 +3,7 @@ import sys
 import time
 import traceback
 import os
+import shutil
 from colorama import Fore, Style, init
 
 # Initialize Colorama
@@ -24,10 +25,7 @@ class Logger:
 
     def least_count(self, line):
         """Calculates the number of lines a string will occupy in the terminal."""
-        try:
-            terminal_width = os.get_terminal_size().columns
-        except OSError:
-            terminal_width = 80  # Default width
+        terminal_width = shutil.get_terminal_size().columns
         if terminal_width > 0:
             return (len(line) + terminal_width - 1) // terminal_width
         return 1
@@ -55,10 +53,7 @@ class Logger:
 
     def _overwrite_line(self, line):
         """Overwrites the previous line(s) in the terminal with the given line."""
-        try:
-            terminal_width = os.get_terminal_size().columns
-        except OSError:
-            terminal_width = 80 # Default width
+        terminal_width = shutil.get_terminal_size().columns
         if terminal_width < len(line):
             # for small display (multi-line)
             sys.stdout.write(f"\x1b[{self.least_count(line)}F\r\x1b[J")
