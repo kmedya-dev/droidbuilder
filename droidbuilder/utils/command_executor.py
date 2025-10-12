@@ -2,7 +2,7 @@ import subprocess
 import shlex
 from ..cli_logger import logger
 
-def run_shell_command(command, stream_output=False, env=None, input_data=None):
+def run_shell_command(command, stream_output=False, env=None, input_data=None, cwd=None):
     """
     Executes a shell command, with options for streaming output and providing input.
 
@@ -11,6 +11,7 @@ def run_shell_command(command, stream_output=False, env=None, input_data=None):
         stream_output (bool): If True, streams the output in real-time.
         env (dict, optional): A dictionary of environment variables.
         input_data (str, optional): Data to be passed to the command's stdin.
+        cwd (str, optional): The working directory for the command.
 
     Returns:
         If stream_output is True, returns a generator that yields output lines.
@@ -24,7 +25,8 @@ def run_shell_command(command, stream_output=False, env=None, input_data=None):
                 stderr=subprocess.STDOUT,
                 bufsize=1,
                 universal_newlines=True,
-                env=env
+                env=env,
+                cwd=cwd
             )
 
             def _generator():
@@ -40,7 +42,8 @@ def run_shell_command(command, stream_output=False, env=None, input_data=None):
                 text=True,
                 env=env,
                 input=input_data,
-                check=False
+                check=False,
+                cwd=cwd
             )
             return result.stdout, result.stderr, result.returncode
 

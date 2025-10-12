@@ -5,6 +5,7 @@ import shutil
 import sys
 import tarfile
 import zipfile
+import shlex
 from .cli_logger import logger
 
 from . import downloader
@@ -451,8 +452,12 @@ def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version,
             return False
 
     # Make and make install
-    logger.info(f"  - Running make: {' '.join(build_cmd)}")
-    stdout, stderr, returncode = run_shell_command(build_cmd, env=env, cwd=buildtime_package_source_path)
+    if isinstance(build_cmd, str):
+        build_cmd_list = shlex.split(build_cmd)
+    else:
+        build_cmd_list = build_cmd
+    logger.info(f"  - Running make: {' '.join(build_cmd_list)}")
+    stdout, stderr, returncode = run_shell_command(build_cmd_list, env=env, cwd=buildtime_package_source_path)
     if returncode != 0:
         logger.error(f"Make failed for {package_name} (Exit Code: {returncode}):")
         if stdout:
@@ -461,8 +466,12 @@ def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version,
             logger.error(f"Stderr:\n{stderr}")
         return False
 
-    logger.info(f"  - Running make install: {' '.join(install_cmd)}")
-    stdout, stderr, returncode = run_shell_command(install_cmd, env=env, cwd=buildtime_package_source_path)
+    if isinstance(install_cmd, str):
+        install_cmd_list = shlex.split(install_cmd)
+    else:
+        install_cmd_list = install_cmd
+    logger.info(f"  - Running make install: {' '.join(install_cmd_list)}")
+    stdout, stderr, returncode = run_shell_command(install_cmd_list, env=env, cwd=buildtime_package_source_path)
     if returncode != 0:
         logger.error(f"Make install failed for {package_name} (Exit Code: {returncode}):")
         if stdout:
