@@ -18,22 +18,16 @@ class Logger:
             LOG_DIR,
             f"droidbuilder_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
         )
-        self._last_line_count = 0
 
     def _get_timestamp(self):
         return datetime.datetime.now().strftime("%H:%M:%S")
 
-    def _get_wrapped_line_count(self, text, width):
-        if not width:
-            return 1  # Cannot wrap if no width, assume 1 line
-
-        if not text:
-            return 1  # An empty text still prints one line
-
-        lines = 0
-        for line in text.split('\n'):
-            lines += (len(line) + width - 1) // width or 1
-        return lines
+    def least_count(self, line):
+        """Calculates the number of lines a string will occupy in the terminal."""
+        terminal_width = os.get_terminal_size().columns
+        if terminal_width > 0:
+            return (len(line) + terminal_width - 1) // terminal_width
+        return 1
 
     def format_time(self, seconds):
         seconds = int(seconds)
@@ -56,6 +50,19 @@ class Logger:
         with open(self.log_file, "a") as f:
             f.write(log_message)
 
+    def _overwrite_line(self, line):
+        """Overwrites the previous line(s) in the terminal with the given line."""
+        terminal_width = os.get_terminal_size().columns
+        if terminal_width < len(line):
+            # for small display (multi-line)
+            sys.stdout.write(f"\x1b[{self.least_count(line)}F\r\x1b[J")
+            print(line)
+        else:
+            # for large display (single-line)
+            sys.stdout.write("\x1b[F\r\x1b[J")
+            print(line)
+        sys.stdout.flush()
+
     def info(self, message):
         self._log("INFO", message, Fore.CYAN)
 
@@ -63,38 +70,26 @@ class Logger:
         prefix = " " * indent
         if overwrite and not verbose:
             line = f"{prefix}{message}"
-            terminal_width = int(os.environ.get("COLUMNS", default=80))
-            
-            # Move cursor up and clear lines
-            sys.stdout.write(f"\x1b[{self._last_line_count}F\r\x1b[J")
-            
-            self._last_line_count = self._get_wrapped_line_count(line, terminal_width)
-            print(line)
-            sys.stdout.flush()
+            self._overwrite_line(line)
         else:
-            self._last_line_count = 0
             self._log("", message, Fore.CYAN, prefix=prefix, show_timestamp=False)
 
     def success(self, message):
-        self._last_line_count = 0
         self._log("SUCCESS", message, Fore.GREEN, prefix=f"{Style.BRIGHT}✓ {Style.RESET_ALL}{Fore.GREEN}")
 
     def warning(self, message):
-        self._last_line_count = 0
         self._log("WARNING", message, Fore.YELLOW, stream=sys.stderr,
                   prefix=f"{Style.BRIGHT}⚠ {Style.RESET_ALL}{Fore.YELLOW}")
 
     def error(self, message):
-        self._last_line_count = 0
         self._log("ERROR", message, Fore.RED, stream=sys.stderr,
                   prefix=f"{Style.BRIGHT}✖ {Style.RESET_ALL}{Fore.RED}")
 
     def debug(self, message):
-        self._last_line_count = 0
         self._log("DEBUG", message, Fore.WHITE + Style.DIM)
 
     # -------- Progress bar method --------
-    def progress(self, iterable, description="Downloading", total=None, bar_length=30, unit="b"):
+    def progress(self, iterable, description="Downloading", total=None, bar_length=30, unit="b", completion_message="✅ Download complete!"):
         if total is None:
             try:
                 total = len(iterable)
@@ -118,9 +113,6 @@ class Logger:
 
         print(f"{description}...\n")
         sys.stdout.flush()
-        
-        self._last_line_count = 0
-
         for i, item in enumerate(iterable):
             yield item
 
@@ -154,7 +146,7 @@ class Logger:
                     speed_unit, speed_divisor = ("GB/s", 1024*1024*1024)
             else:
                 speed_unit, speed_divisor = ("it/s", 1)
-            
+
             try:
                 eta_str = self.format_time(eta)
             except (ValueError, OverflowError, OSError):
@@ -169,21 +161,14 @@ class Logger:
                 f"{eta_str}"
             )
 
-            # Overwrite same line
-            terminal_width = int(os.environ.get("COLUMNS", default=80))
-            sys.stdout.write(f"\x1b[{self._last_line_count}F\r\x1b[J")
-            
-            self._last_line_count = self._get_wrapped_line_count(line, terminal_width)
-            print(line)
-            sys.stdout.flush()
+            self._overwrite_line(line)
 
         # completion message
-        print("\n✅ Download complete!")
-        self._last_line_count = 0
+        if completion_message:
+            print(f"\n{completion_message}")
 
     # -------- Exception logging --------
     def exception(self, exc_type, exc_value, exc_traceback):
-        self._last_line_count = 0
         self.error(f"An unhandled exception occurred: {exc_value}")
         formatted_lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
         for line in formatted_lines:

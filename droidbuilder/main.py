@@ -29,6 +29,7 @@ cli.add_command(update_deps)
 
 cli.add_command(check_deps)
 cli.add_command(search_dependency)
+cli.add_command(search_code)
 
 if __name__ == '__main__':
     try:
