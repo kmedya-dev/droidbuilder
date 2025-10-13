@@ -36,8 +36,7 @@ def resolve_config_type(package_config: dict, package_name: str, package_source_
     autogen_cmd = []
     autoreconf_cmd = []
 
-    # Check for existence of build system files
-    cmake_lists_path = os.path.join(package_source_path, "CMakeLists.txt")
+    has_cmake = os.path.exists(cmake_lists_path)
     specialized_configure_path = os.path.join(package_source_path, "Configure")
     standard_configure_path = os.path.join(package_source_path, "configure")
     autogen_script_path = os.path.join(package_source_path, "autogen.sh")
@@ -60,6 +59,8 @@ def resolve_config_type(package_config: dict, package_name: str, package_source_
         autoreconf_cmd = ["autoreconf", "-fi"]
         # Re-check for configure script after autoreconf
         has_standard_configure = os.path.exists(standard_configure_path)
+
+
 
     # Determine the effective config_type and script to use
     effective_config_type = None

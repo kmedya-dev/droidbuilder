@@ -3,6 +3,7 @@ import subprocess
 import os
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse, quote_plus, unquote # Added quote_plus, unquote
+from typing import Optional
 from packaging.version import parse as parse_version, InvalidVersion
 
 import requests
@@ -71,7 +72,7 @@ class VersionLinkFinder(HTMLParser):
 
 
 
-def find_tarball(url: str, package_name: str, version: str | None = None, visited: set = None, depth: int = 0) -> str | None:
+def find_tarball(url: str, package_name: str, version: Optional[str] = None, visited: set = None, depth: int = 0) -> Optional[str]:
 
     MAX_DEPTH = 3 # Limit recursion depth
 
@@ -157,7 +158,7 @@ def find_tarball(url: str, package_name: str, version: str | None = None, visite
     return None
 
 
-def resolve_package_url(package_name: str, version: str | None = None) -> str | None:
+def resolve_package_url(package_name: str, version: Optional[str] = None) -> Optional[str]:
     search_query = f"{package_name} download source tar.gz"
     logger.info(f"Searching for '{search_query}' using Web Search...")
     search_results = default_api.google_web_search(query=search_query)
