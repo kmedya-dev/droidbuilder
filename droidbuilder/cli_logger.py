@@ -1,3 +1,4 @@
+import re
 import datetime
 import sys
 import time
@@ -19,16 +20,31 @@ class Logger:
             LOG_DIR,
             f"droidbuilder_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
         )
+        self._last_line_count = 0
 
     def _get_timestamp(self):
         return datetime.datetime.now().strftime("%H:%M:%S")
 
+    def _strip_ansi(self, text):
+        ansi_escape = re.compile(r'\x1b\[[0-?]*[ -/]*[@-~]')
+        return ansi_escape.sub('', text)
+
     def least_count(self, line):
         """Calculates the number of lines a string will occupy in the terminal."""
         terminal_width = shutil.get_terminal_size().columns
+        visible_line_length = len(self._strip_ansi(line))
         if terminal_width > 0:
-            return (len(line) + terminal_width - 1) // terminal_width
+            calculated_lines = (visible_line_length + terminal_width - 1) // terminal_width
+            return calculated_lines
         return 1
+
+    def _overwrite_line(self, line):
+        """Overwrites the previous line(s) in the terminal with the given line."""
+        escape_code = f"\x1b[{self._last_line_count}F\r\x1b[K"
+        sys.stdout.write(escape_code)
+        print(line)
+        sys.stdout.flush()
+        self._last_line_count = self.least_count(line)
 
     def format_time(self, seconds):
         seconds = int(seconds)
@@ -50,19 +66,6 @@ class Logger:
 
         with open(self.log_file, "a") as f:
             f.write(log_message)
-
-    def _overwrite_line(self, line):
-        """Overwrites the previous line(s) in the terminal with the given line."""
-        terminal_width = shutil.get_terminal_size().columns
-        if terminal_width < len(line):
-            # for small display (multi-line)
-            sys.stdout.write(f"\x1b[{self.least_count(line)}F\r\x1b[J")
-            print(line)
-        else:
-            # for large display (single-line)
-            sys.stdout.write("\x1b[F\r\x1b[J")
-            print(line)
-        sys.stdout.flush()
 
     def info(self, message):
         self._log("INFO", message, Fore.CYAN)
@@ -112,8 +115,7 @@ class Logger:
                 return f"{bytes_val / 1024:.1f} KB"
             return f"{int(bytes_val)} B"
 
-        print(f"{description}...\n")
-        sys.stdout.flush()
+        self.info(f"{description}...")
         for i, item in enumerate(iterable):
             yield item
 
@@ -166,7 +168,7 @@ class Logger:
 
         # completion message
         if completion_message:
-            print(f"\n{completion_message}")
+            self.success(completion_message)
 
     # -------- Exception logging --------
     def exception(self, exc_type, exc_value, exc_traceback):

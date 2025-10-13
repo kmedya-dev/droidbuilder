@@ -7,24 +7,24 @@ class TestDependencies(unittest.TestCase):
         conf = {
             "app": {
                 "dependency": {
-                    "python_packages": ["package_a", "package_b"],
-                    "system_packages": ["lib_x", "lib_y"]
+                    "runtime_packages": ["package_a", "package_b"],
+                    "buildtime_packages": ["lib_x", "lib_y"]
                 },
                 "dependency_mapping": {
                     "lib_x": "http://example.com/lib_x.tar.gz"
                 }
             }
         }
-        python_packages, system_packages, dependency_mapping = get_explicit_dependencies(conf)
+        runtime_packages, buildtime_packages, dependency_mapping = get_explicit_dependencies(conf)
 
-        self.assertEqual(python_packages, ["package_a", "package_b"])
-        self.assertEqual(system_packages, ["lib_x", "lib_y"])
+        self.assertEqual(runtime_packages, ["package_a", "package_b"])
+        self.assertEqual(buildtime_packages, ["lib_x", "lib_y"])
         self.assertEqual(dependency_mapping, {"lib_x": "http://example.com/lib_x.tar.gz"})
 
     def test_get_explicit_dependencies_empty(self):
         conf = {"app": {}}
-        python_packages, system_packages, dependency_mapping = get_explicit_dependencies(conf)
+        runtime_packages, buildtime_packages, dependency_mapping = get_explicit_dependencies(conf)
 
-        self.assertEqual(python_packages, [])
-        self.assertEqual(system_packages, [])
+        self.assertEqual(runtime_packages, [])
+        self.assertEqual(buildtime_packages, [])
         self.assertEqual(dependency_mapping, {})
