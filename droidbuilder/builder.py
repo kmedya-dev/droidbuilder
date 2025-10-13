@@ -436,6 +436,26 @@ def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version,
                 logger.error(f"Stderr:\n{stderr}")
             return False
 
+    # Re-resolve config type after autogen/autoreconf to pick up newly generated configure scripts
+    commands = resolve_config_type(
+        package_config=package_config,
+        package_name=package_name_from_config,
+        package_source_path=buildtime_package_source_path,
+        arch=arch,
+        ndk_api=ndk_api,
+        install_dir=install_dir,
+        build_triplet=build_triplet,
+        host_triplet=host_triplet,
+        cflags=cflags,
+        ldflags=ldflags,
+        cc=cc_path,
+        cxx=cxx_path,
+        ar=ar_path,
+        ld=ld_path,
+        ranlib=ranlib_path,
+        strip=strip_path,
+        readelf=readelf_path,
+    )
     configure_cmd = commands["configure_command"]
     build_cmd = commands["build_command"]
     install_cmd = commands["install_command"]
