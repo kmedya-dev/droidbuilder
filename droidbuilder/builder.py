@@ -190,7 +190,7 @@ def _build_python_for_android(python_version, ndk_version, ndk_api, arch, build_
         return False
 
     # Add buildtime packages to CFLAGS and LDFLAGS
-    buildtime_libs_dir = os.path.join(INSTALL_DIR, "system_libs", arch)
+    buildtime_libs_dir = os.path.join(INSTALL_DIR, "buildtime_libs", arch)
     cflags = f"-fPIC -DANDROID -D__ANDROID_API__={ndk_api} -I{sysroot}/usr/include"
     ldflags = f"-L{sysroot}/usr/lib/{compiler_prefix}/{ndk_api} -lm -ldl --sysroot={sysroot}"
     if os.path.exists(buildtime_libs_dir):
@@ -392,7 +392,8 @@ def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version,
             return False
         build_triplet = stdout.strip().replace(" ", "-").lower()
 
-    commands = resolve_config_type(
+    # First, resolve potential autogen/autoreconf commands
+    initial_commands = resolve_config_type(
         package_config=package_config,
         package_name=package_name_from_config,
         package_source_path=buildtime_package_source_path,
@@ -412,7 +413,7 @@ def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version,
         readelf=readelf_path,
     )
 
-    autoreconf_cmd = commands["autoreconf_command"]
+    autoreconf_cmd = initial_commands["autoreconf_command"]
     if autoreconf_cmd:
         logger.info(f"  - Running autoreconf for {package_name}...")
         stdout, stderr, returncode = run_shell_command(autoreconf_cmd, cwd=buildtime_package_source_path)
@@ -424,7 +425,7 @@ def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version,
                 logger.error(f"Stderr:\n{stderr}")
             return False
 
-    autogen_cmd = commands["autogen_command"]
+    autogen_cmd = initial_commands["autogen_command"]
     if autogen_cmd:
         logger.info(f"  - Running autogen.sh for {package_name}...")
         stdout, stderr, returncode = run_shell_command(autogen_cmd, cwd=buildtime_package_source_path)
@@ -436,7 +437,7 @@ def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version,
                 logger.error(f"Stderr:\n{stderr}")
             return False
 
-    # Re-resolve config type after autogen/autoreconf to pick up newly generated configure scripts
+    # After autogen/autoreconf, re-resolve config type to pick up newly generated configure scripts
     commands = resolve_config_type(
         package_config=package_config,
         package_name=package_name_from_config,
@@ -463,12 +464,12 @@ def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version,
     if configure_cmd:
         logger.info(f"  - Running configure: {' '.join(configure_cmd)}")
         stdout, stderr, returncode = run_shell_command(configure_cmd, env=env, cwd=buildtime_package_source_path)
-        if stdout:
-            logger.info(f"Configure Stdout:\n{stdout}")
-        if stderr:
-            logger.info(f"Configure Stderr:\n{stderr}")
         if returncode != 0:
             logger.error(f"Configure failed for {package_name} (Exit Code: {returncode}):")
+        if stdout:
+            logger.info(f"Stdout:\n{stdout}")
+        if stderr:
+            logger.info(f"Stderr:\n{stderr}")
             return False
 
     # Make and make install
