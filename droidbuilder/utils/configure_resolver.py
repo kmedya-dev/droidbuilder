@@ -57,8 +57,7 @@ def resolve_config_type(package_config: dict, package_name: str, package_source_
     if has_configure_ac or has_configure_in:
         logger.info(f"  - 'configure.ac' or 'configure.in' exists for {package_name}. Adding autoreconf command.")
         autoreconf_cmd = ["autoreconf", "-fi"]
-        # Re-check for configure script after autoreconf
-        has_standard_configure = os.path.exists(standard_configure_path)
+
 
 
 
