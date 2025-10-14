@@ -36,7 +36,7 @@ def resolve_config_type(package_config: dict, package_name: str, package_source_
     autogen_cmd = []
     autoreconf_cmd = []
 
-    has_cmake = os.path.exists(cmake_lists_path)
+    cmake_lists_path = os.path.join(package_source_path, "CMakeLists.txt")
     specialized_configure_path = os.path.join(package_source_path, "Configure")
     standard_configure_path = os.path.join(package_source_path, "configure")
     autogen_script_path = os.path.join(package_source_path, "autogen.sh")
