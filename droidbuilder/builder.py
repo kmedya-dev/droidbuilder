@@ -463,12 +463,12 @@ def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version,
     if configure_cmd:
         logger.info(f"  - Running configure: {' '.join(configure_cmd)}")
         stdout, stderr, returncode = run_shell_command(configure_cmd, env=env, cwd=buildtime_package_source_path)
+        if stdout:
+            logger.info(f"Configure Stdout:\n{stdout}")
+        if stderr:
+            logger.info(f"Configure Stderr:\n{stderr}")
         if returncode != 0:
             logger.error(f"Configure failed for {package_name} (Exit Code: {returncode}):")
-            if stdout:
-                logger.error(f"Stdout:\n{stdout}")
-            if stderr:
-                logger.error(f"Stderr:\n{stderr}")
             return False
 
     # Make and make install
