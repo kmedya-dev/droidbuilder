@@ -5,9 +5,8 @@ import sys
 import glob
 from ..import config
 from ..cli_logger import logger
-from ..builder import BUILD_DIR, INSTALL_DIR
-from .. import downloader
 from ..downloader import DOWNLOAD_DIR
+from ..builder import BUILD_DIR, INSTALL_DIR
 
 EXCLUDE_PREFIXES = {"android-sdk", "gradle-", "jdk-"} #skip those, because those are handled by "droidbuilder/commands/uninstall.py"
 
@@ -17,12 +16,16 @@ def clean(ctx):
     """Remove build artifacts and cache files."""
     logger.info("Cleaning build artifacts, temporary files, and cache...")
 
+    # Load configuration
+    # config_data = config.load_config(ctx.obj["path"])
+    
+    # Get default patterns
     dir_patterns = [
+        BUILD_DIR + "/**", # Add the global build directory	
+        DOWNLOAD_DIR + "/**", # Add the global download directory
         "build",
         "dist",
 	".droidbuilder/**",
-        BUILD_DIR + "/**", # Add the global build directory	
-        DOWNLOAD_DIR + "/**", # Add the global download directory
         ".pytest_cache",
         ".ruff_cache",
         "**/*.egg-info",
@@ -49,8 +52,14 @@ def clean(ctx):
         "**/Thumbs.db",
         "**/desktop.ini",
         "**/*~",
-        "**/*.swp",
     ]
+
+    # Extend patterns from config if available
+    """if config_data and 'clean' in config_data:
+        if 'dir_patterns' in config_data['clean'] and isinstance(config_data['clean']['dir_patterns'], list):
+            dir_patterns.extend(config_data['clean']['dir_patterns'])
+        if 'file_patterns' in config_data['clean'] and isinstance(config_data['clean']['file_patterns'], list):
+            file_patterns.extend(config_data['clean']['file_patterns'])"""
 
     items_removed = 0
 

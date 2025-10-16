@@ -13,6 +13,7 @@ from .log import *
 from .search_dependency import *
 from .search_packages import *
 from .search import *
+from .search_code import *
 from .uninstall import *
 from .update_deps import *
 from .update import *

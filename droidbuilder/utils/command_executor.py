@@ -7,17 +7,18 @@ def run_shell_command(command, stream_output=False, env=None, input_data=None, c
     Executes a shell command, with options for streaming output and providing input.
 
     Args:
-        command (list): The command to execute as a list of strings.
+        command (list or str): The command to execute.
         stream_output (bool): If True, streams the output in real-time.
         env (dict, optional): A dictionary of environment variables.
         input_data (str, optional): Data to be passed to the command's stdin.
         cwd (str, optional): The working directory for the command.
 
     Returns:
-        If stream_output is True, returns a generator that yields output lines.
+        If stream_output is True, returns a generator that yields output lines and the process object.
         If stream_output is False, returns a tuple (stdout, stderr, return_code).
     """
     try:
+        shell = isinstance(command, str)
         if stream_output:
             process = subprocess.Popen(
                 command,
@@ -26,7 +27,8 @@ def run_shell_command(command, stream_output=False, env=None, input_data=None, c
                 bufsize=1,
                 universal_newlines=True,
                 env=env,
-                cwd=cwd
+                cwd=cwd,
+                shell=shell
             )
 
             def _generator():
@@ -43,7 +45,8 @@ def run_shell_command(command, stream_output=False, env=None, input_data=None, c
                 env=env,
                 input=input_data,
                 check=False,
-                cwd=cwd
+                cwd=cwd,
+                shell=shell
             )
             return result.stdout, result.stderr, result.returncode
 

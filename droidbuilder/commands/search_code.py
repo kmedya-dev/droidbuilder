@@ -12,6 +12,7 @@ def search_code(pattern):
             "grep",
             "-r",
             "-n",
+            "--color=always",
             "--exclude-dir=.git",
             "--exclude-dir=venv",
             pattern,
