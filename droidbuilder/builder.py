@@ -1,4 +1,4 @@
-}import click
+import click
 import os
 import subprocess
 import shutil
