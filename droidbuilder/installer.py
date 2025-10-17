@@ -319,18 +319,7 @@ def _get_available_gradle_versions():
 
 def _get_gradle_download_url(version):
     """Get the download URL for a specific Gradle version."""
-    api_url = f"https://services.gradle.org/versions/{version}"
-    try:
-        resp = requests.get(api_url, timeout=30)
-        resp.raise_for_status()
-        version_info = resp.json()
-        return version_info.get("downloadUrl")
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Error fetching Gradle download URL for version {version}: {e}")
-        return None
-    except (KeyError, ValueError):
-        logger.error(f"Error parsing Gradle API response for version {version}.")
-        return None
+    return f"https://services.gradle.org/distributions/gradle-{version}-bin.zip"
 
 
 def install_gradle(version, verbose=False):
@@ -356,7 +345,7 @@ def install_gradle(version, verbose=False):
         return False
 
     try:
-        download_and_extract(gradle_url, gradle_install_dir, f"gradle-{version}-bin.zip", verbose=verbose)
+        download_and_extract(gradle_url, gradle_install_dir, verbose=verbose)
     except Exception as e:
         logger.error(f"Error downloading and extracting Gradle: {e}")
         return False
