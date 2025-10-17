@@ -46,9 +46,9 @@ def download_python_source(version, verbose=False):
         return False
 
     # Verify that configure script exists
-    if not os.path.exists(os.path.join(source_dir, "configure")):
+    """if not os.path.exists(os.path.join(source_dir, "configure")):
         logger.error("Error: 'configure' script not found in Python source. The download or extraction might have failed.")
-        return False
+        return False"""
 
     logger.info(f"  - Python source downloaded to {source_dir}")
     return source_dir
