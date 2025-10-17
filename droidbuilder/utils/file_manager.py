@@ -75,12 +75,13 @@ def _move_extracted_files(source_dir, dest_dir):
     """Move extracted files, normalizing the directory structure."""
     extracted_items = os.listdir(source_dir)
 
-    # If the archive contains a single directory, move the directory itself
+    # If the archive contains a single directory, move its contents
     if len(extracted_items) == 1:
         inner_dir = os.path.join(source_dir, extracted_items[0])
         if os.path.isdir(inner_dir):
-            # Move the inner directory to the destination
-            shutil.move(inner_dir, dest_dir)
+            # Move the contents of the inner directory to the destination
+            for item in os.listdir(inner_dir):
+                shutil.move(os.path.join(inner_dir, item), os.path.join(dest_dir, item))
             shutil.rmtree(source_dir) # Clean up the now-empty source dir
             return
 
