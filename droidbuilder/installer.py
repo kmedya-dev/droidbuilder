@@ -302,9 +302,35 @@ def install_jdk(version, verbose=False):
 
 # -------------------- Gradle --------------------
 
+def _get_available_gradle_versions():
+    """Get available Gradle versions from the official Gradle API."""
+    api_url = "https://services.gradle.org/versions/all"
+    try:
+        resp = requests.get(api_url, timeout=30)
+        resp.raise_for_status()
+        versions_info = resp.json()
+        return [v["version"] for v in versions_info]
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching available Gradle versions: {e}")
+        return []
+    except (KeyError, ValueError):
+        logger.error("Error parsing Gradle API response for available versions.")
+        return []
+
 def _get_gradle_download_url(version):
     """Get the download URL for a specific Gradle version."""
-    return f"https://services.gradle.org/distributions/gradle-{version}-bin.zip"
+    api_url = f"https://services.gradle.org/versions/{version}"
+    try:
+        resp = requests.get(api_url, timeout=30)
+        resp.raise_for_status()
+        version_info = resp.json()
+        return version_info.get("downloadUrl")
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching Gradle download URL for version {version}: {e}")
+        return None
+    except (KeyError, ValueError):
+        logger.error(f"Error parsing Gradle API response for version {version}.")
+        return None
 
 
 def install_gradle(version, verbose=False):
@@ -584,6 +610,22 @@ def update_tool(tool_name):
         if not install_jdk(latest_jdk, verbose=True):
             success = False
             logger.error(f"Failed to install latest JDK version {latest_jdk}.")
+    elif tool_name.lower() == 'gradle':
+        if installed_tools["gradle"]:
+            for gradle_version in installed_tools["gradle"]:
+                if not uninstall_tool(f"gradle-{gradle_version}"):
+                    success = False
+                    logger.error(f"Failed to uninstall existing Gradle version {gradle_version}. Aborting update.")
+                    return False # Abort if uninstall fails
+        
+        available_gradle = _get_available_gradle_versions()
+        if not available_gradle:
+            logger.error("Could not retrieve available Gradle versions. Cannot update Gradle.")
+            return False
+        latest_gradle = available_gradle[0] # Assuming the first one is the latest or desired
+        if not install_gradle(latest_gradle, verbose=True):
+            success = False
+            logger.error(f"Failed to install latest Gradle version {latest_gradle}.")
     elif tool_name.lower() == 'android-sdk':
         conf = config.load_config()
         if not conf:
@@ -611,7 +653,7 @@ def update_tool(tool_name):
         else:
             logger.warning("Android SDK version not specified in droidbuilder.toml. Skipping update.")
     else:
-        logger.error(f"Error: '{tool_name}' is not a valid tool to update. Supported tools are 'jdk' and 'android-sdk'.")
+        logger.error(f"Error: '{tool_name}' is not a valid tool to update. Supported tools are 'jdk', 'gradle', and 'android-sdk'.")
         return False
 
     if success:
@@ -633,6 +675,14 @@ def search_tool(tool_name):
                 logger.info(f"  - {version}")
         else:
             logger.info("Could not find any JDK versions. Please check your internet connection or try again later.")
+    elif tool_name.lower() == 'gradle':
+        versions = _get_available_gradle_versions()
+        if versions:
+            logger.info("Available Gradle versions:")
+            for version in versions:
+                logger.info(f"  - {version}")
+        else:
+            logger.info("Could not find any Gradle versions. Please check your internet connection or try again later.")
     elif tool_name.lower() == 'android-sdk':
         logger.info("Android SDK versions can be found on the Android developer website:")
         logger.info("https://developer.android.com/studio/releases/sdk-tools")
@@ -640,7 +690,7 @@ def search_tool(tool_name):
         logger.info("Android NDK versions can be found on the Android developer website:")
         logger.info("https://developer.android.com/ndk/downloads")
     else:
-        logger.error(f"Error: '{tool_name}' is not a valid tool to search for. Supported tools are 'jdk', 'android-sdk', and 'android-ndk'.")
+        logger.error(f"Error: '{tool_name}' is not a valid tool to search for. Supported tools are 'jdk', 'gradle', 'android-sdk', and 'android-ndk'.")
 
 
 def check_environment():
@@ -688,6 +738,11 @@ def check_environment():
     jdk_version = conf.get("java", {}).get("jdk_version")
     if jdk_version and str(jdk_version) not in installed_tools["java_jdk"]:
         logger.warning(f"Java JDK version {jdk_version} is not installed. Run 'droidbuilder install-tools'.")
+        all_ok = False
+
+    gradle_version = conf.get("java", {}).get("gradle_version")
+    if gradle_version and str(gradle_version) not in installed_tools["gradle"]:
+        logger.warning(f"Gradle version {gradle_version} is not installed. Run 'droidbuilder install-tools'.")
         all_ok = False
 
     # Environment variables

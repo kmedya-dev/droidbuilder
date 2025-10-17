@@ -31,8 +31,5 @@ buildtime_packages = ["libffi"]
 libffi = "https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz"
 openssl = "https://github.com/openssl/openssl/releases/download/openssl-3.6.0/openssl-3.6.0.tar.gz"
 
-
-
 [build]
 type = "debug"
-

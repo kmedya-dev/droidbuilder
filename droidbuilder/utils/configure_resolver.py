@@ -4,7 +4,31 @@ import shlex
 
 from ..cli_logger import logger
 
-def resolve_config_type(package_config: dict, package_name: str, package_source_path: str, arch: str, ndk_api: str, install_dir: str, build_triplet: str, host_triplet: str, cflags: str = "", ldflags: str = "", cc: str = "", cxx: str = "", ar: str = "", ld: str = "", ranlib: str = "", strip: str = "", readelf: str = "", ndk_root: str = "") -> dict:
+# This map is needed for meson configuration.
+ARCH_MAP = {
+    "arm64-v8a": ["aarch64-linux-android", "aarch64", "aarch64"],
+    "armeabi-v7a": ["armv7a-linux-androideabi", "arm", "armv7a"],
+    "x86": ["i686-linux-android", "x86", "i686"],
+    "x86_64": ["x86_64-linux-android", "x86_64", "x86_64"],
+}
+
+
+def resolve_config_type(
+    package_name: str,
+    package_config: dict,
+    package_source_path: str,
+    arch: str,
+    ndk_api: str,
+    install_dir: str,
+    cflags: str = "",
+    ldflags: str = "",
+    cc: str = "",
+    cxx: str = "",
+    ar: str = "",
+    strip: str = "",
+    ndk_root: str = "",
+    sysroot: str = "",
+) -> dict:
     """
     This module only resolves configuration type; build execution is elsewhere.
 
@@ -28,174 +52,74 @@ def resolve_config_type(package_config: dict, package_name: str, package_source_
     Raises:
         ValueError: If an unsupported config_type is provided.
     """
-    config_type = package_config.get("config_type").lower()
-    logger.info(f"Resolving configuration for {package_name} with config_type: {config_type}")
-    pre_configure_cmd = []
+    config_type = package_config.get("config_type", "").lower()
+    if config_type:
+        logger.info(f"Resolving configuration for {package_name} with config_type: {config_type}")
+    else:
+        logger.info(f"Resolving configuration for {package_name} with auto-detection.")
+
+    clean_cmd = []
     configure_cmd = []
-    clean_cmd = ["make", "clean"]
-    build_cmd = ["make", "-j", str(os.cpu_count())]
-    install_cmd = ["make", "install"]
+    build_cmd = []
+    install_cmd = []
 
-    cmake_lists_path = os.path.join(package_source_path, "CMakeLists.txt")
-    Configure_configure_path = os.path.join(package_source_path, "Configure")
-    configure_configure_path = os.path.join(package_source_path, "configure")
-    autogen_path = os.path.join(package_source_path, "autogen.sh")
-    configure_ac_path = os.path.join(package_source_path, "configure.ac")
-    configure_in_path = os.path.join(package_source_path, "configure.in")
-    meson_build_path = os.path.join(package_source_path, "meson.build")
 
-    has_cmake = os.path.exists(cmake_lists_path)
-    has_Configure_configure = os.path.exists(Configure_configure_path)
-    has_configure_configure = os.path.exists(configure_configure_path)
-    has_autogen = os.path.exists(autogen_path)
-    has_configure_ac = os.path.exists(configure_ac_path)
-    has_configure_in = os.path.exists(configure_in_path)
-    has_meson = os.path.exists(meson_build_path)
+    if config_type == "meson":
+        logger.info(f"  - Generating Meson build commands for {package_name}.")
 
-    # Determine the effective config_type and script to use
-    effective_config_type = None
-    configure_script_to_use = None
+        meson_cpu_family = ARCH_MAP[arch][1]
+        meson_cpu = ARCH_MAP[arch][2]
 
-    if config_type == "cmake" and has_cmake:
-        configure_script_to_use = "cmake"
-        effective_config_type = "cmake"
-    elif config_type == "autotools":
-        if has_autogen:
-            pre_configure_cmd = [autogen_path, f"--host={host_triplet}"]
-            configure_script_to_use = configure_configure_path
-            effective_config_type = "configure"
-        elif (has_configure_ac or has_configure_in) and not has_configure_configure:
-            pre_configure_cmd = ["autoreconf", "-if"]
-            configure_script_to_use = configure_configure_path
-            effective_config_type = "configure"
-        elif has_configure_configure:
-            configure_script_to_use = configure_configure_path
-            effective_config_type = "configure"
-        elif config_type == "configure" and has_configure_configure:
-            configure_script_to_use = configure_configure_path
-            effective_config_type = "configure"
-        elif config_type == "Configure" and has_Configure_configure:
-            configure_script_to_use = Configure_configure_path
-            effective_config_type = "Configure"
-        elif config_type == "python":
-            configure_script_to_use = os.path.join(package_source_path, "configure")
-            effective_config_type = "python"
-        elif config_type == "pip":
-            effective_config_type = "pip"
-        else:
-            logger.info(f"  - Unknown config_type '{config_type}'. Auto-detecting build system for {package_name}.")
-            if has_meson:
-                effective_config_type = "meson"
-            elif has_autogen:
-                pre_configure_cmd = [autogen_path, f"--host={host_triplet}"]
-                configure_script_to_use = configure_configure_path
-                effective_config_type = "configure"
-            elif (has_configure_ac or has_configure_in) and not has_configure_configure:
-                pre_configure_cmd = ["autoreconf", "-if"]
-                configure_script_to_use = configure_configure_path
-                effective_config_type = "configure"
-            elif has_cmake:
-                effective_config_type = "cmake"
-                configure_script_to_use = "cmake"
-            elif has_Configure_configure:
-                effective_config_type = "Configure"
-                configure_script_to_use = Configure_configure_path
-            elif has_configure_configure:
-                effective_config_type = "configure"
-                configure_script_to_use = configure_configure_path
-    
-    if effective_config_type == "cmake":
-        logger.info(f"  - Using CMake for {package_name}.")
-        configure_cmd = [
-            "cmake",
-            f"-DCMAKE_TOOLCHAIN_FILE={ndk_root}/build/cmake/android.toolchain.cmake",
-            f"-DANDROID_ABI={arch}",
-            f"-DANDROID_NDK={ndk_root}",
-            f"-DANDROID_PLATFORM=android-{ndk_api}",
-            f"-DCMAKE_ANDROID_ARCH_ABI={arch}",
-            f"-DCMAKE_ANDROID_NDK={ndk_root}",
-            f"-DCMAKE_BUILD_TYPE=Release",
-            f"-DCMAKE_INSTALL_PREFIX={install_dir}",
-            "-S",
-            package_source_path,
-            "-B",
-            "build"
-        ]
-        build_cmd = ["cmake", "--build", "build"]
-        install_cmd = ["cmake", "--install", "build"]
-    elif effective_config_type == "Configure":
-        logger.info(f"  - Using Configure script for {package_name}.")
-        if configure_script_to_use:
-            configure_cmd = [
-                configure_script_to_use,
-                f"--build={build_triplet}",
-                f"--host={host_triplet}",
-                "no-shared",
-                f"--prefix={install_dir}",
-            ]
-    elif effective_config_type == "configure":
-        logger.info(f"  - Using configure script for {package_name}.")
-        if configure_script_to_use:
-            configure_cmd = [
-                configure_script_to_use,
-                f"--build={build_triplet}",
-                f"--host={host_triplet}",
-                f"--prefix={install_dir}",
-                f"--libdir={install_dir}/lib",
-                "--disable-shared",  # Assuming static linking is preferred for Android
-                "--enable-static",
-                f"CC={cc}",
-                f"CXX={cxx}",
-                f"CFLAGS={cflags}",
-                f"LDFLAGS={ldflags}",
-            ]
-    elif effective_config_type == "meson":
-        logger.info(f"  - Using Meson for {package_name}.")
         build_dir = os.path.join(package_source_path, "build")
+        cross_file_path = os.path.join(package_source_path, f"meson-cross-{arch}.ini")
+
+        with open(cross_file_path, "w") as f:
+            f.write("[binaries]")
+            f.write(f"c = '{cc}'")
+            f.write(f"cpp = '{cxx}'")
+            f.write(f"ar = '{ar}'")
+            f.write(f"strip = '{strip}'")
+            f.write("")
+            f.write("[host_machine]")
+            f.write("system = 'android'")
+            f.write(f"cpu_family = '{meson_cpu_family}'")
+            f.write(f"cpu = '{meson_cpu}'")
+            f.write("endian = 'little'")
+            f.write("")
+            f.write("[properties]")
+            f.write(f"sys_root = '{sysroot}'")
+
         configure_cmd = [
             "meson", "setup", build_dir,
             f"--prefix={install_dir}",
-            f"--host={host_triplet}",
+            f"--cross-file={cross_file_path}",
             "--buildtype=release",
-                        "-Ddefault_library=static", # Prefer static libraries
-                        f"CC={cc}",
-                        f"CXX={cxx}",
-                        f"CFLAGS={cflags}",
-                        f"LDFLAGS={ldflags}",        ]
+        ]
+
         build_cmd = ["meson", "compile", "-C", build_dir]
         install_cmd = ["meson", "install", "-C", build_dir]
-    elif effective_config_type == "python":
-        logger.info(f"  - Using Python configure script for {package_name}.")
-        configure_cmd = [
-            os.path.join(package_source_path, "configure"),
-            f"--host={host_triplet}",
-            f"--build={build_triplet}",
-            "--enable-shared",
-            "--disable-ipv6",
-            "--without-ensurepip",
-            f"--prefix={install_dir}",
-            f"--with-build-python={sys.executable}",
-            f"CFLAGS={cflags}",
-            f"LDFLAGS={ldflags}",
-        ]
-    elif effective_config_type == "pip":
+        clean_cmd = ["rm", "-rf", build_dir, cross_file_path]
+
+    elif config_type == "pip":
         logger.info(f"  - Generating pip install command for {package_name}.")
         configure_cmd = []
         build_cmd = []
         install_cmd = [
             os.path.join(install_dir, "bin", "python3"), # Path to target Python interpreter
-            "-m", "pip", "install",
-            "--no-deps", # Dependencies are handled explicitly by droidbuilder
-            package_source_path # Path to the downloaded package source (sdist)
+            "-m",
+            "pip",
+            "install",
+            "--no-deps", # Do not install dependencies, they should be handled by droidbuilder
+            "--prefix", install_dir,
+            package_source_path,
         ]
-    elif effective_config_type is None:  # No configure script found or used
+    elif config_type is None:
         logger.warning(f"  - No build system found for {package_name}. It will not be configured or built.")
-        configure_cmd = []
     else:
-        raise ValueError(f"Unsupported config_type: {effective_config_type} for package {package_name}.")
+        logger.error(f"Unsupported config_type: {config_type} for package {package_name}.")
+
 
     return {
-        "pre_configure_command": pre_configure_cmd,
         "clean_command": clean_cmd,
         "configure_command": configure_cmd,
         "build_command": build_cmd,
