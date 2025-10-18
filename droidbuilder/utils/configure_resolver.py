@@ -3,6 +3,7 @@ import sys
 import shlex
 
 from ..cli_logger import logger
+from .command_executor import run_shell_command
 
 # This map is needed for configuration.
 ARCH_MAP = {
@@ -56,6 +57,44 @@ def _generate_meson_cross_file(
         f.write(f"sys_root = '{sysroot}'\n")
     return cross_file_path
 
+def _get_build_arch(package_source_path: str) -> str:
+    """
+    Determines the build architecture triple by running config.guess or uname.
+    """
+    config_guess_path = os.path.join(package_source_path, "config.guess")
+    if not os.path.exists(config_guess_path):
+        config_guess_path = os.path.join(package_source_path, "build-aux", "config.guess")
+
+    if os.path.exists(config_guess_path):
+        logger.info("  - Trying to determine build host from config.guess")
+        os.chmod(config_guess_path, 0o755)
+        result = run_shell_command(f'"{config_guess_path}"')
+        if result and result.get("stdout") and not result.get("error"):
+            build_arch = result["stdout"].strip()
+            if build_arch:
+                logger.info(f"  - Detected build host: {build_arch}")
+                return build_arch
+
+    logger.info("  - Could not determine build host from config.guess, falling back to uname.")
+    machine_result = run_shell_command("uname -m")
+    system_result = run_shell_command("uname -s")
+
+    if (
+        machine_result and machine_result.get("stdout") and not machine_result.get("error") and
+        system_result and system_result.get("stdout") and not system_result.get("error")
+    ):
+        machine = machine_result["stdout"].strip()
+        system = system_result["stdout"].strip().lower()
+        # A common convention for the build triple is machine-vendor-os.
+        # We'll use 'unknown' for the vendor.
+        build_arch = f"{machine}-unknown-{system}"
+        logger.info(f"  - Detected build host: {build_arch}")
+        return build_arch
+
+    logger.warning("  - Could not determine build architecture. This may cause issues.")
+    return ""
+
+
 def _generate_autotools_commands(
     package_name: str,
     package_source_path: str,
@@ -78,10 +117,12 @@ def _generate_autotools_commands(
     extra_configure_args: list[str] = [],
 ) -> tuple:
     logger.info("  - Generating autotools build commands.")
+    build_arch = _get_build_arch(package_source_path)
     configure_cmd = [
         os.path.join(package_source_path, "configure"),
         f"--prefix={install_dir}",
         f"--host={ARCH_MAP[arch][0]}",
+        f"--build={build_arch}",
         f"AS={as_}",
         f"CC={cc}",
         f"CXX={cxx}",
@@ -96,7 +137,7 @@ def _generate_autotools_commands(
     ] + extra_configure_args
     build_cmd = ["make", "-j", str(os.cpu_count())]
     install_cmd = ["make", "install"]
-    clean_cmd = ["make", "distclean"]
+    clean_cmd = ["make", "clean"]
     return clean_cmd, configure_cmd, build_cmd, install_cmd
 
 def _generate_cmake_commands(
