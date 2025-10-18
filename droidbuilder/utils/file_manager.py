@@ -79,9 +79,8 @@ def _move_extracted_files(source_dir, dest_dir):
     if len(extracted_items) == 1:
         inner_dir = os.path.join(source_dir, extracted_items[0])
         if os.path.isdir(inner_dir):
-            # Move the contents of the inner directory to the destination
-            for item in os.listdir(inner_dir):
-                shutil.move(os.path.join(inner_dir, item), os.path.join(dest_dir, item))
+            # Move the inner directory to the destination
+            shutil.move(inner_dir, dest_dir)
             shutil.rmtree(source_dir) # Clean up the now-empty source dir
             return
 

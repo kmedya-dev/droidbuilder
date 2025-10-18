@@ -45,8 +45,8 @@ def download_python_source(version, verbose=False):
         logger.error(f"Error downloading and extracting Python source: {e}")
         return False
 
-    logger.info(f"  - Python source downloaded to {source_dir}")
-    return source_dir
+    logger.info(f"  - Python source downloaded to {extracted_path}")
+    return extracted_path
 
 
 def download_and_extract_pypi_package(packages, download_path=DOWNLOAD_DIR, verbose=False):
