@@ -61,38 +61,32 @@ def _get_build_arch(package_source_path: str) -> str:
     """
     Determines the build architecture triple by running config.guess or uname.
     """
+    build_arch = ""
     config_guess_path = os.path.join(package_source_path, "config.guess")
     if not os.path.exists(config_guess_path):
         config_guess_path = os.path.join(package_source_path, "build-aux", "config.guess")
 
     if os.path.exists(config_guess_path):
         logger.info("  - Trying to determine build host from config.guess")
-        os.chmod(config_guess_path, 0o755)
-        result = run_shell_command(f'"{config_guess_path}"')
-        if result and result.get("stdout") and not result.get("error"):
-            build_arch = result["stdout"].strip()
-            if build_arch:
-                logger.info(f"  - Detected build host: {build_arch}")
-                return build_arch
+        stdout, stderr, returncode = run_shell_command([config_guess_path], cwd=package_source_path)
+        if returncode == 0:
+            build_arch = stdout.strip()
+            logger.info(f"  - Detected build host: {build_arch}")
+            return build_arch
+        else:
+            logger.warning(f"  - config.guess failed with error: {stderr.strip()}")
 
     logger.info("  - Could not determine build host from config.guess, falling back to uname.")
-    machine_result = run_shell_command("uname -m")
-    system_result = run_shell_command("uname -s")
+    stdout_m, stderr_m, returncode_m = run_shell_command(["uname", "-m"])
+    stdout_s, stderr_s, returncode_s = run_shell_command(["uname", "-s"])
 
-    if (
-        machine_result and machine_result.get("stdout") and not machine_result.get("error") and
-        system_result and system_result.get("stdout") and not system_result.get("error")
-    ):
-        machine = machine_result["stdout"].strip()
-        system = system_result["stdout"].strip().lower()
-        # A common convention for the build triple is machine-vendor-os.
-        # We'll use 'unknown' for the vendor.
-        build_arch = f"{machine}-unknown-{system}"
-        logger.info(f"  - Detected build host: {build_arch}")
+    if returncode_m == 0 and returncode_s == 0:
+        build_arch = f"{stdout_m.strip()}-{stdout_s.strip()}"
+        logger.info(f"  - Detected build host from uname: {build_arch}")
         return build_arch
-
-    logger.warning("  - Could not determine build architecture. This may cause issues.")
-    return ""
+    else:
+        logger.error(f"  - Could not determine build host using uname. uname -m error: {stderr_m.strip()}, uname -s error: {stderr_s.strip()}")
+        sys.exit(1)
 
 
 def _generate_autotools_commands(
