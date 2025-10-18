@@ -703,6 +703,16 @@ def build_android(config, verbose):
         cxx_path_map = {}
         ar_path_map = {}
         strip_path_map = {}
+        as_path_map = {}
+        ld_path_map = {}
+        ranlib_path_map = {}
+        readelf_path_map = {}
+        nm_path_map = {}
+        as_path_map = {}
+        ld_path_map = {}
+        ranlib_path_map = {}
+        readelf_path_map = {}
+        nm_path_map = {}
         cflags_map = {}
         ldflags_map = {}
         ndk_root_map = {}

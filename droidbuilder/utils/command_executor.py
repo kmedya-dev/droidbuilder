@@ -42,6 +42,7 @@ def run_shell_command(command, stream_output=False, env=None, input_data=None, c
                 command,
                 capture_output=True,
                 text=True,
+                encoding='utf-8',
                 env=env,
                 input=input_data,
                 check=False,
