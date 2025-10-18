@@ -110,6 +110,7 @@ def _disable_unnecessary_python_modules(python_source_dir):
     ]
     
     try:
+        os.makedirs(os.path.dirname(setup_local_path), exist_ok=True)
         with open(setup_local_path, "w") as f:
             f.write("*disabled*\n")
             for module in disabled_modules:
@@ -121,7 +122,7 @@ def _disable_unnecessary_python_modules(python_source_dir):
         return False
 
 
-def _build_python_for_android(config, python_source_dir, python_version, ndk_version, ndk_api, arch, build_path, toolchain_bin, sysroot, cc_path, cxx_path, ar_path, strip_path, as_path, ld_path, ranlib_path, readelf_path, nm_path, compiler_prefix, env):
+def _build_python_for_android(config, package_config, python_source_dir, python_version, ndk_version, ndk_api, arch, build_path, toolchain_bin, sysroot, cc_path, cxx_path, ar_path, strip_path, as_path, ld_path, ranlib_path, readelf_path, nm_path, compiler_prefix, env):
     """Build Python for a specific Android architecture."""
     logger.info(f"  - Building Python {python_version} for {arch}...")
 
@@ -785,7 +786,7 @@ def build_android(config, verbose):
 
         # Set up environment for each architecture and build Python
         for arch in archs:
-            if not _build_python_for_android(config, python_source_dir, python_version, ndk_version, ndk_api, arch, build_path, toolchain_bin_map[arch], sysroot_map[arch], cc_path_map[arch], cxx_path_map[arch], ar_path_map[arch], strip_path_map[arch], as_path_map[arch], ld_path_map[arch], ranlib_path_map[arch], readelf_path_map[arch], nm_path_map[arch], compiler_prefix_map[arch], env_map[arch]):
+            if not _build_python_for_android(config, python_cfg, python_source_dir, python_version, ndk_version, ndk_api, arch, build_path, toolchain_bin_map[arch], sysroot_map[arch], cc_path_map[arch], cxx_path_map[arch], ar_path_map[arch], strip_path_map[arch], as_path_map[arch], ld_path_map[arch], ranlib_path_map[arch], readelf_path_map[arch], nm_path_map[arch], compiler_prefix_map[arch], env_map[arch]):
                 logger.error(f"Failed to build Python for {arch}. Aborting.")
                 return False
 
