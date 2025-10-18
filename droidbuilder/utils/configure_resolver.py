@@ -4,7 +4,7 @@ import shlex
 
 from ..cli_logger import logger
 
-# This map is needed for meson configuration.
+# This map is needed for configuration.
 ARCH_MAP = {
     "arm64-v8a": ["aarch64-linux-android", "aarch64", "aarch64"],
     "armeabi-v7a": ["armv7a-linux-androideabi", "arm", "armv7a"],
@@ -118,6 +118,7 @@ def _generate_cmake_commands(
     strip: str,
     ndk_root: str,
     sysroot: str,
+    extra_configure_args: list[str] = [],
 ) -> tuple:
     logger.info(f"  - Generating CMake build commands for {package_name}.")
 
@@ -131,7 +132,7 @@ def _generate_cmake_commands(
         f"-DCMAKE_TOOLCHAIN_FILE={ndk_root}/build/cmake/android.toolchain.cmake",
         f"-DANDROID_ABI={arch}",
         f"-DANDROID_NATIVE_API_LEVEL={ndk_api}",
-    ]
+    ] + extra_configure_args
 
     build_cmd = ["cmake", "--build", build_dir, "--", "-j", str(os.cpu_count())]
     install_cmd = ["cmake", "--install", build_dir]
@@ -157,6 +158,7 @@ def _generate_meson_commands(
     strip: str,
     ndk_root: str,
     sysroot: str,
+    extra_configure_args: list[str] = [],
 ) -> tuple:
     logger.info(f"  - Generating Meson build commands for {package_name}.")
 
@@ -170,7 +172,7 @@ def _generate_meson_commands(
         f"--prefix={install_dir}",
         f"--cross-file={cross_file_path}",
         "--buildtype=release",
-    ]
+    ] + extra_configure_args
 
     build_cmd = ["meson", "compile", "-C", build_dir]
     install_cmd = ["meson", "install", "-C", build_dir]
@@ -196,6 +198,7 @@ def _generate_pip_commands(
     strip: str,
     ndk_root: str,
     sysroot: str,
+    extra_configure_args: list[str] = [],
 ) -> tuple:
     logger.info(f"  - Generating pip install command for {package_name}.")
     configure_cmd = []
@@ -208,7 +211,7 @@ def _generate_pip_commands(
         "--no-deps", # Do not install dependencies, they should be handled by droidbuilder
         "--prefix", install_dir,
         package_source_path,
-    ]
+    ] + extra_configure_args
     clean_cmd = []
     return clean_cmd, configure_cmd, build_cmd, install_cmd
 
@@ -250,7 +253,7 @@ def resolve_config_type(
         install_dir (str): The installation directory for the package.
 
     Returns:
-        dict: A dictionary containing 'pre_configure_command', 'clean_command', 'configure_command', 'build_command', and 'install_command' lists.
+        dict: A dictionary containing 'clean_command', 'configure_command', 'build_command', and 'install_command' lists.
               Returns empty lists if no suitable configuration is found or an unsupported type is given.
 
     Raises:
