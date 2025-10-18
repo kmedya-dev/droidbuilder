@@ -386,8 +386,8 @@ def _accept_sdk_licenses(sdk_install_dir, actual_jdk_dir):
     env["JAVA_HOME"] = actual_jdk_dir
 
     try:
-        # The --licenses command is interactive. We pipe 'y' to it and let the output stream to the console.
-        logger.info("Please follow the on-screen prompts to accept licenses.")
+        # The --licenses command is interactive. We pipe 'y' to it to automate acceptance.
+        logger.info("  - Attempting to automatically accept SDK licenses...")
         stdout, stderr, return_code = run_shell_command([sdk_manager, "--licenses"], input_data='y\n' * 100, env=env)
 
         if return_code != 0:

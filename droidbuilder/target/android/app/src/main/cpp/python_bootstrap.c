@@ -14,11 +14,10 @@ Java_com_example_myapp_MainActivity_startPython(
     jobject thiz,
     jstring pythonHome,
     jstring pythonPath,
-    jstring mainFile) {
+    jobjectArray argv) {
 
     const char *pyHome = (*env)->GetStringUTFChars(env, pythonHome, 0);
     const char *pyPath = (*env)->GetStringUTFChars(env, pythonPath, 0);
-    const char *mainPyFile = (*env)->GetStringUTFChars(env, mainFile, 0);
 
     LOGI("Setting PYTHONHOME: %s", pyHome);
     Py_SetPythonHome(Py_DecodeLocale(pyHome, NULL));
@@ -34,6 +33,18 @@ Java_com_example_myapp_MainActivity_startPython(
         return;
     }
 
+    // Prepare argv for python script
+    int argc = (*env)->GetArrayLength(env, argv);
+    wchar_t** wargv = (wchar_t**)PyMem_Malloc(sizeof(wchar_t*) * argc);
+    for (int i = 0; i < argc; i++) {
+        jstring arg = (jstring)(*env)->GetObjectArrayElement(env, argv, i);
+        const char* arg_utf = (*env)->GetStringUTFChars(env, arg, 0);
+        wargv[i] = Py_DecodeLocale(arg_utf, NULL);
+        (*env)->ReleaseStringUTFChars(env, arg, arg_utf);
+    }
+    PySys_SetArgv(argc, wargv);
+
+    const char *mainPyFile = (*env)->GetStringUTFChars(env, (*env)->GetObjectArrayElement(env, argv, 0), 0);
     LOGI("Running Python script: %s", mainPyFile);
     PyObject *pName, *pModule, *pFunc, *pArgs, *pValue;
 
@@ -74,5 +85,5 @@ error:
 
     (*env)->ReleaseStringUTFChars(env, pythonHome, pyHome);
     (*env)->ReleaseStringUTFChars(env, pythonPath, pyPath);
-    (*env)->ReleaseStringUTFChars(env, mainFile, mainPyFile);
+    (*env)->ReleaseStringUTFChars(env, mainPyFile, mainPyFile);
 }

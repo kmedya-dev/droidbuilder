@@ -1,22 +1,15 @@
 package com.example.myapp
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import com.example.myapp.ui.theme.MyDroidAppTheme
-import android.content.Context
-import android.util.Log
+import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
 import java.io.File
+import kotlin.concurrent.thread
 import android.os.Build
+import java.io.FileOutputStream
+import java.io.InputStream
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
 
     companion object {
         init {
@@ -24,50 +17,80 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private external fun startPython(pythonHome: String, pythonPath: String, mainFile: String)
+    private external fun startPython(pythonHome: String, pythonPath: String, argv: Array<String>)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
 
-        // Get paths to Python assets
-        val pythonHome = File(applicationInfo.dataDir, "files/python/${Build.SUPPORTED_ABIS[0]}").absolutePath
-        val pythonPath = File(applicationInfo.dataDir, "files/python/${Build.SUPPORTED_ABIS[0]}/lib/python3.9").absolutePath +
-                         ":" + File(applicationInfo.dataDir, "files/user_python").absolutePath
-        val mainFile = "main.py" // Assuming main.py is in user_python directory
+        val outputTextView: TextView = findViewById(R.id.output_text)
+        outputTextView.text = "Starting Python..."
 
-        Log.d("MainActivity", "Python Home: $pythonHome")
-        Log.d("MainActivity", "Python Path: $pythonPath")
-        Log.d("MainActivity", "Main File: $mainFile")
-
-        // Start Python interpreter
-        startPython(pythonHome, pythonPath, mainFile)
-
-        setContent {
-            MyDroidAppTheme {
-                // A surface container using the 'background' color from the theme
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    Greeting("Android")
+        thread {
+            val pythonHome = extractAssets()
+            if (pythonHome == null) {
+                runOnUiThread {
+                    outputTextView.text = "Failed to extract assets."
                 }
+                return@thread
+            }
+
+            val libDir = pythonHome.resolve("lib")
+            val pythonLibDir = libDir.listFiles()?.find { it.name.startsWith("python") }
+            if (pythonLibDir == null) {
+                runOnUiThread {
+                    outputTextView.text = "Could not find python lib directory."
+                }
+                return@thread
+            }
+            val pythonVersion = pythonLibDir.name.substring("python".length)
+
+            val pythonPath = listOf(
+                pythonLibDir.absolutePath,
+                pythonLibDir.resolve("lib-dynload").absolutePath,
+                filesDir.resolve("user_python").absolutePath
+            ).joinToString(":")
+            val mainFile = "main.py"
+
+            startPython(pythonHome.absolutePath, pythonPath, arrayOf(mainFile))
+
+            runOnUiThread {
+                outputTextView.text = "Python script finished."
             }
         }
     }
-}
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
+    private fun extractAssets(): File? {
+        val pythonHome = File(filesDir, "python")
+        try {
+            if (pythonHome.exists()) {
+                pythonHome.deleteRecursively()
+            }
+            pythonHome.mkdirs()
 
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    MyDroidAppTheme {
-        Greeting("Android")
+            val arch = Build.SUPPORTED_ABIS[0]
+            extractAssetDir("python/$arch", pythonHome)
+            return pythonHome
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return null
+        }
+    }
+
+    private fun extractAssetDir(path: String, targetDir: File) {
+        assets.list(path)?.forEach { asset ->
+            val assetPath = "$path/$asset"
+            val targetFile = File(targetDir, asset)
+            try {
+                assets.open(assetPath).use { inputStream ->
+                    targetFile.outputStream().use { outputStream ->
+                        inputStream.copyTo(outputStream)
+                    }
+                }
+            } catch (e: java.io.FileNotFoundException) {
+                targetFile.mkdirs()
+                extractAssetDir(assetPath, targetFile)
+            }
+        }
     }
 }

@@ -1,24 +1,25 @@
 cmake_minimum_required(VERSION 3.4.1)
 
-add_library(  # Sets the name of the library.
-              python_bootstrap
+project(python_bootstrap)
 
-              # Sets the library as a shared library.
-              SHARED
+add_library(
+    python_bootstrap
+    SHARED
+    python_bootstrap.c
+)
 
-              # Provides a relative path to your source file(s).
-              python_bootstrap.c )
+find_library(
+    log-lib
+    log
+)
 
-find_library( # Sets the name of the path variable.
-              log-lib
+# Find python library. The name is libpython<PYTHON_VERSION>.so
+# The library is in src/main/jniLibs/${ANDROID_ABI}
+# We can add this directory to the link directories.
+link_directories(${CMAKE_SOURCE_DIR}/../jniLibs/${ANDROID_ABI})
 
-              # Specifies the name of the NDK library that
-              # you want CMake to locate.
-              log )
-
-target_link_libraries( # Specifies the target library.
-                       python_bootstrap
-
-                       # Links the target to the log library
-                       # included in the NDK.
-                       ${log-lib} )
+target_link_libraries(
+    python_bootstrap
+    python${PYTHON_VERSION}
+    ${log-lib}
+)
