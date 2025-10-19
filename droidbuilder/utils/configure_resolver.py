@@ -131,7 +131,10 @@ def _generate_autotools_commands(
     ] + extra_configure_args
     build_cmd = ["make", "-j", str(os.cpu_count())]
     install_cmd = ["make", "install"]
-    clean_cmd = ["make", "clean"]
+    if os.path.exists(os.path.join(package_source_path, "Makefile")):
+        clean_cmd = ["make", "clean"]
+    else:
+        clean_cmd = []
     return clean_cmd, configure_cmd, build_cmd, install_cmd
 
 def _generate_cmake_commands(
