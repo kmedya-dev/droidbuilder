@@ -11,7 +11,7 @@ from .cli_logger import logger
 from .utils import ARCH_MAP, get_explicit_dependencies, resolve_dependencies_recursively, resolve_config_type, patch_resolver, run_shell_command
 
 INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
-BUILD_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder/build")
+BUILD_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder", "build")
 
 
 # build_environment for python source, runtime_packages, buildtime_packages
