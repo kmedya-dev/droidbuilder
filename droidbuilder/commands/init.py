@@ -24,14 +24,6 @@ def _prompt_for_list_input(prompt, default):
         else:
             logger.warning(f"Invalid input for {prompt}. Please provide a comma-separated list of values.")
 
-import click
-import os
-import sys
-import toml
-from .. import config as config_module
-from ..cli_logger import logger
-
-
 def _get_default_config():
     return {
         "app": {
@@ -42,7 +34,7 @@ def _get_default_config():
             "target_platforms": ["android"],
             "dependency": {
                 "runtime_packages": [],
-                "buildtime_packages": [],
+                "buildtime_packages": ["libffi"],
             },
             "dependency_mapping": {},
         },
@@ -71,26 +63,7 @@ def _get_default_config():
     }
 
 
-def _prompt_for_input(prompt, default, validation_func=None, **kwargs):
-    while True:
-        value = click.prompt(prompt, default=default, **kwargs)
-        if validation_func is None or validation_func(value):
-            return value
-        else:
-            logger.warning(f"Invalid input for {prompt}. Please try again.")
 
-
-def _prompt_for_list_input(prompt, default):
-    while True:
-        value_str = click.prompt(prompt, default=default)
-        # Allow empty list if the input string was empty
-        if not value_str.strip():
-            return []
-        values = [v.strip() for v in value_str.split(',') if v.strip()]
-        if values:
-            return values
-        else:
-            logger.warning(f"Invalid input for {prompt}. Please provide a comma-separated list of values.")
 
 
 @click.command()
@@ -135,7 +108,7 @@ def init(ctx, non_interactive, config_file):
             java_gradle_version = _prompt_for_input("Java Gradle Version (e.g., 8.7)", "8.7")
             python_version = _prompt_for_input("Python Version for cross-compilation (e.g., 3.9.13)", "3.9.13")
             accept_sdk_license = _prompt_for_input("Accept SDK licenses automatically?", "interactive", type=click.Choice(['interactive', 'non-interactive']))
-            buildtime_packages = _prompt_for_list_input("Buildtime Packages (comma-separated: e.g., openssl, libffi)", "")
+            buildtime_packages = _prompt_for_list_input("Buildtime Packages (comma-separated: e.g., openssl, libffi). libffi is required for Python's ctypes module.", "libffi")
 
             conf = {
                 "app": {

@@ -14,8 +14,9 @@ ARCH_MAP = {
 }
 
 def _autodetect_config_type(package_source_path: str, package_name: str) -> str:
-    if os.path.exists(os.path.join(package_source_path, "configure")):
-        logger.info("  - Found 'configure' script, assuming autotools.")
+    if any(os.path.exists(os.path.join(package_source_path, fname))
+           for fname in ("configure", "configure.ac", "configure.in", "autogen.sh")):
+        logger.info("  - Found autotools-related files, assuming autotools.")
         return "autotools"
     elif os.path.exists(os.path.join(package_source_path, "meson.build")):
         logger.info("  - Found 'meson.build', assuming meson.")

@@ -381,15 +381,19 @@ def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version,
         build_cmd_list = shlex.split(build_cmd)
     else:
         build_cmd_list = build_cmd
-    logger.info(f"  - Running build: {' '.join(build_cmd_list)}")
-    stdout, stderr, returncode = run_shell_command(build_cmd_list, env=env, cwd=buildtime_package_source_path)
-    if returncode != 0:
-        logger.error(f"Build failed for {package_name} (Exit Code: {returncode}):")
-        if stdout:
-            logger.error(f"Stdout:\n{stdout}")
-        if stderr:
-            logger.error(f"Stderr:\n{stderr}")
-        return False
+
+    if build_cmd_list:
+        logger.info(f"  - Running build: {' '.join(build_cmd_list)}")
+        stdout, stderr, returncode = run_shell_command(build_cmd_list, env=env, cwd=buildtime_package_source_path)
+        if returncode != 0:
+            logger.error(f"Build failed for {package_name} (Exit Code: {returncode}):")
+            if stdout:
+                logger.error(f"Stdout:\n{stdout}")
+            if stderr:
+                logger.error(f"Stderr:\n{stderr}")
+            return False
+    else:
+        logger.warning(f"  - No build command found for {package_name}. Skipping build.")
 
     if isinstance(install_cmd, str):
         install_cmd_list = shlex.split(install_cmd)
