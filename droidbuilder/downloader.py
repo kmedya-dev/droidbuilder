@@ -7,9 +7,7 @@ from . import config
 from .cli_logger import logger
 from .utils import download_and_extract, resolve_runtime_package
 
-INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
-DOWNLOAD_DIR = os.path.join(INSTALL_DIR, "downloads")
-
+DOWNLOAD_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder", "downloads")
 
 def download_python_source(version, verbose=False):
     """
@@ -23,7 +21,7 @@ def download_python_source(version, verbose=False):
         return False
 
     python_url = f"https://www.python.org/ftp/python/{version}/Python-{version}.tgz"
-    source_dir = os.path.join(INSTALL_DIR, "python-source")
+    source_dir = os.path.join(DOWNLOAD_DIR, "python-source")
 
     # Clean up previous source
     if os.path.exists(source_dir):
