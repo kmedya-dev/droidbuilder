@@ -382,7 +382,6 @@ def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version,
     else:
         build_cmd_list = build_cmd
 
-    if build_cmd_list:
         logger.info(f"  - Running build: {' '.join(build_cmd_list)}")
         stdout, stderr, returncode = run_shell_command(build_cmd_list, env=env, cwd=buildtime_package_source_path)
         if returncode != 0:
@@ -392,13 +391,12 @@ def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version,
             if stderr:
                 logger.error(f"Stderr:\n{stderr}")
             return False
-    else:
-        logger.warning(f"  - No build command found for {package_name}. Skipping build.")
 
     if isinstance(install_cmd, str):
         install_cmd_list = shlex.split(install_cmd)
     else:
         install_cmd_list = install_cmd
+
     logger.info(f"  - Running install: {' '.join(install_cmd_list)}")
     stdout, stderr, returncode = run_shell_command(install_cmd_list, env=env, cwd=buildtime_package_source_path)
     if returncode != 0:

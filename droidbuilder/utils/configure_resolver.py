@@ -14,19 +14,37 @@ ARCH_MAP = {
 }
 
 def _autodetect_config_type(package_source_path: str, package_name: str) -> str:
-    if any(os.path.exists(os.path.join(package_source_path, fname))
+    # First, check the root of the package_source_path
+    detected_type = _check_path_for_build_system(package_source_path, package_name)
+    if detected_type:
+        return detected_type
+
+    # If not found, check immediate subdirectories
+    subdirectories = [d for d in os.listdir(package_source_path) if os.path.isdir(os.path.join(package_source_path, d))]
+
+    # If there's exactly one subdirectory, assume the actual source is there
+    if len(subdirectories) == 1:
+        nested_source_path = os.path.join(package_source_path, subdirectories[0])
+        logger.info(f"  - Found single subdirectory '{subdirectories[0]}', checking for build system in {{nested_source_path}}.")
+        detected_type = _check_path_for_build_system(nested_source_path, package_name)
+        if detected_type:
+            return detected_type
+
+    logger.warning(f"  - Could not auto-detect build system for {package_name}.")
+    return ""
+
+def _check_path_for_build_system(path: str, package_name: str) -> str:
+    if any(os.path.exists(os.path.join(path, fname))
            for fname in ("configure", "configure.ac", "configure.in", "autogen.sh")):
         logger.info("  - Found autotools-related files, assuming autotools.")
         return "autotools"
-    elif os.path.exists(os.path.join(package_source_path, "meson.build")):
+    elif os.path.exists(os.path.join(path, "meson.build")):
         logger.info("  - Found 'meson.build', assuming meson.")
         return "meson"
-    elif os.path.exists(os.path.join(package_source_path, "CMakeLists.txt")):
+    elif os.path.exists(os.path.join(path, "CMakeLists.txt")):
         logger.info("  - Found 'CMakeLists.txt', assuming cmake.")
         return "cmake"
-    else:
-        logger.warning(f"  - Could not auto-detect build system for {package_name}.")
-        return ""
+    return ""
 
 def _generate_meson_cross_file(
     package_source_path: str,
