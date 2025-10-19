@@ -117,6 +117,8 @@ def _generate_autotools_commands(
         f"--prefix={install_dir}",
         f"--host={ARCH_MAP[arch][0]}",
         f"--build={build_arch}",
+        "--enable-shared",
+        "--without-static",
         f"AS={as_}",
         f"CC={cc}",
         f"CXX={cxx}",
@@ -131,10 +133,7 @@ def _generate_autotools_commands(
     ] + extra_configure_args
     build_cmd = ["make", "-j", str(os.cpu_count())]
     install_cmd = ["make", "install"]
-    if os.path.exists(os.path.join(package_source_path, "Makefile")):
-        clean_cmd = ["make", "clean"]
-    else:
-        clean_cmd = []
+    clean_cmd = ["make", "clean", build_dir]
     return clean_cmd, configure_cmd, build_cmd, install_cmd
 
 def _generate_cmake_commands(
@@ -170,6 +169,8 @@ def _generate_cmake_commands(
         f"-DCMAKE_TOOLCHAIN_FILE={ndk_root}/build/cmake/android.toolchain.cmake",
         f"-DANDROID_ABI={arch}",
         f"-DANDROID_NATIVE_API_LEVEL={ndk_api}",
+        "-DBUILD_SHARED_LIBS=ON",
+        "-DBUILD_STATIC_LIBS=OFF",
     ] + extra_configure_args
 
     build_cmd = ["cmake", "--build", build_dir, "--", "-j", str(os.cpu_count())]
@@ -210,6 +211,8 @@ def _generate_meson_commands(
         f"--prefix={install_dir}",
         f"--cross-file={cross_file_path}",
         "--buildtype=release",
+        "-Ddefault_library=shared",
+        "-Db_staticpic=false",
     ] + extra_configure_args
 
     build_cmd = ["meson", "compile", "-C", build_dir]

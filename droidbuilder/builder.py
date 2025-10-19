@@ -134,6 +134,17 @@ def _build_python_for_android(config, package_config, python_source_dir, python_
     install_dir = os.path.join(build_path, "python-install", arch)
     os.makedirs(install_dir, exist_ok=True)
 
+
+    python_host = package_config.get("python_host")
+    if not python_host:
+        python_host = sys.executable
+
+    extra_configure_args = [
+        "--disable-ipv6",
+        "--without-ensurepip",
+        f"--with-build-python={python_host}"
+    ]
+
     commands = resolve_config_type(
         package_name=f"python-{python_version}",
         package_config=package_config,
@@ -154,12 +165,7 @@ def _build_python_for_android(config, package_config, python_source_dir, python_
         strip=strip_path,
         ndk_root=os.path.dirname(os.path.dirname(toolchain_bin)),
         sysroot=sysroot,
-        extra_configure_args=[
-            "--enable-shared",
-            "--disable-ipv6",
-            "--without-ensurepip",
-            f"--with-build-python={os.environ.get('PYTHON_FOR_BUILD')}",
-        ],
+        extra_configure_args=extra_configure_args,
     )
 
     clean_cmd = commands["clean_command"]
@@ -309,7 +315,7 @@ def _download_runtime_packages(runtime_packages, dependency_mapping, build_path,
     return True
 
 
-def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version, ndk_api, package_config, package_name_from_config, config, cflags, ldflags, cc_path, cxx_path, ar_path, strip_path, as_path, ld_path, ranlib_path, readelf_path, nm_path, ndk_root, env):
+def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version, ndk_api, package_config, package_name_from_config, config, cflags, ldflags, cc_path, cxx_path, ar_path, strip_path, as_path, ld_path, ranlib_path, readelf_path, nm_path, ndk_root, sysroot, env, extra_configure_args=[]):
     """Compiles and installs a buildtime package for a specific Android architecture."""
     package_name = os.path.basename(buildtime_package_source_path)
     logger.info(f"  - Compiling buildtime package {package_name} for {arch}...")
@@ -342,6 +348,7 @@ def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version,
         strip=strip_path,
         ndk_root=ndk_root,
         sysroot=sysroot,
+        extra_configure_args=extra_configure_args,
     )
 
     clean_cmd = commands["clean_command"]
@@ -402,7 +409,7 @@ def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version,
     return True
 
 
-def _download_buildtime_packages(resolved_buildtime_packages, build_path, archs, ndk_version, ndk_api, config, toolchain_bin_map, sysroot_map, cc_path_map, cxx_path_map, ar_path_map, strip_path_map, ndk_root_map, env_map, compiler_prefix_map, verbose=False):
+def _download_buildtime_packages(resolved_buildtime_packages, build_path, archs, ndk_version, ndk_api, config, toolchain_bin_map, sysroot_map, cc_path_map, cxx_path_map, ar_path_map, strip_path_map, as_path_map, ld_path_map, ranlib_path_map, readelf_path_map, nm_path_map, ndk_root_map, env_map, compiler_prefix_map, verbose=False):
     """Downloads and compiles buildtime packages specified."""
     logger.info("  - Downloading and compiling buildtime packages...")
     download_dir = os.path.join(build_path, "buildtime_packages_src")
@@ -452,7 +459,7 @@ def _download_buildtime_packages(resolved_buildtime_packages, build_path, archs,
                 logger.error(f"Error copying {package_name} source for {arch} build: {e}")
                 return False
 
-            if not _compile_buildtime_package(arch_specific_build_dir, arch, ndk_version, ndk_api, package_config, name, config, cflags_map[arch], ldflags_map[arch], cc_path_map[arch], cxx_path_map[arch], ar_path_map[arch], strip_path_map[arch], as_path_map[arch], ld_path_map[arch], ranlib_path_map[arch], readelf_path_map[arch], nm_path_map[arch], ndk_root_map[arch], env_map[arch]):
+            if not _compile_buildtime_package(arch_specific_build_dir, arch, ndk_version, ndk_api, package_config, name, config, cflags, ldflags, cc_path_map[arch], cxx_path_map[arch], ar_path_map[arch], strip_path_map[arch], as_path_map[arch], ld_path_map[arch], ranlib_path_map[arch], readelf_path_map[arch], nm_path_map[arch], ndk_root_map[arch], sysroot, env_map[arch]):
                 logger.error(f"Failed to compile {package_name} for {arch}. Aborting.")
                 return False
             # Clean up the temporary directory after compilation for this arch
@@ -709,11 +716,6 @@ def build_android(config, verbose):
         ranlib_path_map = {}
         readelf_path_map = {}
         nm_path_map = {}
-        as_path_map = {}
-        ld_path_map = {}
-        ranlib_path_map = {}
-        readelf_path_map = {}
-        nm_path_map = {}
         cflags_map = {}
         ldflags_map = {}
         ndk_root_map = {}
@@ -747,7 +749,7 @@ def build_android(config, verbose):
             if resolved_buildtime_packages is None:
                 logger.error("Failed to resolve buildtime package dependencies. Aborting.")
                 return False
-            if not _download_buildtime_packages(resolved_buildtime_packages, build_path, archs, ndk_version, ndk_api, config, toolchain_bin_map, sysroot_map, cc_path_map, cxx_path_map, ar_path_map, strip_path_map, ndk_root_map, env_map, compiler_prefix_map, verbose=verbose):
+            if not _download_buildtime_packages(resolved_buildtime_packages, build_path, archs, ndk_version, ndk_api, config, toolchain_bin_map, sysroot_map, cc_path_map, cxx_path_map, ar_path_map, strip_path_map, as_path_map, ld_path_map, ranlib_path_map, readelf_path_map, nm_path_map, ndk_root_map, env_map, compiler_prefix_map, verbose=verbose):
                 logger.error("Failed to download and compile buildtime packages. Aborting.")
                 return False
 
