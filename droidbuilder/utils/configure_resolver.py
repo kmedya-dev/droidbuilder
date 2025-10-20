@@ -20,8 +20,8 @@ def _autodetect_config_type(package_source_path: str, package_name: str) -> str:
     elif os.path.exists(os.path.join(package_source_path, "CMakeLists.txt")):
         logger.info("  - Found 'CMakeLists.txt', assuming cmake.")
         return "cmake"
-    elif any(os.path.exists(os.path.join(package_source_path, "Configure"))
-        logger.info("  - Found 'Configure', assuming cmake.")
+    elif os.path.exists(os.path.join(package_source_path, "Configure")):
+        logger.info("  - Found 'Configure', assuming Configure.")
         return "Configure"
     elif any(os.path.exists(os.path.join(package_source_path, fname))
            for fname in ("configure", "configure.ac", "configure.in", "autogen.sh")):
