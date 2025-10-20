@@ -70,24 +70,23 @@ def _safe_extract_tar(tar_ref: tarfile.TarFile, dest_dir: str, log_each=True, ve
             if member.mode:
                 os.chmod(member_path, member.mode)
 
-
 def _move_extracted_files(source_dir, dest_dir):
     """Move extracted files, normalizing the directory structure."""
     extracted_items = os.listdir(source_dir)
 
-    # If the archive contains a single directory, move the directory itself
     if len(extracted_items) == 1:
         inner_dir = os.path.join(source_dir, extracted_items[0])
         if os.path.isdir(inner_dir):
-            # Move the inner directory to the destination
-            shutil.move(inner_dir, dest_dir)
-            shutil.rmtree(source_dir) # Clean up the now-empty source dir
-            return
+            # Move contents of inner_dir instead of the dir itself
+            for item in os.listdir(inner_dir):
+                shutil.move(os.path.join(inner_dir, item), os.path.join(dest_dir, item))
+            shutil.rmtree(source_dir)
+            return dest_dir
 
-    # Otherwise, move all items from the source to the destination
     for item in extracted_items:
         shutil.move(os.path.join(source_dir, item), os.path.join(dest_dir, item))
-    shutil.rmtree(source_dir) # Clean up the source directory
+    shutil.rmtree(source_dir)
+    return dest_dir
 
 def extract(filepath, dest_dir, verbose=False):
     """Extracts an archive file to a destination directory."""
@@ -115,14 +114,14 @@ def extract(filepath, dest_dir, verbose=False):
             return None
 
         # Move files from temp_dir to dest_dir and normalize structure
-        _move_extracted_files(temp_dir, dest_dir)
+        final_extracted_path = _move_extracted_files(temp_dir, dest_dir)
 
         # Remove archive after successful extraction
         with contextlib.suppress(OSError):
             os.remove(filepath)
 
-        logger.success(f"Successfully extracted to {dest_dir}")
-        return dest_dir
+        logger.success(f"Successfully extracted to {final_extracted_path}")
+        return final_extracted_path
 
     except (zipfile.BadZipFile, tarfile.TarError, IOError) as e:
         logger.error(f"Error during extraction: {e}")

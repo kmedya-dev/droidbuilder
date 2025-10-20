@@ -3,47 +3,31 @@ import sys
 import shlex
 
 from ..cli_logger import logger
-from .command_executor import run_shell_command
+from utils import run_shell_command
 
 # This map is needed for configuration.
 ARCH_MAP = {
-    "arm64-v8a": ["aarch64-linux-android", "aarch64", "aarch64"],
-    "armeabi-v7a": ["armv7a-linux-androideabi", "arm", "armv7a"],
-    "x86": ["i686-linux-android", "x86", "i686"],
-    "x86_64": ["x86_64-linux-android", "x86_64", "x86_64"],
+    "arm64-v8a": ["aarch64-linux-android", "aarch64", "aarch64", "android-arm64"],
+    "armeabi-v7a": ["armv7a-linux-androideabi", "arm", "armv7a", "android-arm"],
+    "x86": ["i686-linux-android", "x86", "i686", "android-x86"],
+    "x86_64": ["x86_64-linux-android", "x86_64", "x86_64", "android-x86_64"],
 }
 
 def _autodetect_config_type(package_source_path: str, package_name: str) -> str:
-    # First, check the root of the package_source_path
-    detected_type = _check_path_for_build_system(package_source_path, package_name)
-    if detected_type:
-        return detected_type
-
-    # If not found, check immediate subdirectories
-    subdirectories = [d for d in os.listdir(package_source_path) if os.path.isdir(os.path.join(package_source_path, d))]
-
-    # If there's exactly one subdirectory, assume the actual source is there
-    if len(subdirectories) == 1:
-        nested_source_path = os.path.join(package_source_path, subdirectories[0])
-        logger.info(f"  - Found single subdirectory '{subdirectories[0]}', checking for build system in {{nested_source_path}}.")
-        detected_type = _check_path_for_build_system(nested_source_path, package_name)
-        if detected_type:
-            return detected_type
-
-    logger.warning(f"  - Could not auto-detect build system for {package_name}.")
-    return ""
-
-def _check_path_for_build_system(path: str, package_name: str) -> str:
-    if any(os.path.exists(os.path.join(path, fname))
+    if os.path.exists(os.path.join(package_source_path, "meson.build")):
+        logger.info("  - Found 'meson.build', assuming meson.")
+        return "meson"
+    elif os.path.exists(os.path.join(package_source_path, "CMakeLists.txt")):
+        logger.info("  - Found 'CMakeLists.txt', assuming cmake.")
+        return "cmake"
+    elif any(os.path.exists(os.path.join(package_source_path, "Configure"))
+        logger.info("  - Found 'Configure', assuming cmake.")
+        return "Configure"
+    elif any(os.path.exists(os.path.join(package_source_path, fname))
            for fname in ("configure", "configure.ac", "configure.in", "autogen.sh")):
         logger.info("  - Found autotools-related files, assuming autotools.")
         return "autotools"
-    elif os.path.exists(os.path.join(path, "meson.build")):
-        logger.info("  - Found 'meson.build', assuming meson.")
-        return "meson"
-    elif os.path.exists(os.path.join(path, "CMakeLists.txt")):
-        logger.info("  - Found 'CMakeLists.txt', assuming cmake.")
-        return "cmake"
+    logger.warning(f"  - Could not auto-detect build system for {package_name}.")
     return ""
 
 def _generate_meson_cross_file(
@@ -131,8 +115,23 @@ def _generate_autotools_commands(
 ) -> tuple:
     logger.info("  - Generating autotools build commands.")
     build_arch = _get_build_arch(package_source_path)
+
+    pre_configure_cmd = []
+    configure_script_path = os.path.join(package_source_path, "configure")
+
+    if not os.path.exists(configure_script_path):
+        if os.path.exists(os.path.join(package_source_path, "autogen.sh")):
+            logger.info("  - 'configure' script not found, running 'autogen.sh'.")
+            pre_configure_cmd = ["autogen.sh"]
+        elif any(os.path.exists(os.path.join(package_source_path, fname))
+                 for fname in ("configure.ac", "configure.in")):
+            logger.info("  - 'configure' script not found, running 'autoreconf -fi'.")
+            pre_configure_cmd = ["autoreconf", "-fi"]
+        else:
+            logger.warning("  - No 'configure' script, 'autogen.sh', 'configure.ac', or 'configure.in' found.")
+
     configure_cmd = [
-        os.path.join(package_source_path, "configure"),
+        configure_script_path,
         f"--prefix={install_dir}",
         f"--host={ARCH_MAP[arch][0]}",
         f"--build={build_arch}",
@@ -153,7 +152,7 @@ def _generate_autotools_commands(
     build_cmd = ["make", "-j", str(os.cpu_count())]
     install_cmd = ["make", "install"]
     clean_cmd = ["make", "clean"]
-    return clean_cmd, configure_cmd, build_cmd, install_cmd
+    return clean_cmd, pre_configure_cmd, configure_cmd, build_cmd, install_cmd
 
 def _generate_cmake_commands(
     package_name: str,
@@ -195,7 +194,7 @@ def _generate_cmake_commands(
     build_cmd = ["cmake", "--build", build_dir, "--", "-j", str(os.cpu_count())]
     install_cmd = ["cmake", "--install", build_dir]
     clean_cmd = ["rm", "-rf", build_dir]
-    return clean_cmd, configure_cmd, build_cmd, install_cmd
+    return clean_cmd, [], configure_cmd, build_cmd, install_cmd
 
 def _generate_meson_commands(
     package_name: str,
@@ -237,7 +236,53 @@ def _generate_meson_commands(
     build_cmd = ["meson", "compile", "-C", build_dir]
     install_cmd = ["meson", "install", "-C", build_dir]
     clean_cmd = ["rm", "-rf", build_dir, cross_file_path]
-    return clean_cmd, configure_cmd, build_cmd, install_cmd
+    return clean_cmd, [], configure_cmd, build_cmd, install_cmd
+
+def _generate_Configure_commands(
+    package_name: str,
+    package_source_path: str,
+    arch: str,
+    ndk_api: str,
+    install_dir: str,
+    cflags: str,
+    ldflags: str,
+    cc: str,
+    cxx: str,
+    ar: str,
+    as_: str,
+    ld: str,
+    ranlib: str,
+    readelf: str,
+    nm: str,
+    strip: str,
+    ndk_root: str,
+    sysroot: str,
+    extra_configure_args: list[str] = [],
+) -> tuple:
+    logger.info(f"  - Generating Configure build commands for {package_name}.")
+
+    # Configure command
+    configure_cmd = [
+        os.path.join(package_source_path, "Configure"),
+        f"-D__ANDROID_API__={ndk_api}",
+        f"--prefix={install_dir}",
+        f"--host={ARCH_MAP[arch][3]}", # (openssl's arch)
+        f"--build={build_arch}",
+        "-shared",
+        "--without-static",
+    ] + extra_configure_args
+
+    # Build command
+    build_cmd = ["make", "-j", str(os.cpu_count())]
+
+    # Install command
+    install_cmd = ["make", "install"]
+
+    # Clean command
+    clean_cmd = ["make", "clean"]
+
+    return clean_cmd, pre_configure_cmd, configure_cmd, build_cmd, install_cmd
+
 
 def _generate_pip_commands(
     package_name: str,
@@ -273,7 +318,7 @@ def _generate_pip_commands(
         package_source_path,
     ] + extra_configure_args
     clean_cmd = []
-    return clean_cmd, configure_cmd, build_cmd, install_cmd
+    return clean_cmd, [], configure_cmd, build_cmd, install_cmd
 
 
 def resolve_config_type(
@@ -329,6 +374,7 @@ def resolve_config_type(
         logger.info(f"Resolving configuration for {package_name} with auto-detection. Detected: {config_type if config_type else 'None'}")
 
     clean_cmd = []
+    pre_configure_cmd = []
     configure_cmd = []
     build_cmd = []
     install_cmd = []
@@ -337,11 +383,12 @@ def resolve_config_type(
         "autotools": _generate_autotools_commands,
         "cmake": _generate_cmake_commands,
         "meson": _generate_meson_commands,
+        "Configure": _generate_Configure_commands,
         "pip": _generate_pip_commands,
     }
 
     if config_type in command_generators:
-        clean_cmd, configure_cmd, build_cmd, install_cmd = command_generators[config_type](
+        clean_cmd, pre_configure_cmd, configure_cmd, build_cmd, install_cmd = command_generators[config_type](
             package_name,
             package_source_path,
             arch,
@@ -369,6 +416,7 @@ def resolve_config_type(
 
     return {
         "clean_command": clean_cmd,
+        "pre_configure_command": pre_configure_cmd,
         "configure_command": configure_cmd,
         "build_command": build_cmd,
         "install_command": install_cmd,
