@@ -3,7 +3,7 @@ import sys
 import shlex
 
 from ..cli_logger import logger
-from utils import run_shell_command
+from ..utils import run_shell_command
 
 # This map is needed for configuration.
 ARCH_MAP = {
