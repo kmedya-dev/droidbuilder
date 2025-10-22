@@ -6,7 +6,8 @@ import glob
 from ..import config
 from ..cli_logger import logger
 from ..downloader import DOWNLOAD_DIR
-from ..builder import BUILD_DIR, INSTALL_DIR
+from ..builder import BUILD_DIR
+from ..installer import INSTALL_DIR
 
 EXCLUDE_PREFIXES = {"android-sdk", "gradle-", "jdk-"} #skip those, because those are handled by "droidbuilder/commands/uninstall.py"
 
