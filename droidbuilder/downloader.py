@@ -47,7 +47,7 @@ def download_python_source(version, verbose=False):
     return os.path.join(extracted_path, f"Python-{version}")
 
 
-def download_and_extract_pypi_package(packages, download_path=DOWNLOAD_DIR, verbose=False):
+def download_and_extract_pypi_package(packages, verbose=False):
     """
     Downloads and extracts a package from PyPI, respecting the specified version.
     """
@@ -68,10 +68,10 @@ def download_and_extract_pypi_package(packages, download_path=DOWNLOAD_DIR, verb
         if base_filename.endswith(".tar"): # Handle .tar.gz, .tar.bz2, etc.
             base_filename, _ = os.path.splitext(base_filename)
 
-        extract_dir = os.path.join(download_path, "sources", base_filename)
+        source_dir = os.path.join(DOWNLOAD_DIR, "sources", base_filename)
 
         # Use download_and_extract from file_manager
-        extracted_path = download_and_extract(url, extract_dir, file_name, verbose=verbose)
+        extracted_path = download_and_extract(url, source_dir, file_name, verbose=verbose)
         
         return extracted_path
 
@@ -80,7 +80,7 @@ def download_and_extract_pypi_package(packages, download_path=DOWNLOAD_DIR, verb
         return None
 
 
-def download_buildtime_package(buildtime_package, download_path=DOWNLOAD_DIR, package_name=None, verbose=False):
+def download_buildtime_package(buildtime_package, package_name=None, verbose=False):
     """
     Downloads a buildtime package from a direct URL.
     """
@@ -98,14 +98,14 @@ def download_buildtime_package(buildtime_package, download_path=DOWNLOAD_DIR, pa
     
     # Use provided package_name for extraction directory if available, otherwise use derived base_filename
     final_extract_name = package_name if package_name else base_filename
-    extract_dir = os.path.join(download_path, "sources", final_extract_name)
+    source_dir = os.path.join(DOWNLOAD_DIR, "sources", final_extract_name)
 
-    extracted_path = download_and_extract(buildtime_package, extract_dir, filename, verbose=verbose)
+    extracted_path = download_and_extract(buildtime_package, source_dir, filename, verbose=verbose)
 
     return extracted_path
 
 
-def download_from_url(url, download_path=DOWNLOAD_DIR, package_name=None, verbose=False):
+def download_from_url(url, package_name=None, verbose=False):
     """
     Downloads a file from a direct URL and extracts it.
     """
@@ -123,8 +123,8 @@ def download_from_url(url, download_path=DOWNLOAD_DIR, package_name=None, verbos
     
     # Use provided package_name for extraction directory if available, otherwise use derived base_filename
     final_extract_name = package_name if package_name else base_filename
-    extract_dir = os.path.join(download_path, "sources", final_extract_name)
+    source_dir = os.path.join(DOWNLOAD_DIR, "sources", final_extract_name)
 
-    extracted_path = download_and_extract(url, extract_dir, filename, verbose=verbose)
+    extracted_path = download_and_extract(url, source_dir, filename, verbose=verbose)
 
     return extracted_path

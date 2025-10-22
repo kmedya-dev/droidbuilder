@@ -3,6 +3,7 @@ from .check_deps import *
 from .clean import *
 from .config import *
 from .doctor import *
+from .download import *
 from .init import *
 from .install_tools import *
 from .list_droids import *

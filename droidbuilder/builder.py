@@ -6,11 +6,10 @@ import sys
 import tarfile
 import zipfile
 import shlex
-from . import downloader
+from . import downloader, installer
 from .cli_logger import logger
 from .utils import ARCH_MAP, get_explicit_dependencies, resolve_dependencies_recursively, resolve_config_type, patch_resolver, run_shell_command
 
-INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
 BUILD_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder", "build")
 
 
@@ -54,7 +53,7 @@ def _setup_build_environment(ndk_version, ndk_api, arch, buildtime_packages):
     ldflags = f"-L{sysroot}/usr/lib/{compiler_prefix}/{ndk_api} -lm -ldl --sysroot={sysroot}"
 
     # Add buildtime packages to CFLAGS and LDFLAGS if buildtime_libs_dir exists
-    buildtime_libs_dir = os.path.join(INSTALL_DIR, "buildtime_libs", arch)
+    buildtime_libs_dir = os.path.join(build_path, "buildtime_libs", arch)
     if os.path.exists(buildtime_libs_dir):
         cflags += f" -I{buildtime_libs_dir}/include"
         ldflags += f" -L{buildtime_libs_dir}/lib"
@@ -325,7 +324,7 @@ def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version,
         return False
 
     # The destination for the compiled libraries
-    install_dir = os.path.join(INSTALL_DIR, "buildtime_libs", arch)
+    install_dir = os.path.join(build_path, "buildtime_libs", arch)
     os.makedirs(install_dir, exist_ok=True)
 
     commands = resolve_config_type(
@@ -446,7 +445,7 @@ def _download_buildtime_packages(resolved_buildtime_packages, build_path, archs,
             strip_path = strip_path_map[arch]
             cflags = f"-fPIC -DANDROID -D__ANDROID_API__={ndk_api} --sysroot={sysroot}"
             ldflags = f"-L{sysroot}/usr/lib/{compiler_prefix_map[arch]}/{ndk_api} --sysroot={sysroot}"
-            buildtime_libs_dir = os.path.join(INSTALL_DIR, "buildtime_libs", arch)
+            buildtime_libs_dir = os.path.join(build_path, "buildtime_libs", arch)
             if os.path.exists(buildtime_libs_dir):
                 cflags += f" -I{buildtime_libs_dir}/include"
                 ldflags += f" -L{buildtime_libs_dir}/lib"
@@ -586,7 +585,7 @@ def _copy_assets_to_android_project(build_path, archs):
             return False
 
         # Copy buildtime libraries (assuming they are compiled and placed in INSTALL_DIR/buildtime_libs/{arch})
-        buildtime_libs_source_dir = os.path.join(INSTALL_DIR, "buildtime_libs", arch)
+        buildtime_libs_source_dir = os.path.join(build_path, "buildtime_libs", arch)
         dest_buildtime_libs_dir = os.path.join(jni_libs_dir, arch)
 
         if os.path.exists(buildtime_libs_source_dir):
@@ -757,7 +756,7 @@ def build_android(config, verbose):
 
             # AFTER buildtime packages are downloaded and compiled, update CFLAGS and LDFLAGS in env_map
             for arch in archs:
-                buildtime_libs_dir = os.path.join(INSTALL_DIR, "buildtime_libs", arch)
+                buildtime_libs_dir = os.path.join(build_path, "buildtime_libs", arch)
                 if os.path.exists(buildtime_libs_dir):
                     current_cflags = env_map[arch].get("CFLAGS", "")
                     current_ldflags = env_map[arch].get("LDFLAGS", "")

@@ -74,14 +74,17 @@ def _move_extracted_files(source_dir, dest_dir):
     """Move extracted files, normalizing the directory structure."""
     extracted_items = os.listdir(source_dir)
 
+    # If the archive contains a single directory, move its contents to dest_dir
     if len(extracted_items) == 1:
-        inner_dir = os.path.join(source_dir, extracted_items[0])
-        if os.path.isdir(inner_dir):
-            # Move the inner directory to the destination
-            shutil.move(inner_dir, dest_dir)
-            shutil.rmtree(source_dir) # Clean up the now-empty source dir
-            return dest_dir # Return the destination directory, which now contains the inner directory
+        inner_item_path = os.path.join(source_dir, extracted_items[0])
+        if os.path.isdir(inner_item_path):
+            # Move contents of inner_item_path to dest_dir
+            for item in os.listdir(inner_item_path):
+                shutil.move(os.path.join(inner_item_path, item), os.path.join(dest_dir, item))
+            shutil.rmtree(source_dir) # Clean up the temp_dir
+            return dest_dir
 
+    # Otherwise, move all items from source_dir to dest_dir
     for item in extracted_items:
         shutil.move(os.path.join(source_dir, item), os.path.join(dest_dir, item))
     shutil.rmtree(source_dir)
@@ -104,6 +107,9 @@ def extract(filepath, dest_dir, verbose=False):
         elif zipfile.is_zipfile(filepath):
             with zipfile.ZipFile(filepath, 'r') as zip_ref:
                 _safe_extract_zip(zip_ref, temp_dir, log_each=True, verbose=verbose)
+        elif filename.endswith('.tgz'):
+            with tarfile.open(filepath, 'r:tgz') as tar:
+                _safe_extract_tar(tar, temp_dir, log_each=True, verbose=verbose)
         elif filename.endswith('.bz2'):
             with tarfile.open(filepath, 'r:bz2') as tar:
                 _safe_extract_tar(tar, temp_dir, log_each=True, verbose=verbose)
@@ -211,27 +217,18 @@ def download_and_extract(url, dest_dir, filename=None, timeout=60, verbose=False
 
 
     except requests.exceptions.RequestException as e:
-
         logger.error(f"Error downloading the file: {e}")
-
         # cleanup temp
-
         with contextlib.suppress(Exception):
-
             if os.path.exists(temp_filepath):
-
                 os.remove(temp_filepath)
-
-            if os.path.exists(download_temp_dir):
-
-                shutil.rmtree(download_temp_dir)
-
         return None
-
     except Exception as e:
-
         logger.error(f"An unexpected error occurred: {e}")
-
         logger.exception(*sys.exc_info())
-
         return None
+    finally:
+        # Ensure the temporary download directory is always removed
+        with contextlib.suppress(Exception):
+            if os.path.exists(download_temp_dir):
+                shutil.rmtree(download_temp_dir)
