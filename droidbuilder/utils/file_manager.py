@@ -118,8 +118,7 @@ def download_and_extract(url, dest_dir, filename=None, timeout=60, verbose=False
                     r.iter_content(chunk_size=1024 * 256),  # 256KB chunks
                     description=f"Downloading {filename}",
                     total=total_size,
-                    unit="B",
-                    unit_scale=True,
+                    unit="b",
                 )
                 for chunk in chunks:
                     f.write(chunk)
