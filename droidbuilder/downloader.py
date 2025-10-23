@@ -5,7 +5,7 @@ import shutil
 import subprocess
 from . import config
 from .cli_logger import logger
-from .utils import download_and_extract, resolve_runtime_package
+from .utils import download_and_extract, resolve_runtime_package(
 
 DOWNLOAD_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder", "downloads")
 
@@ -23,29 +23,8 @@ def download_python_source(version, verbose=False):
     python_url = f"https://www.python.org/ftp/python/{version}/Python-{version}.tgz"
     source_dir = os.path.join(DOWNLOAD_DIR, "python-source")
 
-    # Clean up previous source
-    if os.path.exists(source_dir):
-        try:
-            shutil.rmtree(source_dir)
-        except OSError as e:
-            logger.error(f"Error cleaning up previous Python source directory {source_dir}: {e}")
-            return False
-    try:
-        os.makedirs(source_dir)
-    except OSError as e:
-        logger.error(f"Error creating Python source directory {source_dir}: {e}")
-        return False
-
-    try:
-        # Use download_and_extract from file_manager
-        extracted_path = download_and_extract(python_url, source_dir, f"Python-{version}.tgz", verbose=verbose)
-    except Exception as e:
-        logger.error(f"Error downloading and extracting Python source: {e}")
-        return False
-
-    logger.info(f"  - Python source downloaded to {os.path.join(extracted_path, f'Python-{version}')}")
-    return os.path.join(extracted_path, f"Python-{version}")
-
+    extract_path = download_and_extract(python_url, source_dir, verbose=verbose)
+    return os.path.join(extract_path, f"Python-{version}")
 
 def download_and_extract_pypi_package(packages, verbose=False):
     """
@@ -57,28 +36,18 @@ def download_and_extract_pypi_package(packages, verbose=False):
         name, version = packages, None
 
     logger.info(f"  - Processing Python package: {name}{'==' + version if version else ' (latest)'}")
-    
+
     try:
         url, resolved_version = resolve_runtime_package(name, version)
         if not url:
             return None
 
-        file_name = os.path.basename(url)
-        base_filename, _ = os.path.splitext(file_name)
-        if base_filename.endswith(".tar"): # Handle .tar.gz, .tar.bz2, etc.
-            base_filename, _ = os.path.splitext(base_filename)
-
-        source_dir = os.path.join(DOWNLOAD_DIR, "sources", base_filename)
-
-        # Use download_and_extract from file_manager
-        extracted_path = download_and_extract(url, source_dir, file_name, verbose=verbose)
-        
-        return extracted_path
-
+        source_dir = os.path.join(DOWNLOAD_DIR, "runtime_packages", name)
+        download_and_extract(url, source_dir, verbose=verbose)
+        return source_dir
     except Exception as e:
-        logger.error(f"An unexpected error occurred while downloading and extracting {name}: {e}")
+        logger.error(f"Failed to process package {name}: {e}")
         return None
-
 
 def download_buildtime_package(buildtime_package, package_name=None, verbose=False):
     """
@@ -86,24 +55,12 @@ def download_buildtime_package(buildtime_package, package_name=None, verbose=Fal
     """
     logger.info(f"  - Downloading buildtime package from URL: {buildtime_package}...")
 
-    filename = os.path.basename(buildtime_package)
-    base_filename = filename
-    known_extensions = [".tar.gz", ".tar.bz2", ".tar.xz", ".tgz", ".zip"]
-    for ext in known_extensions:
-        if base_filename.endswith(ext):
-            base_filename = base_filename[:-len(ext)]
-            break
-    else:
-        base_filename, _ = os.path.splitext(base_filename)
-    
-    # Use provided package_name for extraction directory if available, otherwise use derived base_filename
-    final_extract_name = package_name if package_name else base_filename
-    source_dir = os.path.join(DOWNLOAD_DIR, "sources", final_extract_name)
+    if not package_name:
+        package_name = buildtime_package.split('/')[-1].split('.')[0]
 
-    extracted_path = download_and_extract(buildtime_package, source_dir, filename, verbose=verbose)
-
-    return extracted_path
-
+    source_dir = os.path.join(DOWNLOAD_DIR, "buildtime-packages", package_name)
+    download_and_extract(buildtime_package, source_dir, verbose=verbose)
+    return source_dir
 
 def download_from_url(url, package_name=None, verbose=False):
     """
@@ -111,20 +68,11 @@ def download_from_url(url, package_name=None, verbose=False):
     """
     logger.info(f"  - Downloading from URL: {url}...")
 
-    filename = os.path.basename(url)
-    base_filename = filename
-    known_extensions = [".tar.gz", ".tar.bz2", ".tar.xz", ".tgz", ".zip"]
-    for ext in known_extensions:
-        if base_filename.endswith(ext):
-            base_filename = base_filename[:-len(ext)]
-            break
-    else:
-        base_filename, _ = os.path.splitext(base_filename)
-    
+    base_filename = url.split('/')[-1].split('.')[0]
     # Use provided package_name for extraction directory if available, otherwise use derived base_filename
     final_extract_name = package_name if package_name else base_filename
     source_dir = os.path.join(DOWNLOAD_DIR, "sources", final_extract_name)
 
-    extracted_path = download_and_extract(url, source_dir, filename, verbose=verbose)
+    download_and_extract(url, source_dir, verbose=verbose)
+    return source_dir
 
-    return extracted_path

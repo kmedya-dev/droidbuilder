@@ -12,7 +12,8 @@ import json
 import importlib.util
 from . import config
 from .cli_logger import logger
-from .utils import run_shell_command, download_and_extract
+from .utils.command_executor import run_shell_command
+from .utils.file_manager import download_and_extract
 
 INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
 
@@ -41,24 +42,17 @@ def _get_latest_temurin_jdk_url(version):
         resp = requests.get(api_url, timeout=30)
         resp.raise_for_status()
         release_info = resp.json()
-
-        # Find the asset for linux x64 tar.gz
-        for asset in release_info.get('assets', []):
-            name = asset.get('name', '')
-            if ("OpenJDK" in name and
-                f"jdk_x64_linux_hotspot" in name and
-                name.endswith(".tar.gz")):
-                return asset.get('browser_download_url')
-
-        logger.error(f"Error: Could not find a suitable JDK asset for Temurin {version} on Linux x64.")
+        for asset in release_info.get("assets", []):
+            if "linux" in asset["name"].lower() and "x64" in asset["name"].lower() and asset["name"].endswith(".tar.gz"):
+                return asset["browser_download_url"]
+        logger.error(f"Could not find a suitable JDK {version} download for Linux x64.")
         return None
     except requests.exceptions.RequestException as e:
-        logger.error(f"Error fetching latest Temurin JDK release for version {version}: {e}")
+        logger.error(f"Error fetching JDK {version} release info: {e}")
         return None
     except (KeyError, ValueError):
-        logger.error(f"Error parsing GitHub API response for Temurin {version}.")
+        logger.error("Error parsing GitHub API response for JDK.")
         return None
-
 
 # -------------------- Android SDK --------------------
 
@@ -83,77 +77,28 @@ def _check_sdk_manager(sdk_install_dir):
 def install_cmdline_tools(cmdline_tools_version, verbose=False):
     """Install the Android command-line tools."""
     sdk_install_dir = os.path.join(INSTALL_DIR, "android-sdk")
-    if _check_sdk_manager(sdk_install_dir):
-        logger.info("  - Android command-line tools are already installed. Skipping.")
-        return True
 
     logger.info(f"  - Installing Android command-line tools version {cmdline_tools_version}...")
     sdk_url = f"https://dl.google.com/android/repository/commandlinetools-linux-{cmdline_tools_version}_latest.zip"
 
+    temp_extract_dir = os.path.join(sdk_install_dir, "temp_cmdline-tools")
+    os.makedirs(temp_extract_dir, exist_ok=True)
+
     try:
-        download_and_extract(sdk_url, sdk_install_dir, verbose=verbose)
-        os.chmod(sdk_install_dir, 0o755) # Ensure permissions are correct after extraction
-    except Exception as e:
-        logger.error(f"Error downloading and extracting command-line tools: {e}")
-        return False
+        download_and_extract(sdk_url, temp_extract_dir, verbose=verbose)
 
-    # Resolve actual cmdline-tools root (cases: nested cmdline-tools/)
-    root = sdk_install_dir
-    ct = os.path.join(root, "cmdline-tools")
+        source_dir = os.path.join(temp_extract_dir, "cmdline-tools")
+        target_dir = os.path.join(sdk_install_dir, "cmdline-tools", "latest")
 
-    actual_tools_root = None
-    if os.path.exists(os.path.join(ct, "bin")):
-        actual_tools_root = ct
-    elif os.path.exists(os.path.join(ct, "cmdline-tools", "bin")):
-        actual_tools_root = os.path.join(ct, "cmdline-tools")
-    else:
-        # fallback: try to find a single folder containing bin/
-        try:
-            for item in os.listdir(root):
-                candidate = os.path.join(root, item)
-                if os.path.isdir(candidate) and os.path.exists(os.path.join(candidate, "bin")):
-                    actual_tools_root = candidate
-                    break
-        except OSError as e:
-            logger.error(f"Error listing directory {root} to find command-line tools: {e}")
-            return False
+        if os.path.exists(target_dir):
+            shutil.rmtree(target_dir)
+        
+        os.makedirs(os.path.dirname(target_dir), exist_ok=True)
+        shutil.move(source_dir, target_dir)
 
-    if actual_tools_root is None:
-        logger.error("Error: Could not locate extracted command-line tools (bin not found).")
-        return False
-
-    # Create final "latest" dir
-    final_ct_latest = os.path.join(ct, "latest")
-    try:
-        os.makedirs(final_ct_latest, exist_ok=True)
-    except OSError as e:
-        logger.error(f"Error creating directory {final_ct_latest}: {e}")
-        return False
-
-    # Move contents of actual_tools_root -> latest (avoid moving 'latest' into itself)
-    try:
-        for item in os.listdir(actual_tools_root):
-            src = os.path.join(actual_tools_root, item)
-            dst = os.path.join(final_ct_latest, item)
-            if os.path.abspath(src) == os.path.abspath(final_ct_latest):
-                continue
-            if os.path.exists(dst):
-                # merge/replace
-                if os.path.isdir(src):
-                    shutil.copytree(src, dst, dirs_exist_ok=True)
-                    shutil.rmtree(src, ignore_errors=True)
-                else:
-                    os.replace(src, dst)
-            else:
-                shutil.move(src, final_ct_latest)
-    except (shutil.Error, OSError) as e:
-        logger.error(f"Error moving command-line tools files: {e}")
-        return False
-
-    # If actual_tools_root was not ct, clean it up to avoid nesting
-    if os.path.abspath(actual_tools_root) != os.path.abspath(ct):
-        with contextlib.suppress(Exception):
-            shutil.rmtree(actual_tools_root, ignore_errors=True)
+    finally:
+        if os.path.exists(temp_extract_dir):
+            shutil.rmtree(temp_extract_dir)
 
     sdk_manager = _get_sdk_manager(sdk_install_dir)
     if not sdk_manager:
@@ -164,7 +109,7 @@ def install_cmdline_tools(cmdline_tools_version, verbose=False):
     os.environ["PATH"] += os.pathsep + os.path.join(sdk_install_dir, "cmdline-tools", "latest", "bin")
     return True
 
-def install_sdk_packages(version, sdk_install_dir, actual_jdk_dir, verbose=False):
+def install_sdk_packages(version, sdk_install_dir, jdk_dir, verbose=False):
     """Install Android SDK packages."""
     sdk_manager = _get_sdk_manager(sdk_install_dir)
     if not _check_sdk_manager(sdk_install_dir):
@@ -176,7 +121,7 @@ def install_sdk_packages(version, sdk_install_dir, actual_jdk_dir, verbose=False
         return True
 
     env = os.environ.copy()
-    env["JAVA_HOME"] = actual_jdk_dir
+    env["JAVA_HOME"] = jdk_dir
 
     try:
         # Show installed packages
@@ -212,7 +157,7 @@ def install_sdk_packages(version, sdk_install_dir, actual_jdk_dir, verbose=False
 
 # -------------------- Android NDK --------------------
 
-def install_ndk(version, sdk_install_dir, actual_jdk_dir, verbose=False):
+def install_ndk(version, sdk_install_dir, jdk_dir, verbose=False):
     """Install Android NDK."""
     ndk_path = os.path.join(sdk_install_dir, "ndk", version)
     if os.path.exists(ndk_path):
@@ -226,7 +171,7 @@ def install_ndk(version, sdk_install_dir, actual_jdk_dir, verbose=False):
         return False
 
     env = os.environ.copy()
-    env["JAVA_HOME"] = actual_jdk_dir
+    env["JAVA_HOME"] = jdk_dir
 
     try:
         logger.info(f"📦 Installing Android NDK {version}...")
@@ -255,6 +200,8 @@ def install_jdk(version, verbose=False):
     jdk_install_dir = os.path.join(INSTALL_DIR, f"jdk-{version}")
     if os.path.exists(jdk_install_dir):
         logger.info(f"  - JDK version {version} is already installed. Skipping.")
+        os.environ["JAVA_HOME"] = jdk_install_dir
+        os.environ["PATH"] += os.pathsep + os.path.join(jdk_install_dir, "bin")
         return True
 
     logger.info(f"  - Installing JDK version {version}...")
@@ -264,42 +211,22 @@ def install_jdk(version, verbose=False):
         logger.error(f"  - Failed to get download URL for JDK version {version}. Aborting installation.")
         return False
 
-    # Ensure a clean slate and correct permissions
-    shutil.rmtree(jdk_install_dir, ignore_errors=True)
-    try:
-        os.makedirs(jdk_install_dir, exist_ok=True)
-        os.chmod(jdk_install_dir, 0o755) # Set appropriate permissions
-    except OSError as e:
-        logger.error(f"Error creating or setting permissions for JDK install directory {jdk_install_dir}: {e}")
-        return False
+    download_and_extract(jdk_url, jdk_install_dir, verbose=verbose)
 
-    try:
-        download_and_extract(jdk_url, jdk_install_dir, verbose=verbose)
-    except Exception as e:
-        logger.error(f"Error downloading and extracting JDK: {e}")
-        return False
-
-    # Find extracted jdk dir like jdk-XX.X.X+X
-    extracted_jdk_dir = None
-    try:
-        for item in os.listdir(jdk_install_dir):
-            if item.startswith("jdk-") and os.path.isdir(os.path.join(jdk_install_dir, item)):
-                extracted_jdk_dir = os.path.join(jdk_install_dir, item)
-                break
-    except OSError as e:
-        logger.error(f"Error listing directory {jdk_install_dir} to find extracted JDK: {e}")
-        return False
-
-    if extracted_jdk_dir:
-        os.environ["JAVA_HOME"] = extracted_jdk_dir
-        os.environ["PATH"] += os.pathsep + os.path.join(extracted_jdk_dir, "bin")
-        logger.info(f"  - JDK installed to {extracted_jdk_dir}")
+    jdk_home = jdk_install_dir
+    for root, dirs, files in os.walk(jdk_install_dir):
+        if "java" in files and "bin" in root:
+            jdk_home = os.path.dirname(root)
+            break
+    
+    if jdk_home:
+        os.environ["JAVA_HOME"] = jdk_home
+        os.environ["PATH"] += os.pathsep + os.path.join(jdk_home, "bin")
+        logger.info(f"  - JDK installed to {jdk_home}")
         return True
     else:
-        logger.warning("Warning: Could not find extracted JDK directory. JDK installation might be incomplete.")
+        logger.warning("Warning: Could not determine JDK home directory after installation.")
         return False
-
-
 # -------------------- Gradle --------------------
 
 def _get_available_gradle_versions():
@@ -327,6 +254,8 @@ def install_gradle(version, verbose=False):
     gradle_install_dir = os.path.join(INSTALL_DIR, f"gradle-{version}")
     if os.path.exists(gradle_install_dir):
         logger.info(f"  - Gradle version {version} is already installed. Skipping.")
+        os.environ["GRADLE_HOME"] = gradle_install_dir
+        os.environ["PATH"] += os.pathsep + os.path.join(gradle_install_dir, "bin")
         return True
 
     logger.info(f"  - Installing Gradle version {version}...")
@@ -336,34 +265,7 @@ def install_gradle(version, verbose=False):
         logger.error(f"  - Failed to get download URL for Gradle version {version}. Aborting installation.")
         return False
 
-    # Ensure a clean slate before extraction
-    shutil.rmtree(gradle_install_dir, ignore_errors=True)
-    try:
-        os.makedirs(gradle_install_dir, exist_ok=True)
-    except OSError as e:
-        logger.error(f"Error creating Gradle install directory {gradle_install_dir}: {e}")
-        return False
-
-    try:
-        download_and_extract(gradle_url, gradle_install_dir, verbose=verbose)
-    except Exception as e:
-        logger.error(f"Error downloading and extracting Gradle: {e}")
-        return False
-
-    # The archive extracts to a directory like 'gradle-8.7'. We want to move the contents up.
-    extracted_dir = os.path.join(gradle_install_dir, f"gradle-{version}")
-
-    if os.path.isdir(extracted_dir):
-        try:
-            # Move contents of extracted dir to the parent gradle_install_dir
-            for item in os.listdir(extracted_dir):
-                source_item = os.path.join(extracted_dir, item)
-                shutil.move(source_item, gradle_install_dir)
-            # remove the now-empty directory
-            shutil.rmtree(extracted_dir)
-        except (shutil.Error, OSError) as e:
-            logger.error(f"Error moving or cleaning up Gradle installation files: {e}")
-            return False
+    download_and_extract(gradle_url, gradle_install_dir, verbose=verbose)
 
     # Set environment variables
     os.environ["GRADLE_HOME"] = gradle_install_dir
@@ -374,7 +276,7 @@ def install_gradle(version, verbose=False):
 
 # -------------------- Licenses --------------------
 
-def _accept_sdk_licenses(sdk_install_dir, actual_jdk_dir):
+def _accept_sdk_licenses(sdk_install_dir, jdk_dir):
     """Accept Android SDK licenses."""
     logger.info("  - Accepting Android SDK licenses...")
     sdk_manager = _get_sdk_manager(sdk_install_dir)
@@ -383,7 +285,7 @@ def _accept_sdk_licenses(sdk_install_dir, actual_jdk_dir):
         return False
 
     env = os.environ.copy()
-    env["JAVA_HOME"] = actual_jdk_dir
+    env["JAVA_HOME"] = jdk_dir
 
     try:
         # The --licenses command is interactive. We pipe 'y' to it to automate acceptance.
@@ -419,36 +321,16 @@ def setup_tools(conf, verbose=False):
 
     all_successful = True
 
-    # Resolve actual_jdk_dir once
-    actual_jdk_dir = os.path.join(INSTALL_DIR, f"jdk-{jdk_version}")
-    if os.path.exists(actual_jdk_dir):
-        try:
-            for item in os.listdir(actual_jdk_dir):
-                if item.startswith("jdk-") and os.path.isdir(os.path.join(actual_jdk_dir, item)):
-                    actual_jdk_dir = os.path.join(actual_jdk_dir, item)
-                    break
-        except OSError:
-            pass # Ignore if cannot list
+    jdk_install_dir = os.path.join(INSTALL_DIR, f"jdk-{jdk_version}")
 
     if jdk_version:
         if not install_jdk(jdk_version, verbose=verbose):
             logger.error(f"Failed to install Java JDK version {jdk_version}.")
             all_successful = False
 
-    # Re-resolve actual_jdk_dir after installation
-    actual_jdk_dir = os.path.join(INSTALL_DIR, f"jdk-{jdk_version}")
-    if os.path.exists(actual_jdk_dir):
-        try:
-            for item in os.listdir(actual_jdk_dir):
-                if item.startswith("jdk-") and os.path.isdir(os.path.join(actual_jdk_dir, item)):
-                    actual_jdk_dir = os.path.join(actual_jdk_dir, item)
-                    break
-        except OSError:
-            pass
-
     # Set JAVA_HOME in the environment for subsequent sdkmanager calls
-    if all_successful and actual_jdk_dir and os.path.exists(actual_jdk_dir):
-        os.environ["JAVA_HOME"] = actual_jdk_dir
+    if all_successful and jdk_install_dir and os.path.exists(jdk_install_dir):
+        os.environ["JAVA_HOME"] = jdk_install_dir
 
     if cmdline_tools_version:
         if not install_cmdline_tools(cmdline_tools_version, verbose=verbose):
@@ -456,17 +338,17 @@ def setup_tools(conf, verbose=False):
             all_successful = False
 
     if accept_sdk_license == "non-interactive":
-        if not _accept_sdk_licenses(sdk_install_dir, actual_jdk_dir):
+        if not _accept_sdk_licenses(sdk_install_dir, jdk_install_dir):
             logger.error("Failed to accept Android SDK licenses.")
             all_successful = False
 
     if sdk_version:
-        if not install_sdk_packages(sdk_version, sdk_install_dir, actual_jdk_dir, verbose=verbose):
+        if not install_sdk_packages(sdk_version, sdk_install_dir, jdk_install_dir, verbose=verbose):
             logger.error(f"Failed to install Android SDK Platform {sdk_version}.")
             all_successful = False
 
     if ndk_version:
-        if not install_ndk(ndk_version, sdk_install_dir, actual_jdk_dir, verbose=verbose):
+        if not install_ndk(ndk_version, sdk_install_dir, jdk_install_dir, verbose=verbose):
             logger.error(f"Failed to install Android NDK version {ndk_version}.")
             all_successful = False
     
@@ -476,11 +358,11 @@ def setup_tools(conf, verbose=False):
             all_successful = False
 
     if all_successful:
-        _create_env_file(sdk_install_dir, ndk_version, jdk_version, actual_jdk_dir)
+        _create_env_file(sdk_install_dir, ndk_version, jdk_version, jdk_install_dir)
 
     return all_successful
 
-def _create_env_file(sdk_install_dir, ndk_version, jdk_version, actual_jdk_dir):
+def _create_env_file(sdk_install_dir, ndk_version, jdk_version, jdk_install_dir):
     """Create a shell script to set environment variables."""
     env_file_path = os.path.join(INSTALL_DIR, "env.sh")
     os.makedirs(os.path.dirname(env_file_path), exist_ok=True)
@@ -491,8 +373,8 @@ def _create_env_file(sdk_install_dir, ndk_version, jdk_version, actual_jdk_dir):
         if ndk_version:
             f.write(f"export ANDROID_NDK_HOME={os.path.join(sdk_install_dir, 'ndk', ndk_version)}\n")
             f.write(f"export ANDROID_NDK_ROOT={os.path.join(sdk_install_dir, 'ndk', ndk_version)}\n")
-        if actual_jdk_dir and os.path.exists(actual_jdk_dir):
-            f.write(f"export JAVA_HOME={actual_jdk_dir}\n")
+        if jdk_install_dir and os.path.exists(jdk_install_dir):
+            f.write(f"export JAVA_HOME={jdk_install_dir}\n")
         f.write("export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_NDK_HOME:$JAVA_HOME/bin:$PATH\n")
 
     logger.info(f"Environment script created at {env_file_path}")
@@ -635,8 +517,8 @@ def update_tool(tool_name):
 
         if installed_tools["android_sdk"] or sdk_version:
             logger.info("Updating Android SDK packages...")
-            actual_jdk_dir = os.path.join(INSTALL_DIR, f"jdk-{conf.get('java',{}).get('jdk_version')}")
-            if not install_sdk_packages(sdk_version, sdk_install_dir, actual_jdk_dir, verbose=True):
+            jdk_install_dir = os.path.join(INSTALL_DIR, f"jdk-{conf.get('java',{}).get('jdk_version')}")
+            if not install_sdk_packages(sdk_version, sdk_install_dir, jdk_install_dir, verbose=True):
                 success = False
                 logger.error("Failed to update Android SDK packages.")
         else:

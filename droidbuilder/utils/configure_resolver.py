@@ -263,6 +263,7 @@ def _generate_Configure_commands(
     extra_configure_args: list[str] = [],
 ) -> tuple:
     logger.info(f"  - Generating Configure build commands for {package_name}.")
+    build_arch = _get_build_arch(package_source_path)
 
     # Configure command
     configure_cmd = [
@@ -377,7 +378,6 @@ def resolve_config_type(
         logger.info(f"Resolving configuration for {package_name} with auto-detection. Detected: {config_type if config_type else 'None'}")
 
     clean_cmd = []
-    pre_configure_cmd = []
     configure_cmd = []
     build_cmd = []
     install_cmd = []
@@ -391,7 +391,7 @@ def resolve_config_type(
     }
 
     if config_type in command_generators:
-        clean_cmd, pre_configure_cmd, configure_cmd, build_cmd, install_cmd = command_generators[config_type](
+        clean_cmd, configure_cmd, build_cmd, install_cmd = command_generators[config_type](
             package_name,
             package_source_path,
             arch,
@@ -419,7 +419,6 @@ def resolve_config_type(
 
     return {
         "clean_command": clean_cmd,
-        "pre_configure_command": pre_configure_cmd,
         "configure_command": configure_cmd,
         "build_command": build_cmd,
         "install_command": install_cmd,
