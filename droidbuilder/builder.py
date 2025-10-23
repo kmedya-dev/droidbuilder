@@ -215,11 +215,11 @@ def _build_python_for_android(config, package_config, python_source_dir, python_
 
 def _compile_runtime_package(runtime_package_source_path, python_install_dir, arch, ndk_version, ndk_api):
     """Compiles and installs a runtime package for a specific Android architecture."""
-    # package_name = os.path.basename(runtime_package_source_path)
+    package_name = os.path.basename(runtime_package_source_path)
     logger.info(f"  - Compiling runtime package {package_name} for {arch}...")
 
     # Apply patches if specified in config
-    if not patch_resolver.apply_patches(package_name_from_config, buildtime_package_source_pat>
+    if not patch_resolver.apply_patches(package_name, runtime_package_source_path):
         return False
 
     # Set up environment for cross-compilation
@@ -278,11 +278,11 @@ def _compile_runtime_package(runtime_package_source_path, python_install_dir, ar
 
 def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version, ndk_api, package_config, package_name_from_config, config, cflags, ldflags, cc_path, cxx_path, ar_path, strip_path, as_path, ld_path, ranlib_path, readelf_path, nm_path, ndk_root, sysroot, env, extra_configure_args=[]):
     """Compiles and installs a buildtime package for a specific Android architecture."""
-    # package_name = os.path.basename(buildtime_package_source_path)
+    package_name = os.path.basename(buildtime_package_source_path)
     logger.info(f"  - Compiling buildtime package {package_name} for {arch}...")
 
     # Apply patches if specified in config
-    if not patch_resolver.apply_patches(package_name_from_config, buildtime_package_source_pat>
+    if not patch_resolver.apply_patches(package_name_from_config, buildtime_package_source_path):
         return False
 
     # The destination for the compiled libraries

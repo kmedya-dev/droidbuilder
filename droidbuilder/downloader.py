@@ -5,7 +5,7 @@ import shutil
 import subprocess
 from . import config
 from .cli_logger import logger
-from .utils import download_and_extract, resolve_runtime_package(
+from .utils import download_and_extract, resolve_runtime_package
 
 DOWNLOAD_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder", "downloads")
 
@@ -26,7 +26,7 @@ def download_python_source(version, verbose=False):
     extract_path = download_and_extract(python_url, source_dir, verbose=verbose)
     return os.path.join(extract_path, f"Python-{version}")
 
-def download_and_extract_pypi_package(packages, verbose=False):
+def download_runtime_package(packages, verbose=False):
     """
     Downloads and extracts a package from PyPI, respecting the specified version.
     """

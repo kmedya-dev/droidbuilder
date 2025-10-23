@@ -35,7 +35,7 @@ def resolve_runtime_package(package_name, version=None):
 
         download_url = source_dist["url"]
         
-        logger.info(f"Resolved URL: {download_url}")
+        logger.info(f"Resolved URL: {download_url} for {package_name}")
         return download_url, version
 
     except requests.exceptions.RequestException as e:
