@@ -20,15 +20,21 @@ def download_python_source(version, verbose=False):
         logger.error(f"Error: Please specify the full Python version in your droidbuilder.toml, e.g., {version}.0")
         return False
 
-    python_url = f"https://www.python.org/ftp/python/{version}/Python-{version}.tgz"
-    try:
-	source_dir = os.path.join(DOWNLOAD_DIR, "python-source")
+        python_url = f"https://www.python.org/ftp/python/{version}/Python-{version}.tgz"
 
-	extract_path = download_and_extract(python_url, source_dir, verbose=verbose)
-	return os.path.join(extract_path, f"Python-{version}")
-    except Exception as e:
-        logger.error(f"Error downloading Python-{version}: {e}")
-        return None
+        try:
+
+            source_dir = os.path.join(DOWNLOAD_DIR, "python-source")
+
+            extract_path = download_and_extract(python_url, source_dir, verbose=verbose)
+
+            return os.path.join(extract_path, f"Python-{version}")
+
+        except Exception as e:
+
+            logger.error(f"Error downloading Python-{version}: {e}")
+
+            return None
 
 def download_runtime_package(name, version, verbose=False):
     """
@@ -48,6 +54,7 @@ def download_runtime_package(name, version, verbose=False):
         # Extract the downloaded file
         extract_path = download_and_extract(url, source_dir, verbose=verbose)
         return extract_path
+
     except Exception as e:
         logger.error(f"Error downloading runtime package {name}: {e}")
         return None
@@ -73,6 +80,7 @@ def download_buildtime_package(name, version, dependency_mapping, verbose=False)
         # Extract the downloaded file
         extract_path = download_and_extract(url, source_dir, verbose=verbose)
         return extract_path
+
     except Exception as e:
         logger.error(f"Error downloading buildtime package {name}: {e}")
         return None
