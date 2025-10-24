@@ -5,7 +5,7 @@ import shutil
 import subprocess
 from . import config
 from .cli_logger import logger
-from .utils import download_and_extract, resolve_runtime_package
+from .utils import download_and_extract, resolve_runtime_package, resolve_buildtime_package
 
 DOWNLOAD_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder", "downloads")
 
@@ -21,46 +21,61 @@ def download_python_source(version, verbose=False):
         return False
 
     python_url = f"https://www.python.org/ftp/python/{version}/Python-{version}.tgz"
-    source_dir = os.path.join(DOWNLOAD_DIR, "python-source")
+    try:
+	source_dir = os.path.join(DOWNLOAD_DIR, "python-source")
 
-    extract_path = download_and_extract(python_url, source_dir, verbose=verbose)
-    return os.path.join(extract_path, f"Python-{version}")
+	extract_path = download_and_extract(python_url, source_dir, verbose=verbose)
+	return os.path.join(extract_path, f"Python-{version}")
+    except Exception as e:
+        logger.error(f"Error downloading Python-{version}: {e}")
+        return None
 
-def download_runtime_package(packages, verbose=False):
+def download_runtime_package(name, version, verbose=False):
     """
     Downloads and extracts a package from PyPI, respecting the specified version.
     """
-    if "==" in packages:
-        name, version = packages.split("==", 1)
-    else:
-        name, version = packages, None
-
     logger.info(f"  - Processing Python package: {name}{'==' + version if version else ' (latest)'}")
+    """package_spec = f"{name}=={version}" if version else name
+    url, resolved_version = resolve_runtime_package(package_spec)"""
 
-    try:
-        url, resolved_version = resolve_runtime_package(name, version)
-        if not url:
-            return None
-
-        source_dir = os.path.join(DOWNLOAD_DIR, "runtime_packages", name)
-        download_and_extract(url, source_dir, verbose=verbose)
-        return source_dir
-    except Exception as e:
-        logger.error(f"Failed to process package {name}: {e}")
+    if not url:
+        logger.error(f"Could not resolve runtime package {name}")
         return None
 
-def download_buildtime_package(buildtime_package, package_name=None, verbose=False):
+    try:
+        source_dir = os.path.join(DOWNLOAD_DIR, "runtime_packages_src", name)
+
+        # Extract the downloaded file
+        extract_path = download_and_extract(url, source_dir, verbose=verbose)
+        return extract_path
+    except Exception as e:
+        logger.error(f"Error downloading runtime package {name}: {e}")
+        return None
+
+
+def download_buildtime_package(name, version, dependency_mapping, verbose=False):
     """
     Downloads a buildtime package from a direct URL.
     """
-    logger.info(f"  - Downloading buildtime package from URL: {buildtime_package}...")
+    logger.info(f"  - Downloading buildtime package {name} from URL: {url}...")
+    """package_spec = f"{name}=={version}" if version else name
+    resolved_info = resolve_buildtime_package(package_spec, dependency_mapping)"""
 
-    if not package_name:
-        package_name = buildtime_package.split('/')[-1].split('.')[0]
+    if not resolved_info or name not in resolved_info:
+        logger.error(f"Could not resolve buildtime package {name}")
+        return None
 
-    source_dir = os.path.join(DOWNLOAD_DIR, "buildtime-packages", package_name)
-    download_and_extract(buildtime_package, source_dir, verbose=verbose)
-    return source_dir
+    """url = resolved_info[name]["url"]"""
+
+    try:
+        source_dir = os.path.join(DOWNLOAD_DIR, "buildtime_packages_src", name)
+
+        # Extract the downloaded file
+        extract_path = download_and_extract(url, source_dir, verbose=verbose)
+        return extract_path
+    except Exception as e:
+        logger.error(f"Error downloading buildtime package {name}: {e}")
+        return None
 
 def download_from_url(url, package_name=None, verbose=False):
     """

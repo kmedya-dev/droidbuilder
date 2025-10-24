@@ -25,89 +25,119 @@ def verify_hash(file_path, expected_hash, algorithm='sha256'):
 
 # -------------------- Path Helpers --------------------
 
-def is_within_directory(directory, target):
-    """
-    Check if a target path is safely within a given directory.
-    This is a security measure to prevent path traversal attacks.
-    """
-    abs_directory = os.path.abspath(directory)
-    abs_target = os.path.abspath(target)
-    prefix = os.path.commonprefix([abs_directory, abs_target])
-    return prefix == abs_directory
-
-# -------------------- Helpers: safe paths & extraction --------------------
-
-def _safe_join(directory, filename):
+def _safe_join(base, *paths):
     """Safely join paths, preventing path traversal attacks."""
-    target_path = os.path.join(directory, filename)
-    if not is_within_directory(directory, target_path):
-        raise PermissionError(f"Path traversal attempt detected: {filename}")
-    return target_path
+    path = os.path.realpath(os.path.join(base, *paths))
+    base = os.path.realpath(base)
+    if os.path.commonprefix((path, base)) != base:
+        raise PermissionError("Path traversal attempt detected")
+    return path
 
-def _safe_extract_zip(archive_path, extract_to, log_each=True, verbose=False):
-    """Safely extract a zip file, preventing zip slip attacks."""
-    with zipfile.ZipFile(archive_path, 'r') as zip_ref:
-        for member in zip_ref.infolist():
-            target_path = _safe_join(extract_to, member.filename)
-            if member.is_dir():
-                os.makedirs(target_path, exist_ok=True)
-            else:
-                if log_each and verbose:
-                    logger.step_info(f"Extracting {member.filename}")
-                zip_ref.extract(member, path=extract_to)
-
-def _safe_extract_tar(archive_path, extract_to, log_each=True, verbose=False):
-    """Safely extract a tar file, preventing path traversal attacks."""
-    with tarfile.open(archive_path, 'r:*') as tar_ref:
-        for member in tar_ref.getmembers():
-            target_path = _safe_join(extract_to, member.name)
-            if member.isdir():
-                os.makedirs(target_path, exist_ok=True)
-            else:
-                if log_each and verbose:
-                    logger.step_info(f"Extracting {member.name}")
-                tar_ref.extract(member, path=extract_to)
-
-def _move_extracted_files(extract_to):
-    """Move extracted files, normalizing the directory structure."""
-    extracted_items = os.listdir(extract_to)
-    if len(extracted_items) == 1:
-        inner_dir = os.path.join(extract_to, extracted_items[0])
-        if os.path.isdir(inner_dir):
-            # Move contents of the single inner directory to the parent
-            for item in os.listdir(inner_dir):
-                shutil.move(os.path.join(inner_dir, item), extract_to)
-            os.rmdir(inner_dir)
-            return True
-    return False
-
-def extract(archive_path, extract_to, verbose=False):
-    """Extracts an archive file to a destination directory."""
-    os.makedirs(extract_to, exist_ok=True)
-    logger.step_info(f"Extracting {os.path.basename(archive_path)} to {extract_to}")
-
-    if archive_path.endswith('.zip'):
-        _safe_extract_zip(archive_path, extract_to, verbose=verbose)
-    elif archive_path.endswith(('.tar.gz', '.tgz', '.tar.bz2', '.tbz2', '.tar.xz', '.txz')):
-        _safe_extract_tar(archive_path, extract_to, verbose=verbose)
+def _log_and_create_dir_for_extraction(name, target_path, is_dir, log_each, verbose):
+    """Helper to log extraction progress and create directories."""
+    if is_dir:
+        if log_each:
+            logger.step_info(f"creating: {name}", indent=3, overwrite=True, verbose=verbose)
+        os.makedirs(target_path, exist_ok=True)
     else:
-        raise ValueError(f"Unsupported archive format: {archive_path}")
+        os.makedirs(os.path.dirname(target_path), exist_ok=True)
+        if log_each:
+            if os.path.exists(target_path):
+                logger.step_info(f" replace: {name}", indent=2, overwrite=True, verbose=verbose)
+            else:
+                logger.step_info(f"extracting: {name}", indent=2, overwrite=True, verbose=verbose)
 
-    if _move_extracted_files(extract_to):
-        logger.step_info("Normalized directory structure.")
+def _safe_extract_zip(zip_path, dest_dir, log_each=True, verbose=False):
+    """Safely extract a zip file, preventing zip slip attacks."""
+    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+        for member in zip_ref.infolist():
+            target_path = _safe_join(dest_dir, member.filename)
+            _log_and_create_dir_for_extraction(member.filename, target_path, member.is_dir(), log_each, verbose)
 
-    logger.success(f"Successfully extracted to {extract_to}")
-    return extract_to
+            if not member.is_dir():
+                # Extract the file
+                with open(target_path, "wb") as f:
+                    f.write(zip_ref.read(member.filename))
+
+def _safe_extract_tar(tar_path, dest_dir, log_each=True, verbose=False):
+    """Safely extract a tar file, preventing path traversal attacks."""
+    with tarfile.open(tar_path, 'r:*') as tar_ref:
+        for member in tar_ref.getmembers():
+            target_path = _safe_join(dest_dir, member.name)
+            _log_and_create_dir_for_extraction(member.name, target_path, member.isdir(), log_each, verbose)
+
+            if member.isfile():
+                # Extract the file
+                with tar_ref.extractfile(member) as source_file:
+                    with open(target_path, "wb") as dest_file:
+                        shutil.copyfileobj(source_file, dest_file)
+
+
+def _move_extracted_files(dest_dir):
+    """Move extracted files, normalizing the directory structure."""
+    extracted_items = os.listdir(dest_dir)
+    if len(extracted_items) == 1:
+        inner_dir = os.path.join(dest_dir, extracted_items[0])
+        if os.path.isdir(inner_dir):
+            for item in os.listdir(inner_dir):
+                shutil.move(os.path.join(inner_dir, item), dest_dir)
+            os.rmdir(inner_dir)
+
+
+def extract(archive_path, dest_dir, verbose=False):
+    """Extracts an archive file to a destination directory."""
+    os.makedirs(dest_dir, exist_ok=True)
+    filename = os.path.basename(archive_path)
+    temp_dir = dest_dir + ".tmp"
+
+    if os.path.exists(temp_dir):
+        shutil.rmtree(temp_dir)
+    os.makedirs(temp_dir)
+
+    try:
+        if archive_path.endswith('.zip'):
+            _safe_extract_zip(archive_path, temp_dir, verbose=verbose)
+        elif archive_path.endswith(('.tar.gz', '.tgz', '.tar.bz2', '.tbz2', '.tar.xz', '.txz')):
+            _safe_extract_tar(archive_path, temp_dir, verbose=verbose)
+        else:
+            raise ValueError(f"Unsupported archive format: {archive_path}")
+
+        _move_extracted_files(temp_dir) # Move from temp_dir to dest_dir if single top-level dir
+
+        # Move all contents from temp_dir to dest_dir
+        for item in os.listdir(temp_dir):
+            shutil.move(os.path.join(temp_dir, item), dest_dir)
+
+        logger.success(f"Successfully extracted to {dest_dir}")
+        with contextlib.suppress(OSError):
+            os.remove(archive_path) # Remove archive after successful extraction
+        return dest_dir # Return the destination directory on success
+
+    except (zipfile.BadZipFile, tarfile.TarError, IOError) as e:
+        logger.error(f"Error during extraction: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during extraction: {e}")
+        logger.exception(*sys.exc_info())
+        return None
+    finally:
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
+
 
 # -------------------- Download & Extract --------------------
 
 def download_and_extract(url, dest_dir, filename=None, timeout=60, verbose=False):
     """Download and extract a file to a destination directory."""
+    # Create a temporary directory for the download
+    download_dir = dest_dir + ".download.tmp"
+
     if not filename:
         filename = url.split('/')[-1]
+    download_path = os.path.join(download_dir, filename)
 
-    download_path = os.path.join(dest_dir, filename)
-    os.makedirs(dest_dir, exist_ok=True)
+    if not os.path.exists(download_dir):
+        os.makedirs(download_dir)
 
     try:
         with requests.get(url, stream=True, timeout=timeout) as r:
@@ -121,14 +151,21 @@ def download_and_extract(url, dest_dir, filename=None, timeout=60, verbose=False
                     unit="b",
                 )
                 for chunk in chunks:
-                    f.write(chunk)
+                    if chunk:  # keep-alive chunks may be empty
+                        f.write(chunk)
 
         logger.step_info(f"Archive:  {filename}")
         extract(download_path, dest_dir, verbose=verbose)
-
+        shutil.rmtree(download_dir) # Clean up download directory after successful extraction
+        return dest_dir # Return the destination directory on success
     except requests.exceptions.RequestException as e:
-        logger.error(f"Failed to download {url}: {e}")
-        sys.exit(1)
-    finally:
-        if os.path.exists(download_path):
-            os.remove(download_path)
+        logger.error(f"Error downloading the file: {e}")
+        if os.path.exists(download_dir):
+            shutil.rmtree(download_dir) # Clean up download directory on download error
+        return None
+    except Exception as e:
+        logger.error(f"An unexpected error occurred: {e}")
+        logger.exception(*sys.exc_info())
+        if os.path.exists(download_dir):
+            shutil.rmtree(download_dir) # Clean up download directory on extraction error
+        return None

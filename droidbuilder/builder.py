@@ -10,11 +10,11 @@ from . import downloader, installer
 from .cli_logger import logger
 from .utils import ARCH_MAP, get_explicit_dependencies, resolve_dependencies_recursively, resolve_config_type, patch_resolver, run_shell_command
 
-BUILD_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder", "build")
 INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
+BUILD_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder", "build")
 
 
-# build_environment for python source, runtime_packages, buildtime_packages
+# build_environment for python_source, runtime_packages, buildtime_packages
 def _setup_build_environment(ndk_version, ndk_api, arch, buildtime_packages):
     """Set up environment variables for cross-compiling."""
     logger.info(f"  - Setting up build environment for {arch} (NDK {ndk_version}, API {ndk_api})...")
@@ -213,13 +213,13 @@ def _build_python_for_android(config, package_config, python_source_dir, python_
     logger.success(f"  - Python {python_version} built and installed for {arch}.")
     return True
 
-def _compile_runtime_package(runtime_package_source_path, python_install_dir, arch, ndk_version, ndk_api):
+def _compile_runtime_package(package_name_from_config, package_config, runtime_package_source_path, python_install_dir, arch, ndk_version, ndk_api, build_path):
     """Compiles and installs a runtime package for a specific Android architecture."""
-    package_name = os.path.basename(runtime_package_source_path)
+    package_name = package_name_from_config
     logger.info(f"  - Compiling runtime package {package_name} for {arch}...")
 
     # Apply patches if specified in config
-    if not patch_resolver.apply_patches(package_name, runtime_package_source_path):
+    if not patch_resolver.apply_patches(package_name_from_config, runtime_package_source_path):
         return False
 
     # Set up environment for cross-compilation
@@ -245,7 +245,7 @@ def _compile_runtime_package(runtime_package_source_path, python_install_dir, ar
     # The actual package_config for runtime packages is not directly available here,
     # but resolve_config_type only cares about config_type for "pip"
     pip_commands = resolve_config_type(
-        package_name=package_name,
+        package_name=package_name_from_config,
         package_config={"config_type": "pip"},
         package_source_path=runtime_package_source_path,
         arch=arch,
@@ -276,9 +276,9 @@ def _compile_runtime_package(runtime_package_source_path, python_install_dir, ar
     logger.success(f"    - Successfully compiled and installed {package_name} for {arch}.")
     return True
 
-def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version, ndk_api, package_config, package_name_from_config, config, cflags, ldflags, cc_path, cxx_path, ar_path, strip_path, as_path, ld_path, ranlib_path, readelf_path, nm_path, ndk_root, sysroot, env, extra_configure_args=[]):
+def _compile_buildtime_package(package_name_from_config, package_config, buildtime_package_source_path, arch, ndk_version, ndk_api, build_path, cflags, ldflags, cc_path, cxx_path, ar_path, strip_path, as_path, ld_path, ranlib_path, readelf_path, nm_path, ndk_root, sysroot, env, extra_configure_args=[]):
     """Compiles and installs a buildtime package for a specific Android architecture."""
-    package_name = os.path.basename(buildtime_package_source_path)
+    package_name = package_name_from_config
     logger.info(f"  - Compiling buildtime package {package_name} for {arch}...")
 
     # Apply patches if specified in config
@@ -332,21 +332,21 @@ def _compile_buildtime_package(buildtime_package_source_path, arch, ndk_version,
         stdout, stderr, returncode = run_shell_command(configure_cmd, env=env, cwd=buildtime_package_source_path)
         if returncode != 0:
             logger.error(f"Configure failed for {package_name} (Exit Code: {returncode}):")
-        if stdout:
-            logger.info(f"Stdout:\n{stdout}")
-        if stderr:
-            logger.info(f"Stderr:\n{stderr}")
+            if stdout:
+                logger.info(f"Stdout:\n{stdout}")
+            if stderr:
+                logger.info(f"Stderr:\n{stderr}")
             return False
 
-        logger.info(f"  - Running build: {' '.join(build_cmd)}")
-        stdout, stderr, returncode = run_shell_command(build_cmd, env=env, cwd=buildtime_package_source_path)
-        if returncode != 0:
-            logger.error(f"Build failed for {package_name} (Exit Code: {returncode}):")
-            if stdout:
-                logger.error(f"Stdout:\n{stdout}")
-            if stderr:
-                logger.error(f"Stderr:\n{stderr}")
-            return False
+    logger.info(f"  - Running build: {' '.join(build_cmd)}")
+    stdout, stderr, returncode = run_shell_command(build_cmd, env=env, cwd=buildtime_package_source_path)
+    if returncode != 0:
+        logger.error(f"Build failed for {package_name} (Exit Code: {returncode}):")
+        if stdout:
+            logger.error(f"Stdout:\n{stdout}")
+        if stderr:
+            logger.error(f"Stderr:\n{stderr}")
+        return False
 
     logger.info(f"  - Running install: {' '.join(install_cmd)}")
     stdout, stderr, returncode = run_shell_command(install_cmd, env=env, cwd=buildtime_package_source_path)

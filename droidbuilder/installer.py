@@ -10,10 +10,10 @@ import time
 import contextlib
 import json
 import importlib.util
+import platform
 from . import config
 from .cli_logger import logger
-from .utils.command_executor import run_shell_command
-from .utils.file_manager import download_and_extract
+from .utils import run_shell_command, download_and_extract
 
 INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
 
@@ -24,34 +24,38 @@ def _get_available_jdk_versions():
     """Get available JDK versions from Adoptium API."""
     api_url = "https://api.adoptium.net/v3/info/available_releases"
     try:
-        resp = requests.get(api_url, timeout=30)
-        resp.raise_for_status()
-        release_info = resp.json()
-        return release_info.get("available_lts_releases", [])
+        response = requests.get(api_url)
+        response.raise_for_status()
+        data = response.json()
+        return data.get("available_lts_releases", [])
     except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching available JDK versions: {e}")
         return []
-    except (KeyError, ValueError):
-        logger.error("Error parsing GitHub API response for available JDK versions.")
-        return []
+
 
 def _get_latest_temurin_jdk_url(version):
     """Get the latest Temurin JDK URL for a specific version."""
-    api_url = f"https://api.github.com/repos/adoptium/temurin{version}-binaries/releases/latest"
+    arch = platform.machine()
+    if arch == "x86_64":
+        arch = "x64"
+    elif arch == "aarch64":
+        arch = "aarch64"
+    else:
+        logger.error(f"Unsupported architecture for JDK download: {arch}")
+        return None
+
+    api_url = f"https://api.adoptium.net/v3/assets/latest/{version}/hotspot?vendor=eclipse&os=linux&architecture={arch}&image_type=jdk"
     try:
-        resp = requests.get(api_url, timeout=30)
-        resp.raise_for_status()
-        release_info = resp.json()
-        for asset in release_info.get("assets", []):
-            if "linux" in asset["name"].lower() and "x64" in asset["name"].lower() and asset["name"].endswith(".tar.gz"):
-                return asset["browser_download_url"]
-        logger.error(f"Could not find a suitable JDK {version} download for Linux x64.")
-        return None
+        response = requests.get(api_url)
+        response.raise_for_status()
+        data = response.json()
+        if data and isinstance(data, list) and data[0].get("binary", {}).get("package", {}).get("link"):
+            return data[0]["binary"]["package"]["link"]
+        else:
+            logger.error(f"Could not find a download link for JDK {version} for architecture {arch}")
+            return None
     except requests.exceptions.RequestException as e:
-        logger.error(f"Error fetching JDK {version} release info: {e}")
-        return None
-    except (KeyError, ValueError):
-        logger.error("Error parsing GitHub API response for JDK.")
+        logger.error(f"Error fetching JDK download URL: {e}")
         return None
 
 # -------------------- Android SDK --------------------
@@ -77,39 +81,46 @@ def _check_sdk_manager(sdk_install_dir):
 def install_cmdline_tools(cmdline_tools_version, verbose=False):
     """Install the Android command-line tools."""
     sdk_install_dir = os.path.join(INSTALL_DIR, "android-sdk")
+    cmdline_tools_dir = os.path.join(sdk_install_dir, "cmdline-tools")
+    latest_dir = os.path.join(cmdline_tools_dir, "latest")
+
+    if os.path.exists(latest_dir):
+        logger.info("  - Android command-line tools are already installed. Skipping.")
+        os.environ["ANDROID_HOME"] = sdk_install_dir
+        os.environ["PATH"] += os.pathsep + os.path.join(sdk_install_dir, "platform-tools")
+        os.environ["PATH"] += os.pathsep + os.path.join(latest_dir, "bin")
+        return True
 
     logger.info(f"  - Installing Android command-line tools version {cmdline_tools_version}...")
     sdk_url = f"https://dl.google.com/android/repository/commandlinetools-linux-{cmdline_tools_version}_latest.zip"
 
-    temp_extract_dir = os.path.join(sdk_install_dir, "temp_cmdline-tools")
-    os.makedirs(temp_extract_dir, exist_ok=True)
-
-    try:
-        download_and_extract(sdk_url, temp_extract_dir, verbose=verbose)
-
-        source_dir = os.path.join(temp_extract_dir, "cmdline-tools")
-        target_dir = os.path.join(sdk_install_dir, "cmdline-tools", "latest")
-
-        if os.path.exists(target_dir):
-            shutil.rmtree(target_dir)
-        
-        os.makedirs(os.path.dirname(target_dir), exist_ok=True)
-        shutil.move(source_dir, target_dir)
-
-    finally:
+    temp_extract_dir = os.path.join(INSTALL_DIR, "temp_cmdline_tools")
+    if not download_and_extract(sdk_url, temp_extract_dir, verbose=verbose):
+        logger.error("Failed to download and extract command-line tools.")
         if os.path.exists(temp_extract_dir):
             shutil.rmtree(temp_extract_dir)
-
-    sdk_manager = _get_sdk_manager(sdk_install_dir)
-    if not sdk_manager:
         return False
+
+    # Move the extracted 'cmdline-tools' directory to the correct location
+    extracted_tools_dir = os.path.join(temp_extract_dir, "cmdline-tools")
+    if os.path.exists(extracted_tools_dir) and os.path.isdir(extracted_tools_dir):
+        os.makedirs(cmdline_tools_dir, exist_ok=True)
+        # Move contents of extracted_tools_dir to latest_dir
+        shutil.move(extracted_tools_dir, latest_dir)
+    else:
+        logger.error("Could not find 'cmdline-tools' in the extracted archive.")
+        shutil.rmtree(temp_extract_dir)
+        return False
+
+    shutil.rmtree(temp_extract_dir)
 
     os.environ["ANDROID_HOME"] = sdk_install_dir
     os.environ["PATH"] += os.pathsep + os.path.join(sdk_install_dir, "platform-tools")
-    os.environ["PATH"] += os.pathsep + os.path.join(sdk_install_dir, "cmdline-tools", "latest", "bin")
+    os.environ["PATH"] += os.pathsep + os.path.join(latest_dir, "bin")
+    logger.info("  - Android command-line tools installed.")
     return True
 
-def install_sdk_packages(version, sdk_install_dir, jdk_dir, verbose=False):
+def install_sdk_packages(version, sdk_install_dir, jdk_install_dir, verbose=False):
     """Install Android SDK packages."""
     sdk_manager = _get_sdk_manager(sdk_install_dir)
     if not _check_sdk_manager(sdk_install_dir):
@@ -121,7 +132,7 @@ def install_sdk_packages(version, sdk_install_dir, jdk_dir, verbose=False):
         return True
 
     env = os.environ.copy()
-    env["JAVA_HOME"] = jdk_dir
+    env["JAVA_HOME"] = jdk_install_dir
 
     try:
         # Show installed packages
@@ -157,7 +168,7 @@ def install_sdk_packages(version, sdk_install_dir, jdk_dir, verbose=False):
 
 # -------------------- Android NDK --------------------
 
-def install_ndk(version, sdk_install_dir, jdk_dir, verbose=False):
+def install_ndk(version, sdk_install_dir, jdk_install_dir, verbose=False):
     """Install Android NDK."""
     ndk_path = os.path.join(sdk_install_dir, "ndk", version)
     if os.path.exists(ndk_path):
@@ -171,7 +182,7 @@ def install_ndk(version, sdk_install_dir, jdk_dir, verbose=False):
         return False
 
     env = os.environ.copy()
-    env["JAVA_HOME"] = jdk_dir
+    env["JAVA_HOME"] = jdk_install_dir
 
     try:
         logger.info(f"📦 Installing Android NDK {version}...")
@@ -205,43 +216,33 @@ def install_jdk(version, verbose=False):
         return True
 
     logger.info(f"  - Installing JDK version {version}...")
-
     jdk_url = _get_latest_temurin_jdk_url(version)
     if not jdk_url:
-        logger.error(f"  - Failed to get download URL for JDK version {version}. Aborting installation.")
         return False
 
-    download_and_extract(jdk_url, jdk_install_dir, verbose=verbose)
-
-    jdk_home = jdk_install_dir
-    for root, dirs, files in os.walk(jdk_install_dir):
-        if "java" in files and "bin" in root:
-            jdk_home = os.path.dirname(root)
-            break
-    
-    if jdk_home:
-        os.environ["JAVA_HOME"] = jdk_home
-        os.environ["PATH"] += os.pathsep + os.path.join(jdk_home, "bin")
-        logger.info(f"  - JDK installed to {jdk_home}")
-        return True
-    else:
-        logger.warning("Warning: Could not determine JDK home directory after installation.")
+    if not download_and_extract(jdk_url, jdk_install_dir, verbose=verbose):
+        logger.error(f"Failed to download and extract JDK {version}.")
         return False
+
+    # Set environment variables
+    os.environ["JAVA_HOME"] = jdk_install_dir
+    os.environ["PATH"] += os.pathsep + os.path.join(jdk_install_dir, "bin")
+    logger.info(f"  - JDK installed to {jdk_install_dir}")
+    return True
+
+
 # -------------------- Gradle --------------------
 
 def _get_available_gradle_versions():
     """Get available Gradle versions from the official Gradle API."""
     api_url = "https://services.gradle.org/versions/all"
     try:
-        resp = requests.get(api_url, timeout=30)
-        resp.raise_for_status()
-        versions_info = resp.json()
-        return [v["version"] for v in versions_info]
-    except requests.exceptions.RequestException as e:
+        response = requests.get(api_url)
+        response.raise_for_status()
+        versions = response.json()
+        return [v['version'] for v in versions if not v.get('snapshot', True)] # Return stable versions
+    except (requests.exceptions.RequestException, json.JSONDecodeError) as e:
         logger.error(f"Error fetching available Gradle versions: {e}")
-        return []
-    except (KeyError, ValueError):
-        logger.error("Error parsing Gradle API response for available versions.")
         return []
 
 def _get_gradle_download_url(version):
@@ -259,13 +260,11 @@ def install_gradle(version, verbose=False):
         return True
 
     logger.info(f"  - Installing Gradle version {version}...")
-
     gradle_url = _get_gradle_download_url(version)
-    if not gradle_url:
-        logger.error(f"  - Failed to get download URL for Gradle version {version}. Aborting installation.")
-        return False
 
-    download_and_extract(gradle_url, gradle_install_dir, verbose=verbose)
+    if not download_and_extract(gradle_url, gradle_install_dir, verbose=verbose):
+        logger.error(f"Failed to download and extract Gradle {version}.")
+        return False
 
     # Set environment variables
     os.environ["GRADLE_HOME"] = gradle_install_dir
@@ -276,7 +275,7 @@ def install_gradle(version, verbose=False):
 
 # -------------------- Licenses --------------------
 
-def _accept_sdk_licenses(sdk_install_dir, jdk_dir):
+def _accept_sdk_licenses(sdk_install_dir, jdk_install_dir):
     """Accept Android SDK licenses."""
     logger.info("  - Accepting Android SDK licenses...")
     sdk_manager = _get_sdk_manager(sdk_install_dir)
@@ -285,7 +284,7 @@ def _accept_sdk_licenses(sdk_install_dir, jdk_dir):
         return False
 
     env = os.environ.copy()
-    env["JAVA_HOME"] = jdk_dir
+    env["JAVA_HOME"] = jdk_install_dir
 
     try:
         # The --licenses command is interactive. We pipe 'y' to it to automate acceptance.

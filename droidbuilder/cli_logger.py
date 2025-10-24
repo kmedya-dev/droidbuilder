@@ -40,11 +40,17 @@ class Logger:
 
     def _overwrite_line(self, line):
         """Overwrites the previous line(s) in the terminal with the given line."""
-        escape_code = f"\x1b[{self._last_line_count}F\r\x1b[K"
-        sys.stdout.write(escape_code)
-        print(line)
-        sys.stdout.flush()
-        self._last_line_count = self.least_count(line)
+        is_tty = sys.stdout.isatty()
+        if is_tty:
+            escape_code = f"\x1b[{self._last_line_count}F\r\x1b[K"
+            sys.stdout.write(escape_code)
+            print(line)
+            sys.stdout.flush()
+            self._last_line_count = self.least_count(line)
+        else:
+            print(f"\r{line}", end="", flush=True)
+            if current_val == total:
+               print()
 
     def format_time(self, seconds):
         seconds = int(seconds)

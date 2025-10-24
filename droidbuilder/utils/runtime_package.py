@@ -1,10 +1,15 @@
 import requests
 from ..cli_logger import logger
 
-def resolve_runtime_package(package_name, version=None):
+def resolve_runtime_package(package_spec):
     """
     Resolves a Python package to a source URL using the PyPI API.
     """
+    if '==' in package_spec:
+        package_name, version = package_spec.split('==', 1)
+    else:
+        package_name, version = package_spec, None
+
     logger.info(f"  - Resolving Python package: {package_name}{f'=={version}' if version else ''}...")
     pypi_url = f"https://pypi.org/pypi/{package_name}/json"
 
@@ -13,7 +18,7 @@ def resolve_runtime_package(package_name, version=None):
         response.raise_for_status()
         package_data = response.json()
 
-        if version is None:
+        if not version:
             version = package_data["info"]["version"]
             logger.info(f"  - No version specified for {package_name}. Found latest: {version}")
 
