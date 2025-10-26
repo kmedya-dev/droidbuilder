@@ -1,38 +1,43 @@
-import requests
 from ..cli_logger import logger
+from ..utils import resolve_package_url, get_explicit_dependencies
 
-def resolve_buildtime_package(package_spec, dependency_mapping):
+
+def resolve_buildtime_package(conf):
     """
     Resolves buildtime packages against the dependency mapping.
     If a package is not in the mapping, it attempts to find the URL.
-    Returns a dictionary mapping package names to their URLs and versions.
     """
-    resolved_packages = {}
+    _, buildtime_packages, dependency_mapping = get_explicit_dependencies(conf)
 
-        if '==' in package_spec:
-            name, version = package_spec.split('==', 1)
-        else:
-            name, version = package_spec, None
+    resolved_packages = []
 
-        if name in resolved_packages:
-            continue
+    logger.info("Resolving buildtime packages...")
+    for package in buildtime_packages:
+        name = package.get("name")
+        version = package.get("version")
+        url = None
+
+        logger.info(f"  - Resolving: {name}{f'=={version}' if version else ''}")
 
         if name in dependency_mapping:
             url_template = dependency_mapping[name]
-            
-            # Format the URL if a version is available
-            final_url = url_template
-            if version:
-                try:
-                    final_url = url_template.format(version=version)
-                except KeyError:
-                    logger.warning(f"Version placeholder not found in URL for '{name}'. Using unformatted URL.")
-            
-            resolved_packages[name] = {"url": final_url, "version": version}
-            logger.info(f"Found mapping for '{name}': {final_url}")
+            logger.info("    - Found in dependency mapping.")
+            if '{version}' in url_template:
+                if version:
+                    url = url_template.format(version=version)
+                else:
+                    logger.warning(f"    - Version needed for {name} but not specified. Searching online for latest.")
+                    url = resolve_package_url(name)  # Find latest
+            else:
+                url = url_template
         else:
-            logger.warning(f"Buildtime package '{name}' is not explicitly mapped in your droidbuilder.toml.")
-            logger.error("Please add its URL to [app.dependency_mapping]")
-            return None
+            logger.info("    - Not in dependency mapping. Searching online...")
+            url = resolve_package_url(name, version)
+
+        if url:
+            resolved_packages.append({"name": name, "version": version, "url": url})
+            logger.info(f"    - Resolved to: {url}")
+        else:
+            logger.error(f"    - Failed to resolve {name}")
 
     return resolved_packages

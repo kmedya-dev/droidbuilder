@@ -30,6 +30,7 @@ buildtime_packages = ["libffi==3.5.2", "openssl"]
 [app.dependency_mapping]
 libffi = "https://github.com/libffi/libffi/releases/download/v{version}/libffi-{version}.tar.gz"
 openssl = "https://github.com/openssl/openssl/releases/download/openssl-3.6.0/openssl-3.6.0.tar.gz"
+kivy = "https://github.com/kivy/kivy/archive/refs/tags/{version}.tar.gz"
 
 [build]
 type = "debug"

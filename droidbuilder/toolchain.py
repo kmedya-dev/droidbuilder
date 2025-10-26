@@ -1,19 +1,13 @@
-import click
 import os
-import requests
-import zipfile
-import tarfile
-import subprocess
-import shutil
 import sys
-import time
-import contextlib
 import json
-import importlib.util
+import shutil
+import requests
 import platform
+import subprocess
 from . import config
 from .cli_logger import logger
-from .utils import run_shell_command, download_and_extract
+from .utils import download, extract_file, run_shell_command
 
 INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
 
@@ -95,7 +89,8 @@ def install_cmdline_tools(cmdline_tools_version, verbose=False):
     sdk_url = f"https://dl.google.com/android/repository/commandlinetools-linux-{cmdline_tools_version}_latest.zip"
 
     temp_extract_dir = os.path.join(INSTALL_DIR, "temp_cmdline_tools")
-    if not download_and_extract(sdk_url, temp_extract_dir, verbose=verbose):
+    downloaded_file = download(sdk_url, temp_extract_dir)
+    if not downloaded_file or not extract_file(downloaded_file, temp_extract_dir, verbose=verbose):
         logger.error("Failed to download and extract command-line tools.")
         if os.path.exists(temp_extract_dir):
             shutil.rmtree(temp_extract_dir)
@@ -137,26 +132,21 @@ def install_sdk_packages(version, sdk_install_dir, jdk_install_dir, verbose=Fals
     try:
         # Show installed packages
         logger.info("📃 Listing available SDK packages...")
-        lines, process = run_shell_command([sdk_manager, "--list"], stream_output=True, env=env)
-        for line in lines:
+        result = run_shell_command(f"{sdk_manager} --list", env=env)
+        for line in result['stdout'].splitlines():
             logger.step_info(line.strip(), overwrite=not verbose, verbose=verbose)
-        if process.returncode != 0:
-            raise subprocess.CalledProcessError(process.returncode, [sdk_manager, "--list"])
+        if result['returncode'] != 0:
+            raise subprocess.CalledProcessError(result['returncode'], f"{sdk_manager} --list")
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to list SDK packages: {e}")
         return False
     try:
         logger.info(f"📦 Installing Android SDK components for API {version}...")
-        lines, process = run_shell_command([
-            sdk_manager,
-            f"platforms;android-{version}",
-            f"build-tools;{version}.0.0",
-            "platform-tools"
-        ], stream_output=True, env=env)
-        for line in lines:
+        result = run_shell_command(f"{sdk_manager} 'platforms;android-{version}' 'build-tools;{version}.0.0' 'platform-tools'", env=env)
+        for line in result['stdout'].splitlines():
             logger.step_info(line.strip(), overwrite=not verbose, verbose=verbose)
-        if process.returncode != 0:
-            raise subprocess.CalledProcessError(process.returncode, [sdk_manager, f"platforms;android-{version}"])
+        if result['returncode'] != 0:
+            raise subprocess.CalledProcessError(result['returncode'], f"{sdk_manager} platforms;android-{version}")
         logger.info("  - Android SDK components installed.")
         return True
     except subprocess.CalledProcessError as e:
@@ -186,11 +176,11 @@ def install_ndk(version, sdk_install_dir, jdk_install_dir, verbose=False):
 
     try:
         logger.info(f"📦 Installing Android NDK {version}...")
-        lines, process = run_shell_command([sdk_manager, f"ndk;{version}"], stream_output=True, env=env)
-        for line in lines:
+        result = run_shell_command(f"{sdk_manager} 'ndk;{version}'", env=env)
+        for line in result['stdout'].splitlines():
             logger.step_info(line.strip(), overwrite=not verbose, verbose=verbose)
-        if process.returncode != 0:
-            raise subprocess.CalledProcessError(process.returncode, [sdk_manager, f"ndk;{version}"])
+        if result['returncode'] != 0:
+            raise subprocess.CalledProcessError(result['returncode'], f"{sdk_manager} ndk;{version}")
 
         os.environ["ANDROID_NDK_HOME"] = ndk_path
         os.environ["PATH"] += os.pathsep + ndk_path
@@ -220,7 +210,8 @@ def install_jdk(version, verbose=False):
     if not jdk_url:
         return False
 
-    if not download_and_extract(jdk_url, jdk_install_dir, verbose=verbose):
+    downloaded_file = download(jdk_url, jdk_install_dir)
+    if not downloaded_file or not extract_file(downloaded_file, jdk_install_dir, verbose=verbose):
         logger.error(f"Failed to download and extract JDK {version}.")
         return False
 
@@ -241,7 +232,7 @@ def _get_available_gradle_versions():
         response.raise_for_status()
         versions = response.json()
         return [v['version'] for v in versions if not v.get('snapshot', True)] # Return stable versions
-    except (requests.exceptions.RequestException, json.JSONDecodeError) as e:
+    except (requests.exceptions.RequestException, json.jsonDecodeError) as e:
         logger.error(f"Error fetching available Gradle versions: {e}")
         return []
 
@@ -262,7 +253,8 @@ def install_gradle(version, verbose=False):
     logger.info(f"  - Installing Gradle version {version}...")
     gradle_url = _get_gradle_download_url(version)
 
-    if not download_and_extract(gradle_url, gradle_install_dir, verbose=verbose):
+    downloaded_file = download(gradle_url, gradle_install_dir)
+    if not downloaded_file or not extract_file(downloaded_file, gradle_install_dir, verbose=verbose):
         logger.error(f"Failed to download and extract Gradle {version}.")
         return False
 
@@ -289,12 +281,12 @@ def _accept_sdk_licenses(sdk_install_dir, jdk_install_dir):
     try:
         # The --licenses command is interactive. We pipe 'y' to it to automate acceptance.
         logger.info("  - Attempting to automatically accept SDK licenses...")
-        stdout, stderr, return_code = run_shell_command([sdk_manager, "--licenses"], input_data='y\n' * 100, env=env)
+        result = run_shell_command(f"yes | {sdk_manager} --licenses", env=env)
 
-        if return_code != 0:
-            logger.warning(f"sdkmanager --licenses exited with a non-zero code ({return_code}), which may be normal.")
-            if stderr:
-                logger.warning(f"Stderr:\n{stderr}")
+        if result['returncode'] != 0:
+            logger.warning(f"sdkmanager --licenses exited with a non-zero code ({result['returncode']}), which may be normal.")
+            if result['stderr']:
+                logger.warning(f"Stderr:\n{result['stderr']}")
         
         logger.info("  - License acceptance process finished.")
         return True

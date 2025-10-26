@@ -1,5 +1,5 @@
 import click
-from .. import installer
+from .. import toolchain
 from ..cli_logger import logger
 
 @click.command(name="list-tools")
@@ -8,7 +8,7 @@ def list_tools(ctx):
     """List all installed tools (SDK, NDK, JDK versions)."""
     logger.info("Listing installed tools...")
     try:
-        installed_tools = installer.list_installed_tools()
+        installed_tools = toolchain.list_installed_tools()
     except Exception as e:
         logger.error(f"Error retrieving installed tools: {e}")
         logger.info("Please check the installation directory permissions.")

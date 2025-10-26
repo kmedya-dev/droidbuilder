@@ -68,7 +68,7 @@ def check_deps(ctx):
     explicit_deps_str, _, _ = get_explicit_dependencies(conf)
     implicit_deps = get_implicit_python_dependencies(path)
 
-    explicit_deps = {dep.split("==")[0].strip() for dep in explicit_deps_str}
+    explicit_deps = {dep["name"].strip() for dep in explicit_deps_str}
 
     # Filter out standard library modules
     non_stdlib_implicit_deps = {dep for dep in implicit_deps if dep not in STDLIB_MODULES}

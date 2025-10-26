@@ -2,7 +2,7 @@ import click
 import sys
 import os
 from .. import config as config_module
-from .. import installer
+from ..toolchain import setup_tools
 from ..cli_logger import logger
 
 @click.command()
@@ -28,7 +28,7 @@ def install_tools(ctx, verbose):
         return False
     
     try:
-        if installer.setup_tools(conf, verbose=verbose):
+        if setup_tools(conf, verbose=verbose):
             logger.success("Tool installation complete.")
             return True
         else:

@@ -1,5 +1,5 @@
 import click
-from .. import installer
+from .. import toolchain
 from ..cli_logger import logger # Import logger
 
 @click.command()
@@ -8,7 +8,7 @@ def doctor(ctx):
     """Check if all required tools are installed and the environment is set up correctly."""
     logger.info("Running environment check...")
     try:
-        if installer.check_environment():
+        if toolchain.check_environment():
             logger.success("Environment check completed successfully.")
         else:
             logger.error("Environment check found issues. Please review the warnings/errors above.")

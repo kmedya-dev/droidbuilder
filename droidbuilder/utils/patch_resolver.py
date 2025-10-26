@@ -1,7 +1,7 @@
 import os
 import subprocess
 from ..cli_logger import logger
-from .command_executor import run_shell_command
+from ..utils import run_shell_command
 
 def apply_patches(package_name: str, package_source_path: str, config: dict) -> bool:
     """

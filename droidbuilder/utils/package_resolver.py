@@ -1,16 +1,15 @@
 import re
-import subprocess
 import os
+import sys
+import requests
+from typing import Optional
+from dotenv import load_dotenv
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse, quote_plus, unquote # Added quote_plus, unquote
-from typing import Optional
 from packaging.version import parse as parse_version, InvalidVersion
-
-import requests
-import sys
-
 from ..cli_logger import logger
 
+load_dotenv()
 
 def get_source_package_name(package_name: str) -> str:
     return package_name
@@ -158,19 +157,28 @@ def find_tarball(url: str, package_name: str, version: Optional[str] = None, vis
     return None
 
 
-def resolve_package_url(package_name: str, version: Optional[str] = None) -> Optional[str]:
+def resolve_buildtime_package(package_name: str, version: Optional[str] = None) -> Optional[str]:
     search_query = f"{package_name} download source tar.gz"
-    logger.info(f"Searching for '{search_query}' using Web Search...")
-    search_results = default_api.google_web_search(query=search_query)
-    
-    # Extract URLs from search results
-    urls = []
-    # Regex to find URLs in the format: (https://actual.url.com/)
-    url_pattern = re.compile(r'\(https?://[^\s\)]+\)')
-    for line in search_results['output'].splitlines():
-        matches = url_pattern.findall(line)
-        for match in matches:
-            urls.append(match.strip('()'))
+    logger.info(f"Searching for '{search_query}' using Google Custom Search...")
+
+    api_key = os.environ.get("GOOGLE_API_KEY")
+    cx = os.environ.get("GOOGLE_CX")
+
+    if not api_key or not cx:
+        logger.error("Google API key or CX not found. Please set them as environment variables in your .env file.")
+        return None
+
+    try:
+        search_url = f"https://www.googleapis.com/customsearch/v1?key={api_key}&cx={cx}&q={quote_plus(search_query)}"
+        response = requests.get(search_url)
+        response.raise_for_status()
+        search_results = response.json()
+
+        urls = [item['link'] for item in search_results.get('items', [])]
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Failed to perform web search: {e}")
+        return None
 
     if not urls:
         logger.warning(f"No URLs found in search results for '{package_name}'.")

@@ -3,7 +3,7 @@ from .check_deps import *
 from .clean import *
 from .config import *
 from .doctor import *
-from .download import *
+from .install import *
 from .init import *
 from .install_tools import *
 from .list_droids import *
@@ -14,7 +14,6 @@ from .log import *
 from .search_dependency import *
 from .search_packages import *
 from .search import *
-from .search_code import *
 from .uninstall import *
 from .update_deps import *
 from .update import *

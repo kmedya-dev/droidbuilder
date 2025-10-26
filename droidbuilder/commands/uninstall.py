@@ -1,5 +1,5 @@
 import click
-from .. import installer
+from .. import toolchain
 from ..cli_logger import logger # Import logger
 import shutil
 import os
@@ -14,7 +14,7 @@ def uninstall(ctx, tool_name):
 
     if tool_name.lower() == "all":
         logger.info("Attempting to uninstall all DroidBuilder tools...")
-        installed_tools = installer.list_installed_tools()
+        installed_tools = toolchain.list_installed_tools()
         all_successful = True
         
         tools_to_uninstall = []
@@ -37,7 +37,7 @@ def uninstall(ctx, tool_name):
             if tool.startswith("ndk-"):
                 logger.info(f"Attempting to uninstall {tool}...")
                 ndk_version = tool.replace("ndk-", "")
-                tool_path = os.path.join(installer.INSTALL_DIR, "android-sdk", "ndk", ndk_version)
+                tool_path = os.path.join(toolchain.INSTALL_DIR, "android-sdk", "ndk", ndk_version)
                 if os.path.exists(tool_path):
                     shutil.rmtree(tool_path)
                     logger.success(f"✓ {tool} has been successfully uninstalled.")
@@ -46,7 +46,7 @@ def uninstall(ctx, tool_name):
                 continue
 
             # Fallback to generic uninstaller
-            if not installer.uninstall_tool(tool):
+            if not toolchain.uninstall_tool(tool):
                 logger.error(f"Failed to uninstall {tool}.")
                 all_successful = False
         
@@ -57,7 +57,7 @@ def uninstall(ctx, tool_name):
     else:
         logger.info(f"Attempting to uninstall '{tool_name}'...")
         try:
-            if installer.uninstall_tool(tool_name):
+            if toolchain.uninstall_tool(tool_name):
                 logger.success(f"Successfully uninstalled '{tool_name}'.")
             else:
                 logger.error(f"Failed to uninstall '{tool_name}'. Please check the logs for details.")

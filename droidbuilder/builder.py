@@ -1,17 +1,15 @@
-import click
 import os
-import subprocess
 import shutil
 import sys
-import tarfile
-import zipfile
-import shlex
-from . import downloader, installer
+import platformdirs
+from . import config
+from . import toolchain
+from .commands import install
 from .cli_logger import logger
-from .utils import ARCH_MAP, get_explicit_dependencies, resolve_dependencies_recursively, resolve_config_type, patch_resolver, run_shell_command
+from .utils import ARCH_MAP, resolve_config_type, patch_resolver, run_shell_command, resolve_buildtime_package, resolve_runtime_package, get_explicit_dependencies
 
-INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
-BUILD_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder", "build")
+INSTALL_DIR = platformdirs.user_cache_dir( "droidbuilder")
+BUILD_DIR = os.path.join(platformdirs.user_cache_dir( "droidbuilder" ), "build")
 
 
 # build_environment for python_source, runtime_packages, buildtime_packages
@@ -19,7 +17,7 @@ def _setup_build_environment(ndk_version, ndk_api, arch, buildtime_packages):
     """Set up environment variables for cross-compiling."""
     logger.info(f"  - Setting up build environment for {arch} (NDK {ndk_version}, API {ndk_api})...")
 
-    ndk_root = os.path.join(INSTALL_DIR, "android-sdk", "ndk", ndk_version)
+    ndk_root = ndk_dir_path
     if not os.path.exists(ndk_root):
         logger.error(f"Error: NDK root directory not found at {ndk_root}. Please ensure NDK {ndk_version} is installed.")
         return False
@@ -70,7 +68,7 @@ def _setup_build_environment(ndk_version, ndk_api, arch, buildtime_packages):
     env["READELF"] = readelf_path
     env["NM"] = nm_path
     env["STRIP"] = strip_path
-    env["SYSROOT"] = sysroot
+    env["sysROOT"] = sysroot
     env["PATH"] = f"{toolchain_bin}:{env['PATH']}"
     env["CFLAGS"] = cflags
     env["LDFLAGS"] = ldflags
@@ -122,7 +120,7 @@ def _disable_unnecessary_python_modules(python_source_dir):
         return False
 
 
-def _build_python_for_android(config, package_config, python_source_dir, python_version, ndk_version, ndk_api, arch, build_path, toolchain_bin, sysroot, cc_path, cxx_path, ar_path, strip_path, as_path, ld_path, ranlib_path, readelf_path, nm_path, compiler_prefix, env):
+def _build_python_for_android(config, package_config, python_source_dir, ndk_version, ndk_api, arch, build_path, toolchain_bin, sysroot, cc_path, cxx_path, ar_path, strip_path, as_path, ld_path, ranlib_path, readelf_path, nm_path, compiler_prefix, env):
     """Build Python for a specific Android architecture."""
     logger.info(f"  - Building Python {python_version} for {arch}...")
 
@@ -361,43 +359,42 @@ def _compile_buildtime_package(package_name_from_config, package_config, buildti
     logger.success(f"  - Successfully compiled and installed {package_name} for {arch}.")
     return True
 
-
-def _create_android_project(project_name, package_domain, build_path):
-    """Create a basic Android project structure by copying from template."""
-    logger.info(f"  - Creating Android project structure for {project_name} from template...")
+def _create_android_app(app_name, package_domain, build_path):
+    """Create a basic Android app structure by copying from template."""
+    logger.info(f"  - Creating Android app structure for {app_name} from template...")
 
     template_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "target", "android")
     
     if not os.path.exists(template_path):
-        logger.error(f"Error: Android project template not found at {template_path}")
+        logger.error(f"Error: Android app template not found at {template_path}")
         return False
 
     try:
         shutil.copytree(template_path, build_path, dirs_exist_ok=True)
     except (shutil.Error, OSError) as e:
-        logger.error(f"Error copying Android project template: {e}")
+        logger.error(f"Error copying Android app template: {e}")
         logger.info("Please check file permissions and ensure the template directory is accessible.")
         return False
 
-    logger.success(f"  - Android project structure created at {build_path}.")
+    logger.success(f"  - Android app structure created at {build_path}.")
     return True
 
-def _configure_android_project(build_path, project_name, package_domain, app_version, sdk_version, min_sdk_version, ndk_api, manifest_file, python_version):
-    """Configure the copied Android project with actual values."""
-    logger.info(f"  - Configuring Android project at {build_path}...")
+def _configure_android_app(build_path, app_name, package_domain, app_version, sdk_version, min_sdk_version, ndk_api, manifest_file, python_version):
+    """Configure the copied Android app with actual values."""
+    logger.info(f"  - Configuring Android app at {build_path}...")
 
     files_to_configure = {
         "settings.gradle.kts": {
             "path": os.path.join(build_path, "settings.gradle.kts"),
             "replacements": [
-                ("rootProject.name = \"MyDroidApp\"", f"rootProject.name = \"{project_name}\""),
+                ("rootProject.name = \"MyDroidApp\"", f"rootProject.name = \"{app_name}\""),
             ]
         },
         "app/build.gradle.kts": {
             "path": os.path.join(build_path, "app", "build.gradle.kts"),
             "replacements": [
-                ("namespace = \"com.example.myapp\"", f"namespace = \"{package_domain}.{project_name.lower()}\""),
-                ("applicationId = \"com.example.myapp\"", f"applicationId = \"{package_domain}.{project_name.lower()}\""),
+                ("namespace = \"com.example.myapp\"", f"namespace = \"{package_domain}.{app_name.lower()}\""),
+                ("applicationId = \"com.example.myapp\"", f"applicationId = \"{package_domain}.{app_name.lower()}\""),
                 ("compileSdk = 34", f"compileSdk = {sdk_version}"),
                 ("minSdk = 21", f"minSdk = {min_sdk_version}"),
                 ("targetSdk = 34", f"targetSdk = {sdk_version}"),
@@ -408,13 +405,13 @@ def _configure_android_project(build_path, project_name, package_domain, app_ver
         "app/src/main/AndroidManifest.xml": {
             "path": os.path.join(build_path, "app", "src", "main", "AndroidManifest.xml"),
             "replacements": [
-                ("package=\"com.example.myapp\"", f"package=\"{package_domain}.{project_name.lower()}\""),
+                ("package=\"com.example.myapp\"", f"package=\"{package_domain}.{app_name.lower()}\""),
             ]
         },
         "app/src/main/res/values/strings.xml": {
             "path": os.path.join(build_path, "app", "src", "main", "res", "values", "strings.xml"),
             "replacements": [
-                ("<string name=\"app_name\">MyDroidApp</string>", f"<string name=\"app_name\">{project_name}</string>"),
+                ("<string name=\"app_name\">MyDroidApp</string>", f"<string name=\"app_name\">{app_name}</string>"),
             ]
         }
     }
@@ -441,13 +438,13 @@ def _configure_android_project(build_path, project_name, package_domain, app_ver
                 logger.exception(*sys.exc_info())
                 return False
 
-    logger.success("  - Android project configured.")
+    logger.success("  - Android app configured.")
     return True
 
 
-def _copy_assets_to_android_project(build_path, archs):
-    """Copy compiled Python interpreter, modules, and buildtime libraries to Android project assets/jniLibs."""
-    logger.info("  - Copying Python and buildtime assets to Android project...")
+def _copy_assets_to_android_app(build_path, archs):
+    """Copy compiled Python interpreter, modules, and buildtime libraries to Android app assets/jniLibs."""
+    logger.info("  - Copying Python and buildtime assets to Android app...")
 
     assets_dir = os.path.join(build_path, "app", "src", "main", "assets")
     jni_libs_dir = os.path.join(build_path, "app", "src", "main", "jniLibs")
@@ -494,8 +491,8 @@ def _copy_assets_to_android_project(build_path, archs):
     return True
 
 def _copy_user_python_code(build_path, main_file):
-    """Copy user's Python application code to Android project assets."""
-    logger.info("  - Copying user's Python code to Android project...")
+    """Copy user's Python application code to Android app assets."""
+    logger.info("  - Copying user's Python code to Android app...")
 
     user_python_assets_dir = os.path.join(build_path, "app", "src", "main", "assets", "user_python")
     try:
@@ -532,41 +529,11 @@ def build_android(config, verbose):
     if verbose:
         logger.info(f"Configuration: {config}")
 
-    # Project configs
-    project = config.get("app", {})
-    project_name = project.get("name", "Unnamed Project")
-    main_file = project.get("main_file", "main.py")
-    app_version = project.get("version", "1.0")
-    target_platforms = project.get("target_platforms", [])
-    package_domain = project.get("package_domain", "org.test")
-    build_type = project.get("build_type", "debug")
-
-    # Get dependencies using the dependencies module
-    runtime_packages, buildtime_packages, dependency_mapping = get_explicit_dependencies(config)
-
-    # Android configs
-    android_cfg = config.get("android", {})
-    archs = android_cfg.get("archs", ["arm64-v8a", "armeabi-v7a"])
-    manifest_file = android_cfg.get("manifest_file", "")
-    sdk_version = android_cfg.get("sdk_version")
-    ndk_version = android_cfg.get("ndk_version")
-    min_sdk_version = android_cfg.get("min_sdk_version")
-    ndk_api = android_cfg.get("ndk_api")
-
-    # Java configs
-    java_cfg = config.get("java", {})
-    jdk_version = java_cfg.get("jdk_version")
-    gradle_version = java_cfg.get("gradle_version")
-
-    # Python configs
-    python_cfg = config.get("python", {})
-    python_version = python_cfg.get("python_version")
-
     # Build path
-    build_path = os.path.join(BUILD_DIR, project_name)
+    build_path = os.path.join(BUILD_DIR, app_name)
     dist_dir = os.path.join(os.getcwd(), "dist")
 
-    temp_bin_dir = os.path.join(INSTALL_DIR, "temp_bin")
+    temp_bin_dir = os.path.join(INSTALL_DIR, "bin")
 
     try:
         # Ensure Android is a target
@@ -577,7 +544,6 @@ def build_android(config, verbose):
             return False
 
         # Log values safely
-        logger.info(f"INSTALL_DIR: {INSTALL_DIR}")
         logger.info(f"SDK version: {sdk_version or 'not set'}")
         logger.info(f"NDK version: {ndk_version or 'not set'}")
         logger.info(f"minSdkVersion: {min_sdk_version or 'not set'}")
@@ -635,38 +601,17 @@ def build_android(config, verbose):
             compiler_prefix_map[arch] = compiler_prefix
             env_map[arch] = env
 
-        # Resolve and download buildtime packages
+        buildtime_package_source_dir = os.path.join(INSTALL_DIR, "buildtime_packages_src")
         if buildtime_packages:
-            resolved_buildtime_packages = resolve_dependencies_recursively(buildtime_packages, dependency_mapping)
-            if resolved_buildtime_packages is None:
-                logger.error("Failed to resolve buildtime package dependencies. Aborting.")
-                return False
-            if not _download_buildtime_packages(resolved_buildtime_packages, build_path, archs, ndk_version, ndk_api, config, toolchain_bin_map, sysroot_map, cc_path_map, cxx_path_map, ar_path_map, strip_path_map, as_path_map, ld_path_map, ranlib_path_map, readelf_path_map, nm_path_map, ndk_root_map, env_map, compiler_prefix_map, verbose=verbose):
-                logger.error("Failed to download and compile buildtime packages. Aborting.")
+            buildtime_package_source_path = install(url, dest_dir=buildtime_package_source_dir, filename=name, verbose=False)
+            if not buildtime_package_source_path:
+                logger.error("Failed to download buildtime packages. Aborting.")
                 return False
 
-            # AFTER buildtime packages are downloaded and compiled, update CFLAGS and LDFLAGS in env_map
-            for arch in archs:
-                buildtime_libs_dir = os.path.join(build_path, "buildtime_libs", arch)
-                if os.path.exists(buildtime_libs_dir):
-                    current_cflags = env_map[arch].get("CFLAGS", "")
-                    current_ldflags = env_map[arch].get("LDFLAGS", "")
-                    
-                    # Append only if not already present to avoid duplication
-                    if f"-I{buildtime_libs_dir}/include" not in current_cflags:
-                        current_cflags += f" -I{buildtime_libs_dir}/include"
-                    if f"-L{buildtime_libs_dir}/lib" not in current_ldflags:
-                        current_ldflags += f" -L{buildtime_libs_dir}/lib"
-                    
-                    env_map[arch]["CFLAGS"] = current_cflags
-                    env_map[arch]["LDFLAGS"] = current_ldflags
-                    logger.info(f"  - Updated CFLAGS for {arch}: {env_map[arch]['CFLAGS']}")
-                    logger.info(f"  - Updated LDFLAGS for {arch}: {env_map[arch]['LDFLAGS']}")
-
-        # Download Python source
-        python_source_dir = ""
+        python_url = f"https://www.python.org/ftp/python/{version}/Python-{version}.tgz"
+        source_dir = os.path.join(INSTALL_DIR, "python-source")
         if python_version:
-            python_source_dir = downloader.download_python_source(python_version, verbose=verbose)
+            python_source_dir = install(python_url, dest_dir=source_dir, filename=f"Python-{version}", verbose=False)
             if not python_source_dir:
                 logger.error("Failed to download Python source. Aborting.")
                 return False
@@ -680,29 +625,30 @@ def build_android(config, verbose):
 
         # Set up environment for each architecture and build Python
         for arch in archs:
-            if not _build_python_for_android(config, python_cfg, python_source_dir, python_version, ndk_version, ndk_api, arch, build_path, toolchain_bin_map[arch], sysroot_map[arch], cc_path_map[arch], cxx_path_map[arch], ar_path_map[arch], strip_path_map[arch], as_path_map[arch], ld_path_map[arch], ranlib_path_map[arch], readelf_path_map[arch], nm_path_map[arch], compiler_prefix_map[arch], env_map[arch]):
+            if not _build_python_for_android(config, python_source_dir, ndk_version, ndk_api, arch, build_path, toolchain_bin_map[arch], sysroot_map[arch], cc_path_map[arch], cxx_path_map[arch], ar_path_map[arch], strip_path_map[arch], as_path_map[arch], ld_path_map[arch], ranlib_path_map[arch], readelf_path_map[arch], nm_path_map[arch], compiler_prefix_map[arch], env_map[arch]):
                 logger.error(f"Failed to build Python for {arch}. Aborting.")
                 return False
 
-        # Download runtime packages
+        runtime_package_source_dir = os.path.join(INSTALL_DIR, "runtime_packages_src")
         if runtime_packages:
-            if not _download_runtime_packages(runtime_packages, dependency_mapping, build_path, archs, ndk_version, ndk_api, config, verbose=verbose):
+            runtime_package_source_path = install(url, dest_dir=runtime_package_source_dir, filename=name, verbose=False)
+            if not runtime_package_source_path:
                 logger.error("Failed to download runtime packages. Aborting.")
                 return False
 
-        # Create Android project structure
-        if not _create_android_project(project_name, package_domain, build_path):
-            logger.error("Failed to create Android project structure. Aborting.")
+        # Create Android app structure
+        if not _create_android_app(app_name, package_domain, build_path):
+            logger.error("Failed to create Android app structure. Aborting.")
             return False
 
-        # Configure the Android project
-        if not _configure_android_project(build_path, project_name, package_domain, app_version, sdk_version, min_sdk_version, ndk_api, manifest_file, python_version):
-            logger.error("Failed to configure Android project. Aborting.")
+        # Configure the Android app
+        if not _configure_android_app(build_path, app_name, package_domain, app_version, sdk_version, min_sdk_version, ndk_api, manifest_file, python_version):
+            logger.error("Failed to configure Android app. Aborting.")
             return False
 
         # Copy Python and buildtime assets
-        if not _copy_assets_to_android_project(build_path, archs):
-            logger.error("Failed to copy assets to Android project. Aborting.")
+        if not _copy_assets_to_android_app(build_path, archs):
+            logger.error("Failed to copy assets to Android app. Aborting.")
             return False
 
         # Copy user's Python code
@@ -710,13 +656,13 @@ def build_android(config, verbose):
             logger.error("Failed to copy user's Python code. Aborting.")
             return False
 
-        logger.info(f"Starting build for {project_name} v{app_version} ({build_type})")
+        logger.info(f"Starting build for {app_name} v{app_version} ({build_type})")
 
         # Build APK
         logger.info("  - Building Android APK...")
         gradlew_path = os.path.join(build_path, "gradlew")
         if not os.path.exists(gradlew_path):
-            logger.error(f"Error: gradlew not found at {gradlew_path}. Android project setup failed.")
+            logger.error(f"Error: gradlew not found at {gradlew_path}. Android app setup failed.")
             return False
         
         try:
@@ -745,7 +691,7 @@ def build_android(config, verbose):
 
         # Find the generated APK and move it to the dist dir
         os.makedirs(dist_dir, exist_ok=True) # Ensure dist directory exists
-        apk_name = f"{project_name}-{build_type}.apk" # Simplified name
+        apk_name = f"{app_name}-{build_type}.apk" # Simplified name
         # The actual APK path is usually app/build/outputs/apk/{build_type}/app-{build_type}.apk
         generated_apk_path = os.path.join(build_path, "app", "build", "outputs", "apk", build_type, f"app-{build_type}.apk")
         

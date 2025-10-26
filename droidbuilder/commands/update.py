@@ -1,6 +1,6 @@
 import click
 import sys
-from .. import installer
+from .. import toolchain
 from ..cli_logger import logger # Import logger
 
 @click.command()
@@ -10,7 +10,7 @@ def update(ctx, tool_name):
     """Update a specified tool to the latest version (e.g., jdk)."""
     logger.info(f"Attempting to update '{tool_name}'...")
     try:
-        if installer.update_tool(tool_name):
+        if toolchain.update_tool(tool_name):
             logger.success(f"Successfully updated '{tool_name}'.")
         else:
             logger.error(f"Failed to update '{tool_name}'. Please check the logs for details.")
