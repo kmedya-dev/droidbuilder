@@ -1,10 +1,9 @@
 import os
 import shutil
-import platformdirs
 from ..cli_logger import logger
-from ..utils import download, extract_file
+from ..utils import *
 
-INSTALL_DIR = platformdirs.user_cache_dir("droidbuilder")
+INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
 
 def install(url, dest_dir, filename=None, timeout=60, verbose=False):
     """Download and extract a file to a destination directory."""

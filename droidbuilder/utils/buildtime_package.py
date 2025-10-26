@@ -1,8 +1,9 @@
 from ..cli_logger import logger
-from ..utils import resolve_package_url, get_explicit_dependencies
+from .dependencies import get_explicit_dependencies
+from .package_resolver import resolve_package_url
 
 
-def resolve_buildtime_package(conf):
+def resolve_buildtime_packages(conf):
     """
     Resolves buildtime packages against the dependency mapping.
     If a package is not in the mapping, it attempts to find the URL.

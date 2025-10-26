@@ -1,11 +1,10 @@
 import click
 import os
-import platformdirs
 from .. import config
 from ..cli_logger import logger
 from ..tools import installer
 
-INSTALL_DIR = platformdirs.user_cache_dir("droidbuilder")
+INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
 
 @click.command()
 @click.argument('url')

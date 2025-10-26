@@ -1,15 +1,14 @@
 import os
-import shutil
 import sys
-import platformdirs
+import shutil
 from . import config
 from . import toolchain
 from .commands import install
 from .cli_logger import logger
-from .utils import ARCH_MAP, resolve_config_type, patch_resolver, run_shell_command, resolve_buildtime_package, resolve_runtime_package, get_explicit_dependencies
+from .utils import ARCH_MAP, resolve_config_type, patch_resolver, run_shell_command, resolve_buildtime_packages, resolve_runtime_packages
 
-INSTALL_DIR = platformdirs.user_cache_dir( "droidbuilder")
-BUILD_DIR = os.path.join(platformdirs.user_cache_dir( "droidbuilder" ), "build")
+INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
+BUILD_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder", "build")
 
 
 # build_environment for python_source, runtime_packages, buildtime_packages

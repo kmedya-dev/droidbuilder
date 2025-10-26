@@ -3,13 +3,11 @@ import os
 import sys
 import requests
 from typing import Optional
-from dotenv import load_dotenv
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse, quote_plus, unquote # Added quote_plus, unquote
 from packaging.version import parse as parse_version, InvalidVersion
 from ..cli_logger import logger
 
-load_dotenv()
 
 def get_source_package_name(package_name: str) -> str:
     return package_name
@@ -157,7 +155,7 @@ def find_tarball(url: str, package_name: str, version: Optional[str] = None, vis
     return None
 
 
-def resolve_buildtime_package(package_name: str, version: Optional[str] = None) -> Optional[str]:
+def resolve_package_url(package_name: str, version: Optional[str] = None) -> Optional[str]:
     search_query = f"{package_name} download source tar.gz"
     logger.info(f"Searching for '{search_query}' using Google Custom Search...")
 
