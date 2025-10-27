@@ -96,6 +96,15 @@ def install_cmdline_tools(cmdline_tools_version, verbose=False):
             shutil.rmtree(temp_extract_dir)
         return False
 
+    # --- Start of debug code ---
+    logger.debug("Contents of temp_extract_dir:")
+    for root, dirs, files in os.walk(temp_extract_dir):
+        for name in files:
+            logger.debug(os.path.join(root, name))
+        for name in dirs:
+            logger.debug(os.path.join(root, name))
+    # --- End of debug code ---
+
     # Move the extracted 'cmdline-tools' directory to the correct location
     extracted_tools_dir = os.path.join(temp_extract_dir, "cmdline-tools")
     if os.path.exists(extracted_tools_dir) and os.path.isdir(extracted_tools_dir):

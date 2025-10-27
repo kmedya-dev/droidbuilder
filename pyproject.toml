@@ -13,7 +13,6 @@ dependencies = [
     "setuptools",
     "packaging",
     "python-dotenv",
-    "platformdirs",
 ]
 [project.scripts]
 droidbuilder = "droidbuilder.main:cli"

@@ -1,7 +1,7 @@
 import os
 import shutil
 from ..cli_logger import logger
-from ..utils import *
+from ..utils import download, extract_file
 
 INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
 

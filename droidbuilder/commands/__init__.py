@@ -19,3 +19,4 @@ from .update_deps import *
 from .update import *
 from .version import *
 from .search_code import *
+from .grep import *
