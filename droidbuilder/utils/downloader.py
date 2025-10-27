@@ -1,10 +1,9 @@
 import os
 import requests
 import shutil
-import platformdirs
 from ..cli_logger import logger
 
-DOWNLOAD_DIR = os.path.join(platformdirs.user_cache_dir("droidbuilder"), "downloads")
+DOWNLOAD_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder", "downloads")
 
 def download(url, dest_dir, filename=None, timeout=60):
     """Download a file to a temporary directory and return the path."""
