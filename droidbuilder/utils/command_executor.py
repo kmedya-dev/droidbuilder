@@ -49,17 +49,21 @@ def run_shell_command(command, stream_output=False, env=None, input_data=None, c
                 check=False,
                 cwd=cwd,
             )
-            return result.stdout, result.stderr, result.returncode
+            return {
+                "stdout": result.stdout,
+                "stderr": result.stderr,
+                "returncode": result.returncode,
+            }
 
     except FileNotFoundError as e:
         logger.error(f"Command not found: {e.filename}")
         if stream_output:
             return iter([]), type('obj', (object,), {'returncode': -1})
         else:
-            return "", str(e), -1
+            return {"stdout": "", "stderr": str(e), "returncode": -1}
     except Exception as e:
         logger.error(f"An unexpected error occurred: {e}")
         if stream_output:
             return iter([]), type('obj', (object,), {'returncode': -1})
         else:
-            return "", str(e), -1
+            return {"stdout": "", "stderr": str(e), "returncode": -1}
