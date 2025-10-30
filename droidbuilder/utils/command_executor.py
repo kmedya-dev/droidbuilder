@@ -18,7 +18,9 @@ def run_shell_command(command, stream_output=False, env=None, input_data=None, c
         If stream_output is False, returns a tuple (stdout, stderr, return_code).
     """
     try:
-        shell = isinstance(command, str)
+        if isinstance(command, str):
+            command = shlex.split(command)
+
         if stream_output:
             process = subprocess.Popen(
                 command,
@@ -28,7 +30,6 @@ def run_shell_command(command, stream_output=False, env=None, input_data=None, c
                 universal_newlines=True,
                 env=env,
                 cwd=cwd,
-                shell=shell
             )
 
             def _generator():
@@ -47,7 +48,6 @@ def run_shell_command(command, stream_output=False, env=None, input_data=None, c
                 input=input_data,
                 check=False,
                 cwd=cwd,
-                shell=shell
             )
             return result.stdout, result.stderr, result.returncode
 

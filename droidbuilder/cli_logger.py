@@ -9,7 +9,7 @@ from colorama import Fore, Style, init
 
 # Initialize Colorama
 if sys.platform == 'win32':
-    init(autoreset=True, strip=True, convert=True)
+    init(autoreset=True, strip=False, convert=True)
 else:
     init(autoreset=True, strip=False, convert=False)
 
@@ -174,6 +174,13 @@ class Logger:
         if completion_message:
             print()
             self.success(completion_message)
+
+    # -------- Extraction logging --------
+    def extraction(self, archive_path, name, indent=0):
+        self.step_info(f"Archive:  {os.path.basename(archive_path)}", indent=indent)
+        self.step_info(f"creating: {name}", indent=indent + 3)
+        self.step_info(f"replace: {name}", indent=indent + 2)
+        self.step_info(f"extracting: {name}", indent=indent + 2)
 
     # -------- Exception logging --------
     def exception(self, exc_type, exc_value, exc_traceback):

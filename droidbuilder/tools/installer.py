@@ -7,15 +7,13 @@ INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
 
 def install(url, dest_dir, filename=None, timeout=60, verbose=False):
     """Download and extract a file to a destination directory."""
-    download_path = download(url, dest_dir, filename, timeout)
-    if not download_path:
+    archive_path = download(url, filename, timeout)
+    if not archive_path:
         return None
 
     try:
-        result = extract_file(download_path, dest_dir, verbose)
-        return result
+        return extract_file(archive_path, dest_dir, verbose=verbose)
     finally:
-        # Clean up the downloaded file and its temporary directory
-        download_dir = os.path.dirname(download_path)
-        if os.path.exists(download_dir):
-            shutil.rmtree(download_dir)
+        # Clean up the downloaded file
+        if archive_path and os.path.exists(archive_path):
+            os.remove(archive_path)

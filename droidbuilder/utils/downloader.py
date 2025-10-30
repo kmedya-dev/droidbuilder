@@ -5,7 +5,7 @@ from ..cli_logger import logger
 
 DOWNLOAD_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder", "downloads")
 
-def download(url, dest_dir, filename=None, timeout=60):
+def download(url, filename=None, timeout=60):
     """Download a file to a temporary directory and return the path."""
     download_dir = DOWNLOAD_DIR
 
@@ -33,11 +33,11 @@ def download(url, dest_dir, filename=None, timeout=60):
         return download_path
     except requests.exceptions.RequestException as e:
         logger.error(f"Error downloading the file: {e}")
-        if os.path.exists(download_dir):
-            shutil.rmtree(download_dir)
+        if os.path.exists(download_path):
+            os.remove(download_path)
         return None
     except Exception as e:
         logger.error(f"An unexpected error occurred during download: {e}")
-        if os.path.exists(download_dir):
-            shutil.rmtree(download_dir)
+        if os.path.exists(download_path):
+            os.remove(download_path)
         return None

@@ -6,7 +6,6 @@ from .doctor import *
 from .install import *
 from .init import *
 from .install_tools import *
-from .list_droids import *
 from .list_files import *
 from .list_templates import *
 from .list_tools import *
@@ -20,3 +19,4 @@ from .update import *
 from .version import *
 from .search_code import *
 from .grep import *
+

@@ -7,7 +7,7 @@ from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse, quote_plus, unquote # Added quote_plus, unquote
 from packaging.version import parse as parse_version, InvalidVersion
 from ..cli_logger import logger
-
+from .dependencies import get_explicit_dependencies
 
 def get_source_package_name(package_name: str) -> str:
     return package_name
@@ -192,3 +192,88 @@ def resolve_package_url(package_name: str, version: Optional[str] = None) -> Opt
 
     logger.warning(f"Could not find tarball for {package_name} (version: {version or 'latest'}) after checking all search results.")
     return None
+
+
+def _resolve_from_pypi(name, version=None):
+    """
+    Resolves a Python package to a source URL using the PyPI API.
+    """
+    logger.info(f"  - Resolving Python package: {name}{f'=={version}' if version else ''}...")
+    pypi_url = f"https://pypi.org/pypi/{name}/json"
+
+    try:
+        response = requests.get(pypi_url, timeout=10)
+        response.raise_for_status()
+        package_data = response.json()
+
+        if version is None:
+            version = package_data["info"]["version"]
+            logger.info(f"  - No version specified for {name}. Found latest: {version}")
+
+        release = package_data.get("releases", {}).get(version)
+        if not release:
+            logger.error(f"Could not find version {version} for {name} on PyPI.")
+            return None, None
+
+        # Find the source distribution (sdist)
+        source_dist = None
+        for dist in release:
+            if dist["packagetype"] == "sdist":
+                source_dist = dist
+                break
+
+        if not source_dist:
+            logger.error(f"Could not find source distribution (sdist) for {name} {version}")
+            return None, None
+
+        download_url = source_dist["url"]
+        
+        logger.info(f"Resolved URL: {download_url}")
+        return download_url, version
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error querying PyPI API for {name}: {e}")
+        return None, None
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while processing {name}: {e}")
+        return None, None
+
+def resolve_packages(conf):
+    """
+    Resolves packages.
+    It first checks the dependency mapping. If not mapped, try with PyPI. If not found, it falls back to search online.
+    """
+    resolved_packages = {}
+    runtime_packages, buildtime_packages, dependency_mapping = get_explicit_dependencies(conf)
+
+    all_packages = runtime_packages + buildtime_packages
+
+    for package in all_packages:
+        package_name = package["name"]
+        version_spec = package["version"]
+        
+        logger.info(f"Resolving {package_name} {version_spec or ''}...")
+
+        # 1. Check dependency mapping
+        if package_name in dependency_mapping:
+            url = dependency_mapping[package_name]
+            logger.info(f"Found URL for {package_name} in dependency mapping: {url}")
+            resolved_packages[package_name] = {"url": url, "version": version_spec}
+            continue
+
+        # 2. Try PyPI
+        url, resolved_version = _resolve_from_pypi(package_name, version_spec)
+        if url:
+            resolved_packages[package_name] = {"url": url, "version": resolved_version}
+            continue
+
+        # 3. Fallback to web search
+        logger.info(f"Could not resolve {package_name} from PyPI. Falling back to web search.")
+        url = resolve_package_url(package_name, version_spec)
+        if url:
+            # Version from web search is not reliable
+            resolved_packages[package_name] = {"url": url, "version": None}
+        else:
+            logger.error(f"Failed to resolve package: {package_name}")
+
+    return resolved_packages
