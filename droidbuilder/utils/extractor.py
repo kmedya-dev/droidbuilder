@@ -11,32 +11,31 @@ from ..utils import move_files, safe_join
 
 def _safe_extract_zip(zip_path, dest_dir, verbose=False):
     """Safely extract a zip file, preventing zip slip attacks."""
-    logger.extraction(zip_path, os.path.basename(zip_path))
     with zipfile.ZipFile(zip_path, 'r') as zipf:
         for member in zipf.infolist():
             extracted_path = safe_join(dest_dir, member.filename)
             if member.is_dir():
                 os.makedirs(extracted_path, exist_ok=True)
-                logger.extraction(zip_path, member.filename, indent=3)
+                logger.extraction(member.filename, indent=3)
             else:
                 zipf.extract(member, dest_dir)
-                logger.extraction(zip_path, member.filename, indent=2)
+                logger.extraction(member.filename, indent=2)
 
 def _safe_extract_tar(tar_path, dest_dir, verbose=False):
     """Safely extract a tar file, preventing path traversal attacks."""
-    logger.extraction(tar_path, os.path.basename(tar_path))
     with tarfile.open(tar_path, 'r:*') as tarf:
         for member in tarf.getmembers():
             extracted_path = safe_join(dest_dir, member.name)
             if member.isdir():
                 os.makedirs(extracted_path, exist_ok=True)
-                logger.extraction(tar_path, member.name, indent=3)
+                logger.extraction(member.name, indent=3)
             else:
                 tarf.extract(member, dest_dir)
-                logger.extraction(tar_path, member.name, indent=2)
+                logger.extraction(member.name, indent=2)
 
 def extract_file(archive_path, dest_dir, verbose=False):
     """Extracts an archive file to a destination directory."""
+    logger.step_info(f"Archive:  {os.path.basename(archive_path)}")
     os.makedirs(dest_dir, exist_ok=True)
     with tempfile.TemporaryDirectory() as temp_dir:
         try:

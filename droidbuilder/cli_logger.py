@@ -176,8 +176,7 @@ class Logger:
             self.success(completion_message)
 
     # -------- Extraction logging --------
-    def extraction(self, archive_path, name, indent=0):
-        self.step_info(f"Archive:  {os.path.basename(archive_path)}", indent=indent)
+    def extraction(self, name, indent=0):
         self.step_info(f"creating: {name}", indent=indent + 3)
         self.step_info(f"replace: {name}", indent=indent + 2)
         self.step_info(f"extracting: {name}", indent=indent + 2)
