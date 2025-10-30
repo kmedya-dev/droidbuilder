@@ -287,7 +287,11 @@ def _accept_sdk_licenses(sdk_install_dir, jdk_install_dir):
     try:
         # The --licenses command is non-interactive. We pipe 'y' to it to automate acceptance.
         logger.info("  - Attempting to automatically accept SDK licenses...")
-        result = run_shell_command(f"yes | {sdk_manager} --licenses", env=env)
+        result = run_shell_command(
+            [sdk_manager, "--licenses"],
+            input_data="y\n" * 20, # Send multiple 'y' responses
+            env=env
+        )
 
         if result['returncode'] != 0:
             logger.warning(f"sdkmanager --licenses exited with a non-zero code ({result['returncode']}), which may be normal.")

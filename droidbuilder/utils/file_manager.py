@@ -33,11 +33,14 @@ def move_files(source_dir, dest_dir):
     if len(source_items) == 1:
         inner_path = os.path.join(source_dir, source_items[0])
         if os.path.isdir(inner_path):
-            shutil.move(inner_path, dest_dir)
+            # Move the contents of the single directory, not the directory itself
+            for item in os.listdir(inner_path):
+                shutil.move(os.path.join(inner_path, item), dest_dir)
+            os.rmdir(inner_path) # Clean up the now-empty directory
             return
 
     # Otherwise, move all items from the source to the destination.
     if not os.path.exists(dest_dir):
         os.makedirs(dest_dir)
     for item in source_items:
-        shutil.move(os.path.join(source_dir, item), dest_dir) 
+        shutil.move(os.path.join(source_dir, item), dest_dir)
