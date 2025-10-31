@@ -560,6 +560,7 @@ def build_android(config, verbose):
             if not success:
                 logger.error(f"Failed to set up build environment for {arch}. Aborting.")
                 return False
+
             toolchain_bin_map[arch] = toolchain_bin
             sysroot_map[arch] = sysroot
             cc_path_map[arch] = cc_path
@@ -577,11 +578,8 @@ def build_android(config, verbose):
             compiler_prefix_map[arch] = compiler_prefix
             env_map[arch] = env
 
-        buildtime_packages = resolve_packages(config)
+        name, url = resolve_packages(config)
         if buildtime_packages:
-            for package in buildtime_packages.values():
-                name = package['name']
-                url = package['url']
                 buildtime_package_source_dir = os.path.join(INSTALL_DIR, "buildtime_packages_src", f"{name}")
                 buildtime_package_source_path = install(url, buildtime_package_source_dir, f"{name}", verbose=False)
                 if not buildtime_package_source_path:
@@ -614,11 +612,8 @@ def build_android(config, verbose):
                 logger.error(f"Failed to build Python for {arch}. Aborting.")
                 return False
 
-        runtime_packages = resolve_packages(config)
+        name, url = resolve_packages(config)
         if runtime_packages:
-            for package in runtime_packages.values():
-                name = package['name']
-                url = package['url']
                 runtime_package_source_dir = os.path.join(INSTALL_DIR, "runtime_packages_src", f"{name}")
                 runtime_package_source_path = install(url, runtime_package_source_dir, f"{name}", verbose=False)
                 if not runtime_package_source_path:

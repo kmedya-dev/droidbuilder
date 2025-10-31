@@ -1,15 +1,12 @@
 import click
 from . import commands
 import inspect
-from dotenv import load_dotenv
-
 
 @click.group()
 @click.option("--path", "-p", default=".", help="Path to the project directory.")
 @click.pass_context
 def cli(ctx, path):
     """DroidBuilder CLI tool."""
-    load_dotenv()
     ctx.obj = {"path": path}
 
 for name, command in inspect.getmembers(commands, lambda member: isinstance(member, click.Command)):

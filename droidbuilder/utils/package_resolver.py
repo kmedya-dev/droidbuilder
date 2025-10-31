@@ -5,158 +5,12 @@ import requests
 from typing import Optional
 from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse, quote_plus, unquote # Added quote_plus, unquote
-from packaging.version import parse as parse_version, InvalidVersion
 from ..cli_logger import logger
 from .dependencies import get_explicit_dependencies
 
-def get_source_package_name(package_name: str) -> str:
-    return package_name
 
-
-class TarballLinkFinder(HTMLParser):
-    def __init__(self, package_name: str):
-        super().__init__()
-        self.links = []
-        self.package_name = package_name # Corrected from 'package'
-        source_package_name = get_source_package_name(package_name)
-        self.search_names = [package_name]
-        if source_package_name != package_name:
-            self.search_names.append(source_package_name)
-        self.version_regex = re.compile(r'(?:[a-zA-Z0-9\.-]+-)?(\d+\.\d+(?:\.\d+)*(?:-[a-zA-Z0-9\.-]+)?)(?=\.tar)')
-
-    def handle_starttag(self, tag, attrs):
-        if tag == "a":
-            for attr, value in attrs:
-                if attr == "href":
-                    if re.search(r"\.tar\.(gz|xz|bz2)$", value):
-                        filename = os.path.basename(urlparse(value).path)
-                        if any(filename.startswith(sn) for sn in self.search_names):
-                            match = self.version_regex.search(filename)
-                            if match:
-                                self.links.append((value, match.group(1)))
-
-class SourcePageLinkFinder(HTMLParser):
-    def __init__(self):
-        super().__init__()
-        self.links = []
-        self.priority_keywords = ["releases", "download", "archive"]
-        self.general_keywords = ["source", "library", "files", "dist", "get"]
-
-    def handle_starttag(self, tag, attrs):
-        if tag == "a":
-            for attr, value in attrs:
-                if attr == "href":
-                    lower_value = value.lower()
-                    if any(keyword in lower_value for keyword in self.priority_keywords):
-                        self.links.insert(0, value)
-                    elif any(keyword in lower_value for keyword in self.general_keywords):
-                        self.links.append(value)
-
-class VersionLinkFinder(HTMLParser):
-    def __init__(self):
-        super().__init__()
-        self.links = []
-        # Regex to find version numbers in format vX.Y.Z or X.Y.Z
-        self.version_regex = re.compile(r"^(v?(\d+(?:\.\d+)*(?:(?:a|b|rc)\d+)?))/?$")
-
-    def handle_starttag(self, tag, attrs):
-        if tag == "a":
-            for attr, value in attrs:
-                if attr == "href":
-                    match = self.version_regex.search(value)
-                    if match:
-                        self.links.append((match.group(1), match.group(2))) # (full_link, version_str)
-
-
-
-def find_tarball(url: str, package_name: str, version: Optional[str] = None, visited: set = None, depth: int = 0) -> Optional[str]:
-
-    MAX_DEPTH = 3 # Limit recursion depth
-
-    if visited is None:
-        visited = set()
-
-    if url in visited or depth > MAX_DEPTH:
-        return None
-    visited.add(url)
-
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-        html = response.text
-
-        # Look for a tarball on the current page
-        tarball_parser = TarballLinkFinder(package_name)
-        tarball_parser.feed(html)
-        
-        if tarball_parser.links:
-            if version:
-                for link, version_str in tarball_parser.links:
-                    if version_str == version:
-                        if not link.startswith("http"):
-                            return urljoin(url, link)
-                        return link
-            else:
-                # Separate pre-releases and stable releases
-                stable_releases = []
-                prereleases = []
-                for link, version_str in tarball_parser.links:
-                    try:
-                        v = parse_version(version_str)
-                    except InvalidVersion as e:
-                        logger.error(f"Failed to parse version '{version_str}' from link '{link}': {e}")
-                        continue # Skip this link and try the next one
-                    
-                    if v.is_prerelease:
-                        prereleases.append((link, v))
-                    else:
-                        stable_releases.append((link, v))
-
-                # Prefer stable releases
-                if stable_releases:
-                    sorted_links = sorted(stable_releases, key=lambda x: x[1], reverse=True)
-                else:
-                    # If no stable releases, avoid pre-releases as requested.
-                    sorted_links = []
-                    logger.info(f"No stable releases found for {package_name}. Avoiding pre-releases.")
-
-                if sorted_links:
-                    link, _ = sorted_links[0]
-                    if not link.startswith("http"):
-                        return urljoin(url, link)
-                    return link
-
-        # If no tarball is found, look for version directories and recurse into the latest one
-        version_parser = VersionLinkFinder()
-        version_parser.feed(html)
-        if version_parser.links:
-            # Sort versions and pick the latest one
-            sorted_links = sorted(version_parser.links, key=lambda x: parse_version(x[1]), reverse=True)
-            if sorted_links:
-                latest_version_link, _ = sorted_links[0]
-                next_url = urljoin(url, latest_version_link)
-                tarball_url = find_tarball(next_url, package_name, version, visited, depth + 1)
-                if tarball_url:
-                    return tarball_url
-
-        # If no tarball is found, look for a source page link and recurse
-        source_parser = SourcePageLinkFinder()
-        source_parser.feed(html)
-        for source_page_url in source_parser.links:
-            if not source_page_url.startswith("http"):
-                source_page_url = urljoin(url, source_page_url)
-            
-            tarball_url = find_tarball(source_page_url, package_name, version, visited, depth + 1) # Increment depth
-            if tarball_url:
-                return tarball_url
-
-    except Exception as e:
-        logger.error(f"[!] Failed to scrape tarball link from {url}: {type(e).__name__}: {e}")
-    return None
-
-
-def resolve_package_url(package_name: str, version: Optional[str] = None) -> Optional[str]:
-    search_query = f"{package_name} download source tar.gz"
+def resolve_package_url(name, version=None):
+    search_query = f"{name}{f' {version}' if version else ''} download source tar.gz"
     logger.info(f"Searching for '{search_query}' using Google Custom Search...")
 
     api_key = os.environ.get("GOOGLE_API_KEY")
@@ -172,25 +26,11 @@ def resolve_package_url(package_name: str, version: Optional[str] = None) -> Opt
         response.raise_for_status()
         search_results = response.json()
 
-        urls = [item['link'] for item in search_results.get('items', [])]
-
     except requests.exceptions.RequestException as e:
         logger.error(f"Failed to perform web search: {e}")
         return None
 
-    if not urls:
-        logger.warning(f"No URLs found in search results for '{package_name}'.")
-        return None
-
-    logger.info(f"Found {len(urls)} potential URLs. Attempting to find tarball...")
-    for url in urls:
-        logger.info(f"Checking URL: {url}")
-        tarball_url = find_tarball(url, package_name, version)
-        if tarball_url:
-            logger.info(f"Found tarball for {package_name} at: {tarball_url}")
-            return tarball_url
-
-    logger.warning(f"Could not find tarball for {package_name} (version: {version or 'latest'}) after checking all search results.")
+    logger.warning(f"Could not find tarball for {name} (version: {version or 'latest'}) after checking all search results.")
     return None
 
 
@@ -204,36 +44,31 @@ def _resolve_from_pypi(name, version=None):
     try:
         response = requests.get(pypi_url, timeout=10)
         response.raise_for_status()
-        package_data = response.json()
+        data = response.json()
 
-        if version is None:
-            version = package_data["info"]["version"]
-            logger.info(f"  - No version specified for {name}. Found latest: {version}")
+        if version:
+            if version not in data["releases"]:
+                logger.warning(f"Version {version} not found for {name}. Available versions: {list(data['releases'].keys())}")
+                return None, None
+            release_data = data["releases"][version]
+        else:
+            # Get the latest version
+            latest_version = data["info"]["version"]
+            release_data = data["releases"][latest_version]
+            version = latest_version
 
-        release = package_data.get("releases", {}).get(version)
-        if not release:
-            logger.error(f"Could not find version {version} for {name} on PyPI.")
-            return None, None
+        for file_info in release_data:
+            if file_info["packagetype"] == "sdist":
+                logger.info(f"Found source distribution for {name}=={version}: {file_info['url']}")
+                return file_info["url"], version
 
-        # Find the source distribution (sdist)
-        source_dist = None
-        for dist in release:
-            if dist["packagetype"] == "sdist":
-                source_dist = dist
-                break
-
-        if not source_dist:
-            logger.error(f"Could not find source distribution (sdist) for {name} {version}")
-            return None, None
-
-        download_url = source_dist["url"]
-        
-        logger.info(f"Resolved URL: {download_url}")
-        return download_url, version
+        logger.warning(f"No source distribution found for {name}=={version} on PyPI.")
+        return None, None
 
     except requests.exceptions.RequestException as e:
         logger.error(f"Error querying PyPI API for {name}: {e}")
         return None, None
+
     except Exception as e:
         logger.error(f"An unexpected error occurred while processing {name}: {e}")
         return None, None
@@ -249,33 +84,29 @@ def resolve_packages(conf):
     all_packages = runtime_packages + buildtime_packages
 
     for package in all_packages:
-        package_name = package["name"]
-        version_spec = package["version"]
-        
-        logger.info(f"Resolving {package_name} {version_spec or ''}...")
+        name = package["name"]
+        version = package["version"]
+        logger.info(f"Resolving {name}{f'=={version}' if version else ''}...")
 
         # 1. Check dependency mapping
-        if package_name in dependency_mapping:
-            url = dependency_mapping[package_name]
-            if version_spec and "{version}" in url:
-                url = url.format(version=version_spec)
-            logger.info(f"Found URL for {package_name} in dependency mapping: {url}")
-            resolved_packages[package_name] = {"url": url, "version": version_spec}
+        if name in dependency_mapping:
+            url = dependency_mapping[name]
+            logger.info(f"  - Resolved from dependency_mapping: {url}")
+            resolved_packages[name] = {"url": url, "version": version}
             continue
 
         # 2. Try PyPI
-        url, resolved_version = _resolve_from_pypi(package_name, version_spec)
+        url, resolved_version = _resolve_from_pypi(name, version)
         if url:
-            resolved_packages[package_name] = {"url": url, "version": resolved_version}
+            resolved_packages[name] = {"url": url, "version": resolved_version}
             continue
 
         # 3. Fallback to web search
-        logger.info(f"Could not resolve {package_name} from PyPI. Falling back to web search.")
-        url = resolve_package_url(package_name, version_spec)
+        logger.info(f"Could not resolve {name} from PyPI. Falling back to web search.")
+        url = resolve_package_url(name, version)
         if url:
-            # Version from web search is not reliable
-            resolved_packages[package_name] = {"url": url, "version": None}
+            resolved_packages[name] = {"url": url, "version": version}
         else:
-            logger.error(f"Failed to resolve package: {package_name}")
+            logger.error(f"Failed to resolve package: {name}")
 
-    return resolved_packages
+    return url, version

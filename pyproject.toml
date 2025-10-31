@@ -12,7 +12,6 @@ dependencies = [
     "stdlib-list",
     "setuptools",
     "packaging",
-    "python-dotenv",
 ]
 [project.scripts]
 droidbuilder = "droidbuilder.main:cli"
