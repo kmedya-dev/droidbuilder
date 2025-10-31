@@ -579,7 +579,7 @@ def build_android(config, verbose):
 
         buildtime_packages = resolve_packages(config)
         if buildtime_packages:
-            for package in buildtime_packages:
+            for package in buildtime_packages.values():
                 name = package['name']
                 url = package['url']
                 buildtime_package_source_dir = os.path.join(INSTALL_DIR, "buildtime_packages_src", f"{name}")
@@ -616,7 +616,7 @@ def build_android(config, verbose):
 
         runtime_packages = resolve_packages(config)
         if runtime_packages:
-            for package in runtime_packages:
+            for package in runtime_packages.values():
                 name = package['name']
                 url = package['url']
                 runtime_package_source_dir = os.path.join(INSTALL_DIR, "runtime_packages_src", f"{name}")

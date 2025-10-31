@@ -257,6 +257,8 @@ def resolve_packages(conf):
         # 1. Check dependency mapping
         if package_name in dependency_mapping:
             url = dependency_mapping[package_name]
+            if version_spec and "{version}" in url:
+                url = url.format(version=version_spec)
             logger.info(f"Found URL for {package_name} in dependency mapping: {url}")
             resolved_packages[package_name] = {"url": url, "version": version_spec}
             continue
