@@ -17,7 +17,7 @@ def resolve_package_url(name, version=None):
     cx = os.environ.get("GOOGLE_CX")
 
     if not api_key or not cx:
-        logger.error("Google API key or CX not found. Please set them as environment variables in your .env file.")
+        logger.error("Google API key or CX not found. Please set them as environment variables.")
         return None
 
     try:
