@@ -276,20 +276,20 @@ def resolve_packages(conf):
         if name in dependency_mapping:
             url = dependency_mapping[name]
             logger.info(f"  - Resolved from dependency_mapping: {url}")
-            resolved_packages[name] = {"url": url, "version": version}
+            resolve_packages[name] = {"url": url, "version": version}
             continue
 
         # 2. Try PyPI
         url, resolved_version = _resolve_from_pypi(name, version)
         if url:
-            resolved_packages[name] = {"url": url, "version": resolved_version}
+            resolve_packages[name] = {"url": url, "version": resolved_version}
             continue
 
         # 3. Fallback to web search
         logger.info(f"Could not resolve {name} from PyPI. Falling back to web search.")
         url = resolve_package_url(name, version)
         if url:
-            resolved_packages[name] = {"url": url, "version": version}
+            resolve_packages[name] = {"url": url, "version": version}
         else:
             logger.error(f"Failed to resolve package: {name}")
 
