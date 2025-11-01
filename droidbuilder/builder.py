@@ -160,14 +160,12 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
     install_cmd = commands["install_command"]
 
     if clean_cmd:
-        logger.info(f"  - Cleaning Python build: {' '.join(clean_cmd)}")
-        stdout, stderr, returncode = run_shell_command(clean_cmd, env=env, cwd=python_source_dir)
+        stdout, stderr, returncode = run_shell_command(clean_cmd, description=f"  - Cleaning Python build for {arch}", env=env, cwd=python_source_dir)
         if returncode != 0:
             logger.warning(f"Clean command failed for Python (Exit Code: {returncode}). Continuing anyway.")
 
     if configure_cmd:
-        logger.info(f"  - Running Python configure: {' '.join(configure_cmd)}")
-        stdout, stderr, returncode = run_shell_command(configure_cmd, env=env, cwd=python_source_dir)
+        stdout, stderr, returncode = run_shell_command(configure_cmd, description=f"  - Running Python configure for {arch}", env=env, cwd=python_source_dir)
         if returncode != 0:
             logger.error(f"Configure failed for Python (Exit Code: {returncode}):")
             if stdout:
@@ -176,8 +174,7 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
                 logger.error(f"Stderr:\n{stderr}")
             return False
 
-    logger.info(f"  - Running Python build: {' '.join(build_cmd)}")
-    stdout, stderr, returncode = run_shell_command(build_cmd, env=env, cwd=python_source_dir)
+    stdout, stderr, returncode = run_shell_command(build_cmd, description=f"  - Running Python build for {arch}", env=env, cwd=python_source_dir)
     if returncode != 0:
         logger.error(f"Build failed for Python (Exit Code: {returncode}):")
         if stdout:
@@ -186,8 +183,7 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
             logger.error(f"Stderr:\n{stderr}")
         return False
 
-    logger.info(f"  - Running Python install: {' '.join(install_cmd)}")
-    stdout, stderr, returncode = run_shell_command(install_cmd, env=env, cwd=python_source_dir)
+    stdout, stderr, returncode = run_shell_command(install_cmd, description=f"  - Running Python install for {arch}", env=env, cwd=python_source_dir)
     if returncode != 0:
         logger.error(f"Install failed for Python (Exit Code: {returncode}):")
         if stdout:
@@ -247,8 +243,7 @@ def _compile_runtime_package(package_name, package_config, runtime_package_sourc
     )
     pip_install_cmd = pip_commands["install_command"]
 
-    logger.info(f"    - Running pip install: {' '.join(pip_install_cmd)}")
-    stdout, stderr, returncode = run_shell_command(pip_install_cmd, env=pip_env, cwd=runtime_package_source_path)
+    stdout, stderr, returncode = run_shell_command(pip_install_cmd, description=f"    - Running pip install for {package_name}", env=pip_env, cwd=runtime_package_source_path)
     if returncode != 0:
         logger.error(f"Pip install failed for runtime package {package_name} (Exit Code: {returncode}):")
         if stdout:
@@ -298,8 +293,7 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
     install_cmd = commands["install_command"]
 
     if clean_cmd:
-        logger.info(f"  - Cleaning buildtime package: {' '.join(clean_cmd)}")
-        stdout, stderr, returncode = run_shell_command(clean_cmd, env=env, cwd=buildtime_package_source_path)
+        stdout, stderr, returncode = run_shell_command(clean_cmd, description=f"  - Cleaning buildtime package {package_name} for {arch}", env=env, cwd=buildtime_package_source_path)
         if returncode != 0:
             logger.warning(f"Clean command failed for {package_name} (Exit Code: {returncode}). Continuing anyway.")
             if stdout:
@@ -308,8 +302,7 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
                 logger.warning(f"Stderr:\n{stderr}")
 
     if configure_cmd:
-        logger.info(f"  - Running configure: {' '.join(configure_cmd)}")
-        stdout, stderr, returncode = run_shell_command(configure_cmd, env=env, cwd=buildtime_package_source_path)
+        stdout, stderr, returncode = run_shell_command(configure_cmd, description=f"  - Running configure for {package_name} on {arch}", env=env, cwd=buildtime_package_source_path)
         if returncode != 0:
             logger.error(f"Configure failed for {package_name} (Exit Code: {returncode}):")
             if stdout:
@@ -318,8 +311,7 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
                 logger.info(f"Stderr:\n{stderr}")
             return False
 
-    logger.info(f"  - Running build: {' '.join(build_cmd)}")
-    stdout, stderr, returncode = run_shell_command(build_cmd, env=env, cwd=buildtime_package_source_path)
+    stdout, stderr, returncode = run_shell_command(build_cmd, description=f"  - Running build for {package_name} on {arch}", env=env, cwd=buildtime_package_source_path)
     if returncode != 0:
         logger.error(f"Build failed for {package_name} (Exit Code: {returncode}):")
         if stdout:
@@ -328,8 +320,7 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
             logger.error(f"Stderr:\n{stderr}")
         return False
 
-    logger.info(f"  - Running install: {' '.join(install_cmd)}")
-    stdout, stderr, returncode = run_shell_command(install_cmd, env=env, cwd=buildtime_package_source_path)
+    stdout, stderr, returncode = run_shell_command(install_cmd, description=f"  - Running install for {package_name} on {arch}", env=env, cwd=buildtime_package_source_path)
     if returncode != 0:
         logger.error(f"Install failed for {package_name} (Exit Code: {returncode}):")
         if stdout:
@@ -585,7 +576,7 @@ def build_android(config, verbose):
                 return False
 
             buildtime_package_source_dir = os.path.join(INSTALL_DIR, "buildtime_packages_src", f"{name}-{resolved_version or ''}")
-            buildtime_package_source_path = install(url, buildtime_package_source_dir, f"{name}-{resolved_version or ''}", verbose=False)
+            buildtime_package_source_path = install(url, buildtime_package_source_dir, f"{name}-{resolved_version or ''}", verbose=verbose)
             if not buildtime_package_source_path:
                 logger.error(f"Failed to download buildtime package {name}. Aborting.")
                 return False
@@ -598,7 +589,7 @@ def build_android(config, verbose):
         python_url = f"https://www.python.org/ftp/python/{python_version}/Python-{python_version}.tgz"
         source_dir = os.path.join(INSTALL_DIR, "python-source", f"Python-{python_version}")
         if python_version:
-            python_source_dir = install(python_url, source_dir, f"Python-{python_version}", verbose=False)
+            python_source_dir = install(python_url, source_dir, f"Python-{python_version}", verbose=verbose)
             if not python_source_dir:
                 logger.error("Failed to download Python source. Aborting.")
                 return False
@@ -623,7 +614,7 @@ def build_android(config, verbose):
                 return False
 
             runtime_package_source_dir = os.path.join(INSTALL_DIR, "runtime_packages_src", f"{name}-{resolved_version or ''}")
-            runtime_package_source_path = install(url, runtime_package_source_dir, f"{name}-{resolved_version or ''}", verbose=False)
+            runtime_package_source_path = install(url, runtime_package_source_dir, f"{name}-{resolved_version or ''}", verbose=verbose)
             if not runtime_package_source_path:
                 logger.error(f"Failed to download runtime package {name}. Aborting.")
                 return False
@@ -675,9 +666,7 @@ def build_android(config, verbose):
             build_task = "assembleRelease"
 
         gradle_build_cmd = [gradlew_path, build_task]
-        logger.info(f"  - Running Gradle build: {' '.join(gradle_build_cmd)}")
-
-        stdout, stderr, returncode = run_shell_command(gradle_build_cmd, cwd=build_path)
+        stdout, stderr, returncode = run_shell_command(gradle_build_cmd, description=f"  - Running Gradle build: {' '.join(gradle_build_cmd)}", cwd=build_path)
         if returncode != 0:
             logger.error(f"Gradle build failed (Exit Code: {returncode}):")
             if stdout:

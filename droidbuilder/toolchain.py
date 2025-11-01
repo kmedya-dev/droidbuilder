@@ -124,9 +124,7 @@ def install_sdk_packages(version, sdk_install_dir, jdk_install_dir, verbose=Fals
     env["JAVA_HOME"] = jdk_install_dir
 
     try:
-        # Show installed packages
-        logger.info("📃 Listing available SDK packages...")
-        result = run_shell_command(f"{sdk_manager} --list", env=env)
+        result = run_shell_command(f"{sdk_manager} --list", description="📃 Listing available SDK packages...", env=env)
         for line in result['stdout'].splitlines():
             logger.step_info(line.strip(), overwrite=not verbose, verbose=verbose)
         if result['returncode'] != 0:
@@ -135,8 +133,7 @@ def install_sdk_packages(version, sdk_install_dir, jdk_install_dir, verbose=Fals
         logger.error(f"Failed to list SDK packages: {e}")
         return False
     try:
-        logger.info(f"📦 Installing Android SDK components for API {version}...")
-        result = run_shell_command(f"{sdk_manager} 'platforms;android-{version}' 'build-tools;{version}.0.0' 'platform-tools'", env=env)
+        result = run_shell_command(f"{sdk_manager} 'platforms;android-{version}' 'build-tools;{version}.0.0' 'platform-tools'", description=f"📦 Installing Android SDK components for API {version}...", env=env)
         for line in result['stdout'].splitlines():
             logger.step_info(line.strip(), overwrite=not verbose, verbose=verbose)
         if result['returncode'] != 0:
@@ -169,8 +166,7 @@ def install_ndk(version, sdk_install_dir, jdk_install_dir, verbose=False):
     env["JAVA_HOME"] = jdk_install_dir
 
     try:
-        logger.info(f"📦 Installing Android NDK {version}...")
-        result = run_shell_command(f"{sdk_manager} 'ndk;{version}'", env=env)
+        result = run_shell_command(f"{sdk_manager} 'ndk;{version}'", description=f"📦 Installing Android NDK {version}...", env=env)
         for line in result['stdout'].splitlines():
             logger.step_info(line.strip(), overwrite=not verbose, verbose=verbose)
         if result['returncode'] != 0:
@@ -285,10 +281,9 @@ def _accept_sdk_licenses(sdk_install_dir, jdk_install_dir):
     env["JAVA_HOME"] = jdk_install_dir
 
     try:
-        # The --licenses command is non-interactive. We pipe 'y' to it to automate acceptance.
-        logger.info("  - Attempting to automatically accept SDK licenses...")
         result = run_shell_command(
             [sdk_manager, "--licenses"],
+            description="  - Attempting to automatically accept SDK licenses...",
             input_data="y\n" * 20, # Send multiple 'y' responses
             env=env
         )

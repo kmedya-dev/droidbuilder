@@ -20,7 +20,10 @@ def grep(pattern):
             pattern,
             search_dir
         ]
-        stdout, stderr, return_code = run_shell_command(command)
+        result = run_shell_command(command)
+        stdout = result["stdout"]
+        stderr = result["stderr"]
+        return_code = result["returncode"]
 
         if return_code == 0:
             click.echo(stdout)

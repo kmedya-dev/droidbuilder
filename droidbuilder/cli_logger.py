@@ -176,10 +176,15 @@ class Logger:
             self.success(completion_message)
 
     # -------- Extraction logging --------
-    def extraction(self, name, indent=0):
-        self.step_info(f"creating: {name}", indent=indent + 3)
-        self.step_info(f"replace: {name}", indent=indent + 2)
-        self.step_info(f"extracting: {name}", indent=indent + 2)
+    def extraction(self, name, indent=0, action="extracting", verbose=False):
+        """Logs extraction steps with appropriate indentation and action."""
+        actions = {
+            "creating": "creating: ",
+            "replace": "replace: ",
+            "extracting": "extracting: "
+        }
+        message = f"{actions.get(action, 'extracting: ')}{name}"
+        self.step_info(message, indent=indent + 2, overwrite=True, verbose=verbose)
 
     # -------- Exception logging --------
     def exception(self, exc_type, exc_value, exc_traceback):

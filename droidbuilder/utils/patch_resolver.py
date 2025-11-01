@@ -25,10 +25,14 @@ def apply_patches(package_name: str, package_source_path: str, config: dict) -> 
             
             if os.path.exists(patch_path):
                 logger.info(f"    - Applying patch: {patch_file_relative_path}")
-                stdout, stderr, returncode = run_shell_command(
+                result = run_shell_command(
                     ["patch", "-p1", "-i", patch_path],
+                    description=f"    - Applying patch: {patch_file_relative_path}",
                     cwd=package_source_path
                 )
+                stdout = result["stdout"]
+                stderr = result["stderr"]
+                returncode = result["returncode"]
                 if returncode != 0:
                     logger.error(f"    - Failed to apply patch {patch_file_relative_path}: (Exit Code: {returncode})")
                     if stdout:

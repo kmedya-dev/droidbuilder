@@ -15,23 +15,31 @@ def _safe_extract_zip(zip_path, dest_dir, verbose=False):
         for member in zipf.infolist():
             extracted_path = safe_join(dest_dir, member.filename)
             if member.is_dir():
+                logger.extraction(member.filename, indent=2, action="creating", verbose=verbose)
                 os.makedirs(extracted_path, exist_ok=True)
-                logger.extraction(member.filename, indent=3)
             else:
+                os.makedirs(os.path.dirname(extracted_path), exist_ok=True)
+                if os.path.exists(extracted_path):
+                    logger.extraction(member.filename, indent=2, action="replace", verbose=verbose)
+                else:
+                    logger.extraction(member.filename, indent=2, action="extracting", verbose=verbose)
                 zipf.extract(member, dest_dir)
-                logger.extraction(member.filename, indent=2)
 
 def _safe_extract_tar(tar_path, dest_dir, verbose=False):
     """Safely extract a tar file, preventing path traversal attacks."""
     with tarfile.open(tar_path, 'r:*') as tarf:
         for member in tarf.getmembers():
             extracted_path = safe_join(dest_dir, member.name)
-            if member.isdir():
+            if member.is_dir():
+                logger.extraction(member.name, indent=2, action="creating", verbose=verbose)
                 os.makedirs(extracted_path, exist_ok=True)
-                logger.extraction(member.name, indent=3)
             else:
+                os.makedirs(os.path.dirname(extracted_path), exist_ok=True)
+                if os.path.exists(extracted_path):
+                    logger.extraction(member.name, indent=2, action="replace", verbose=verbose)
+                else:
+                    logger.extraction(member.name, indent=2, action="extracting", verbose=verbose)
                 tarf.extract(member, dest_dir)
-                logger.extraction(member.name, indent=2)
 
 def extract_file(archive_path, dest_dir, verbose=False):
     """Extracts an archive file to a destination directory."""

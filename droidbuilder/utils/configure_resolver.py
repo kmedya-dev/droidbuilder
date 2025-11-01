@@ -78,7 +78,7 @@ def _get_build_arch(package_source_path: str) -> str:
             os.chmod(config_guess_path, 0o755)
         except OSError as e:
             logger.error(f"Error setting executable permission for {config_guess_path}: {e}")
-        stdout, stderr, returncode = run_shell_command([config_guess_path], cwd=package_source_path)
+        stdout, stderr, returncode = run_shell_command([config_guess_path], description=f"Determining build host using {config_guess_path}", cwd=package_source_path)
         if returncode == 0:
             build_arch = stdout.strip()
             logger.info(f"  - Detected build host: {build_arch}")
@@ -87,16 +87,20 @@ def _get_build_arch(package_source_path: str) -> str:
             logger.warning(f"  - config.guess failed with error: {stderr.strip()}")
 
     logger.info("  - Could not determine build host from config.guess, falling back to uname.")
-    stdout_m, stderr_m, returncode_m = run_shell_command(["uname", "-m"])
-    stdout_s, stderr_s, returncode_s = run_shell_command(["uname", "-s"])
+    try:
+        stdout_m, stderr_m, returncode_m = run_shell_command(["uname", "-m"], description="Determining machine architecture using 'uname -m'")
+        stdout_s, stderr_s, returncode_s = run_shell_command(["uname", "-s"], description="Determining OS name using 'uname -s'")
 
-    if returncode_m == 0 and returncode_s == 0:
-        build_arch = f"{stdout_m.strip()}-{stdout_s.strip()}"
-        logger.info(f"  - Detected build host from uname: {build_arch}")
-        return build_arch
-    else:
-        logger.error(f"  - Could not determine build host using uname. uname -m error: {stderr_m.strip()}, uname -s error: {stderr_s.strip()}")
-        sys.exit(1)
+        if returncode_m == 0 and returncode_s == 0:
+            build_arch = f"{stdout_m.strip()}-{stdout_s.strip()}"
+            logger.info(f"  - Detected build host from uname: {build_arch}")
+            return build_arch
+        else:
+            logger.error(f"  - Could not determine build host using uname. uname -m error: {stderr_m.strip()}, uname -s error: {stderr_s.strip()}")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred while determining build host using uname: {e}")
+        logger.exception(*sys.exc_info())
+    return ""
 
 
 def _generate_autotools_commands(

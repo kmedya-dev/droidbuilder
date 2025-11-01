@@ -30,7 +30,10 @@ def update_deps():
         # Construct the pip install command
         command = [sys.executable, "-m", "pip", "install", "--upgrade"] + dependencies
 
-        stdout, stderr, returncode = run_shell_command(command)
+        result = run_shell_command(command, description="Updating DroidBuilder dependencies")
+        stdout = result["stdout"]
+        stderr = result["stderr"]
+        returncode = result["returncode"]
         if returncode != 0:
             logger.error(f"Failed to update dependencies (Exit Code: {returncode}):")
             if stdout:

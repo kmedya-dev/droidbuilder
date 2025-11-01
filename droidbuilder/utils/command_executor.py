@@ -2,12 +2,13 @@ import subprocess
 import shlex
 from ..cli_logger import logger
 
-def run_shell_command(command, stream_output=False, env=None, input_data=None, cwd=None):
+def run_shell_command(command, description=None, stream_output=False, env=None, input_data=None, cwd=None):
     """
     Executes a shell command, with options for streaming output and providing input.
 
     Args:
         command (list or str): The command to execute.
+        description (str, optional): A description of the command to be logged.
         stream_output (bool): If True, streams the output in real-time.
         env (dict, optional): A dictionary of environment variables.
         input_data (str, optional): Data to be passed to the command's stdin.
@@ -17,6 +18,9 @@ def run_shell_command(command, stream_output=False, env=None, input_data=None, c
         If stream_output is True, returns a generator that yields output lines and the process object.
         If stream_output is False, returns a tuple (stdout, stderr, return_code).
     """
+    if description:
+        logger.info(description)
+
     try:
         if isinstance(command, str):
             command = shlex.split(command)
