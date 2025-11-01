@@ -258,7 +258,7 @@ def _resolve_from_pypi(name, version=None):
         logger.error(f"An unexpected error occurred while processing {name}: {e}")
         return None, None
 
-def resolved_packages(conf):
+def resolve_packages(conf):
     """
     Resolves packages.
     It first checks the dependency mapping. If not mapped, try with PyPI. If not found, it falls back to search online.
