@@ -4,7 +4,7 @@ import shutil
 from . import config
 from . import toolchain
 from .cli_logger import logger
-from .utils import ARCH_MAP, resolve_config_type, patch_resolver, run_shell_command, resolve_packages
+from .utils import ARCH_MAP, resolve_config_type, patch_resolver, run_shell_command, resolved_packages
 from .tools.installer import install
 
 INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
@@ -578,7 +578,7 @@ def build_android(config, verbose):
             compiler_prefix_map[arch] = compiler_prefix
             env_map[arch] = env
 
-        name, url = resolve_packages(config)
+        name, url = resolved_packages(config)
         if buildtime_packages:
                 buildtime_package_source_dir = os.path.join(INSTALL_DIR, "buildtime_packages_src", f"{name}")
                 buildtime_package_source_path = install(url, buildtime_package_source_dir, f"{name}", verbose=False)
@@ -612,7 +612,7 @@ def build_android(config, verbose):
                 logger.error(f"Failed to build Python for {arch}. Aborting.")
                 return False
 
-        name, url = resolve_packages(config)
+        name, url = resolved_packages(config)
         if runtime_packages:
                 runtime_package_source_dir = os.path.join(INSTALL_DIR, "runtime_packages_src", f"{name}")
                 runtime_package_source_path = install(url, runtime_package_source_dir, f"{name}", verbose=False)
