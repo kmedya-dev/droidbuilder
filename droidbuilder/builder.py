@@ -212,14 +212,14 @@ def _compile_runtime_package(package_name, package_config, runtime_package_sourc
     # Set up environment for cross-compilation
     success, toolchain_bin, sysroot, cc_path, cxx_path, ar_path, strip_path, as_path, ld_path, ranlib_path, readelf_path, nm_path, cflags, ldflags, ndk_root, compiler_prefix, env = _setup_build_environment(ndk_version, ndk_api, arch, ndk_dir_path, build_path)
     if not success:
-        logger.error(f"Failed to set up build environment for {arch} for runtime package {??_}. Aborting.")
+        logger.error(f"Failed to set up build environment for {arch} for runtime package {package_name}. Aborting.")
         return False
 
     # Attempt to install using pip (preferred for runtime packages)
     # Ensure pip is available in the cross-compiled Python environment
     python_bin = os.path.join(python_install_dir, "bin", "python3")
     if not os.path.exists(python_bin):
-        logger.error(f"Error: Cross-compiled Python interpreter not found at {python_bin}. Cannot install runtime package {??_}.")
+        logger.error(f"Error: Cross-compiled Python interpreter not found at {python_bin}. Cannot install runtime package {package_name}.")
         return False
 
     # Create a new environment for pip install to include CFLAGS and LDFLAGS
@@ -252,7 +252,7 @@ def _compile_runtime_package(package_name, package_config, runtime_package_sourc
     logger.info(f"    - Running pip install: {' '.join(pip_install_cmd)}")
     stdout, stderr, returncode = run_shell_command(pip_install_cmd, env=pip_env, cwd=runtime_package_source_path)
     if returncode != 0:
-        logger.error(f"Pip install failed for runtime package {??_} (Exit Code: {returncode}):")
+        logger.error(f"Pip install failed for runtime package {package_name} (Exit Code: {returncode}):")
         if stdout:
             logger.error(f"Stdout:\n{stdout}")
         if stderr:
@@ -260,7 +260,7 @@ def _compile_runtime_package(package_name, package_config, runtime_package_sourc
         logger.info("Please check the runtime packages and cross-compilation environment.")
         return False
 
-    logger.success(f"    - Successfully compiled and installed {??_} for {arch}.")
+    logger.success(f"    - Successfully compiled and installed {package_name} for {arch}.")
     return True
 
 def _compile_buildtime_package(package_name, package_config, buildtime_package_source_path, arch, ndk_version, ndk_api, build_path, cflags, ldflags, cc_path, cxx_path, ar_path, strip_path, as_path, ld_path, ranlib_path, readelf_path, nm_path, ndk_root, sysroot, env, toolchain_bin, extra_configure_args=[]):
@@ -303,7 +303,7 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
         logger.info(f"  - Cleaning buildtime package: {' '.join(clean_cmd)}")
         stdout, stderr, returncode = run_shell_command(clean_cmd, env=env, cwd=buildtime_package_source_path)
         if returncode != 0:
-            logger.warning(f"Clean command failed for {??_} (Exit Code: {returncode}). Continuing anyway.")
+            logger.warning(f"Clean command failed for {package_name} (Exit Code: {returncode}). Continuing anyway.")
             if stdout:
                 logger.warning(f"Stdout:\n{stdout}")
             if stderr:
@@ -313,7 +313,7 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
         logger.info(f"  - Running configure: {' '.join(configure_cmd)}")
         stdout, stderr, returncode = run_shell_command(configure_cmd, env=env, cwd=buildtime_package_source_path)
         if returncode != 0:
-            logger.error(f"Configure failed for {??_} (Exit Code: {returncode}):")
+            logger.error(f"Configure failed for {package_name} (Exit Code: {returncode}):")
             if stdout:
                 logger.info(f"Stdout:\n{stdout}")
             if stderr:
@@ -323,7 +323,7 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
     logger.info(f"  - Running build: {' '.join(build_cmd)}")
     stdout, stderr, returncode = run_shell_command(build_cmd, env=env, cwd=buildtime_package_source_path)
     if returncode != 0:
-        logger.error(f"Build failed for {??_} (Exit Code: {returncode}):")
+        logger.error(f"Build failed for {package_name} (Exit Code: {returncode}):")
         if stdout:
             logger.error(f"Stdout:\n{stdout}")
         if stderr:
@@ -333,14 +333,14 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
     logger.info(f"  - Running install: {' '.join(install_cmd)}")
     stdout, stderr, returncode = run_shell_command(install_cmd, env=env, cwd=buildtime_package_source_path)
     if returncode != 0:
-        logger.error(f"Install failed for {??_} (Exit Code: {returncode}):")
+        logger.error(f"Install failed for {package_name} (Exit Code: {returncode}):")
         if stdout:
             logger.error(f"Stdout:\n{stdout}")
         if stderr:
             logger.error(f"Stderr:\n{stderr}")
         return False
 
-    logger.success(f"  - Successfully compiled and installed {??_} for {arch}.")
+    logger.success(f"  - Successfully compiled and installed {package_name} for {arch}.")
     return True
 
 def _create_android_app(app_name, package_domain, build_path):
