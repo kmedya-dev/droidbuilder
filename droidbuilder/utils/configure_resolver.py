@@ -74,6 +74,10 @@ def _get_build_arch(package_source_path: str) -> str:
 
     if os.path.exists(config_guess_path):
         logger.info("  - Trying to determine build host from config.guess")
+        try:
+            os.chmod(config_guess_path, 0o755)
+        except OSError as e:
+            logger.error(f"Error setting executable permission for {config_guess_path}: {e}")
         stdout, stderr, returncode = run_shell_command([config_guess_path], cwd=package_source_path)
         if returncode == 0:
             build_arch = stdout.strip()
