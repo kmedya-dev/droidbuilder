@@ -4,7 +4,7 @@ import shutil
 from . import config
 from . import toolchain
 from .cli_logger import logger
-from .utils import ARCH_MAP, resolve_config_type, patch_resolver, run_shell_command, resolve_package
+from .utils import ARCH_MAP, resolve_config_type, patch_resolver, run_shell_command, resolve_package, get_explicit_dependencies
 from .tools.installer import install
 
 INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
@@ -496,6 +496,7 @@ def build_android(config, verbose):
     app_version = config.get("app", {}).get("version", "0.1")
     main_file = config.get("app", {}).get("main_file", "main.py")
     target_platforms = config.get("app", {}).get("target_platforms", [])
+    runtime_packages, buildtime_packages, dependency_mapping = get_explicit_dependencies(config)
     
     sdk_version = config.get("android", {}).get("sdk_version", "36")
     ndk_version = config.get("android", {}).get("ndk_version", "28.2.13676358")
@@ -579,7 +580,7 @@ def build_android(config, verbose):
             env_map[arch] = env
 
         if buildtime_packages:
-            url, resolved_version = resolve_package(name, version)
+            url, resolved_version = resolve_package(name, version, dependency_mapping)
             buildtime_package_source_dir = os.path.join(INSTALL_DIR, "buildtime_packages_src", f"{name}")
             buildtime_package_source_path = install(url, buildtime_package_source_dir, f"{name}", verbose=False)
             if not buildtime_package_source_path:
@@ -613,7 +614,7 @@ def build_android(config, verbose):
                 return False
 
         if runtime_packages:
-            url, resolved_version = resolve_package(name, version)
+            url, resolved_version = resolve_package(name, version, dependency_mapping)
             runtime_package_source_dir = os.path.join(INSTALL_DIR, "runtime_packages_src", f"{name}")
             runtime_package_source_path = install(url, runtime_package_source_dir, f"{name}", verbose=False)
             if not runtime_package_source_path:

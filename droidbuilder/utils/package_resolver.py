@@ -7,7 +7,6 @@ from html.parser import HTMLParser
 from urllib.parse import urljoin, urlparse, quote_plus, unquote # Added quote_plus, unquote
 from packaging.version import parse as parse_version, InvalidVersion
 from ..cli_logger import logger
-from .dependencies import get_explicit_dependencies
 
 
 def get_source_package_name(package_name: str) -> str:
@@ -263,8 +262,6 @@ def resolve_package(name, version, dependency_mapping):
     Resolves a single package.
     """
     logger.info(f"Resolving {name}{f'=={version}' if version else ''}...")
-
-    runtime_packages, buildtime_packages, dependency_mapping = get_explicit_dependencies(conf)
 
     # 1. Dependency mapping check
     if name in dependency_mapping:
