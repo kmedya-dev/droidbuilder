@@ -4,7 +4,7 @@ import shutil
 from . import config
 from . import toolchain
 from .cli_logger import logger
-from .utils import ARCH_MAP, resolve_config_type, patch_resolver, run_shell_command, resolve_packages
+from .utils import ARCH_MAP, resolve_config_type, patch_resolver, run_shell_command, resolve_package
 from .tools.installer import install
 
 INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
@@ -578,18 +578,18 @@ def build_android(config, verbose):
             compiler_prefix_map[arch] = compiler_prefix
             env_map[arch] = env
 
-        name, url = resolve_packages(config)
         if buildtime_packages:
-                buildtime_package_source_dir = os.path.join(INSTALL_DIR, "buildtime_packages_src", f"{name}")
-                buildtime_package_source_path = install(url, buildtime_package_source_dir, f"{name}", verbose=False)
-                if not buildtime_package_source_path:
-                    logger.error(f"Failed to download buildtime package {name}. Aborting.")
-                    return False
+            url, resolved_version = resolve_package(name, version)
+            buildtime_package_source_dir = os.path.join(INSTALL_DIR, "buildtime_packages_src", f"{name}")
+            buildtime_package_source_path = install(url, buildtime_package_source_dir, f"{name}", verbose=False)
+            if not buildtime_package_source_path:
+                logger.error(f"Failed to download buildtime package {name}. Aborting.")
+                return False
                 
-                for arch in archs:
-                    if not _compile_buildtime_package(name, {}, buildtime_package_source_path, arch, ndk_version, ndk_api, build_path, cflags_map[arch], ldflags_map[arch], cc_path_map[arch], cxx_path_map[arch], ar_path_map[arch], strip_path_map[arch], as_path_map[arch], ld_path_map[arch], ranlib_path_map[arch], readelf_path_map[arch], nm_path_map[arch], ndk_root_map[arch], sysroot_map[arch], env_map[arch], toolchain_bin_map[arch]):
-                        logger.error(f"Failed to compile buildtime package {name} for {arch}. Aborting.")
-                        return False
+        for arch in archs:
+            if not _compile_buildtime_package(name, {}, buildtime_package_source_path, arch, ndk_version, ndk_api, build_path, cflags_map[arch], ldflags_map[arch], cc_path_map[arch], cxx_path_map[arch], ar_path_map[arch], strip_path_map[arch], as_path_map[arch], ld_path_map[arch], ranlib_path_map[arch], readelf_path_map[arch], nm_path_map[arch], ndk_root_map[arch], sysroot_map[arch], env_map[arch], toolchain_bin_map[arch]):
+                logger.error(f"Failed to compile buildtime package {name} for {arch}. Aborting.")
+                return False
 
         python_url = f"https://www.python.org/ftp/python/{python_version}/Python-{python_version}.tgz"
         source_dir = os.path.join(INSTALL_DIR, "python-source", f"Python-{python_version}")
@@ -612,19 +612,19 @@ def build_android(config, verbose):
                 logger.error(f"Failed to build Python for {arch}. Aborting.")
                 return False
 
-        name, url = resolve_packages(config)
         if runtime_packages:
-                runtime_package_source_dir = os.path.join(INSTALL_DIR, "runtime_packages_src", f"{name}")
-                runtime_package_source_path = install(url, runtime_package_source_dir, f"{name}", verbose=False)
-                if not runtime_package_source_path:
-                    logger.error(f"Failed to download runtime package {name}. Aborting.")
-                    return False
-                
-                for arch in archs:
-                    python_install_dir = os.path.join(build_path, "python-install", arch)
-                    if not _compile_runtime_package(name, {}, runtime_package_source_path, python_install_dir, arch, ndk_version, ndk_api, build_path, ndk_dir_path):
-                        logger.error(f"Failed to compile runtime package {name} for {arch}. Aborting.")
-                        return False
+            url, resolved_version = resolve_package(name, version)
+            runtime_package_source_dir = os.path.join(INSTALL_DIR, "runtime_packages_src", f"{name}")
+            runtime_package_source_path = install(url, runtime_package_source_dir, f"{name}", verbose=False)
+            if not runtime_package_source_path:
+                logger.error(f"Failed to download runtime package {name}. Aborting.")
+                return False
+        
+        for arch in archs:
+            python_install_dir = os.path.join(build_path, "python-install", arch)
+            if not _compile_runtime_package(name, {}, runtime_package_source_path, python_install_dir, arch, ndk_version, ndk_api, build_path, ndk_dir_path):
+                logger.error(f"Failed to compile runtime package {name} for {arch}. Aborting.")
+                return False
 
         # Create Android app structure
         if not _create_android_app(app_name, package_domain, build_path):

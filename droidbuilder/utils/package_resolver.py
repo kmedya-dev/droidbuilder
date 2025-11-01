@@ -258,40 +258,33 @@ def _resolve_from_pypi(name, version=None):
         logger.error(f"An unexpected error occurred while processing {name}: {e}")
         return None, None
 
-def resolve_packages(conf):
+def resolve_package(name, version, dependency_mapping):
     """
-    Resolves packages.
-    It first checks the dependency mapping. If not mapped, try with PyPI. If not found, it falls back to search online.
+    Resolves a single package.
     """
-    resolved_packages = {}
+    logger.info(f"Resolving {name}{f'=={version}' if version else ''}...")
+
     runtime_packages, buildtime_packages, dependency_mapping = get_explicit_dependencies(conf)
 
-    all_packages = runtime_packages + buildtime_packages
+    # 1. Dependency mapping check
+    if name in dependency_mapping:
+        url = dependency_mapping[name]
+        if version:
+            url = url.format(version=version)
+        logger.info(f"  - Resolved from dependency_mapping: {url}")
+        return url, version
 
-    for package in all_packages:
-        name = package["name"]
-        version = package["version"]
-        logger.info(f"Resolving {name}{f'=={version}' if version else ''}...")
+    # 2. Try PyPI
+    url, resolved_version = _resolve_from_pypi(name, version)
+    if url:
+        return url, resolved_version
 
-        # 1. Check dependency mapping
-        if name in dependency_mapping:
-            url = dependency_mapping[name]
-            logger.info(f"  - Resolved from dependency_mapping: {url}")
-            resolved_packages[name] = {"url": url, "version": version}
-            continue
+    # 3. Fallback to web search
+    logger.info(f"Could not resolve {name} from PyPI. Falling back to web search.")
+    url = resolve_package_url(name, version)
+    if url:
+        return url, version
 
-        # 2. Try PyPI
-        url, resolved_version = _resolve_from_pypi(name, version)
-        if url:
-            resolved_packages[name] = {"url": url, "version": resolved_version}
-            continue
-
-        # 3. Fallback to web search
-        logger.info(f"Could not resolve {name} from PyPI. Falling back to web search.")
-        url = resolve_package_url(name, version)
-        if url:
-            resolved_packages[name] = {"url": url, "version": version}
-        else:
-            logger.error(f"Failed to resolve package: {name}")
-
-    return url, version
+    # Not found
+    logger.error(f"Failed to resolve package: {name}")
+    return None, None
