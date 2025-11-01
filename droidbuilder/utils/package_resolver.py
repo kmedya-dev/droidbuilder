@@ -169,7 +169,7 @@ def resolve_package_url(package_name: str, version: Optional[str] = None) -> Opt
 
     try:
         search_url = f"https://www.googleapis.com/customsearch/v1?key={api_key}&cx={cx}&q={quote_plus(search_query)}"
-        response = requests.get(search_url)
+        response = requests.get(search_url, timeout=10)
         response.raise_for_status()
         search_results = response.json()
 
