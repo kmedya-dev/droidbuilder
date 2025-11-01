@@ -263,6 +263,7 @@ def resolve_packages(conf):
     Resolves packages.
     It first checks the dependency mapping. If not mapped, try with PyPI. If not found, it falls back to search online.
     """
+    resolved_packages = {}
     runtime_packages, buildtime_packages, dependency_mapping = get_explicit_dependencies(conf)
 
     all_packages = runtime_packages + buildtime_packages
