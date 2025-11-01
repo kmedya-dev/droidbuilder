@@ -30,7 +30,7 @@ def _safe_extract_tar(tar_path, dest_dir, verbose=False):
     with tarfile.open(tar_path, 'r:*') as tarf:
         for member in tarf.getmembers():
             extracted_path = safe_join(dest_dir, member.name)
-            if member.is_dir():
+            if member.isdir():
                 logger.extraction(member.name, indent=2, action="creating", verbose=verbose)
                 os.makedirs(extracted_path, exist_ok=True)
             else:
