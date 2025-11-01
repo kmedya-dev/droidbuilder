@@ -4,7 +4,9 @@ import shutil
 from . import config
 from . import toolchain
 from .cli_logger import logger
-from .utils import ARCH_MAP, resolve_config_type, patch_resolver, run_shell_command, resolve_package, get_explicit_dependencies
+from .utils import ARCH_MAP, resolve_config_type, patch_resolver, run_shell_command
+from .utils.dependencies import get_explicit_dependencies
+from .utils.package_resolver import resolve_package
 from .tools.installer import install
 
 INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
@@ -199,26 +201,25 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
     logger.success(f"  - Python {python_version} built and installed for {arch}.")
     return True
 
-def _compile_runtime_package(package_name_from_config, package_config, runtime_package_source_path, python_install_dir, arch, ndk_version, ndk_api, build_path, ndk_dir_path):
+def _compile_runtime_package(package_name, package_config, runtime_package_source_path, python_install_dir, arch, ndk_version, ndk_api, build_path, ndk_dir_path):
     """Compiles and installs a runtime package for a specific Android architecture."""
-    package_name = package_name_from_config
     logger.info(f"  - Compiling runtime package {package_name} for {arch}...")
 
     # Apply patches if specified in config
-    if not patch_resolver.apply_patches(package_name_from_config, runtime_package_source_path):
+    if not patch_resolver.apply_patches(package_name, runtime_package_source_path):
         return False
 
     # Set up environment for cross-compilation
     success, toolchain_bin, sysroot, cc_path, cxx_path, ar_path, strip_path, as_path, ld_path, ranlib_path, readelf_path, nm_path, cflags, ldflags, ndk_root, compiler_prefix, env = _setup_build_environment(ndk_version, ndk_api, arch, ndk_dir_path, build_path)
     if not success:
-        logger.error(f"Failed to set up build environment for {arch} for runtime package {package_name}. Aborting.")
+        logger.error(f"Failed to set up build environment for {arch} for runtime package {??_}. Aborting.")
         return False
 
     # Attempt to install using pip (preferred for runtime packages)
     # Ensure pip is available in the cross-compiled Python environment
     python_bin = os.path.join(python_install_dir, "bin", "python3")
     if not os.path.exists(python_bin):
-        logger.error(f"Error: Cross-compiled Python interpreter not found at {python_bin}. Cannot install runtime package {package_name}.")
+        logger.error(f"Error: Cross-compiled Python interpreter not found at {python_bin}. Cannot install runtime package {??_}.")
         return False
 
     # Create a new environment for pip install to include CFLAGS and LDFLAGS
@@ -231,7 +232,7 @@ def _compile_runtime_package(package_name_from_config, package_config, runtime_p
     # The actual package_config for runtime packages is not directly available here,
     # but resolve_config_type only cares about config_type for "pip"
     pip_commands = resolve_config_type(
-        package_name=package_name_from_config,
+        package_name=package_name,
         package_config={"config_type": "pip"},
         package_source_path=runtime_package_source_path,
         arch=arch,
@@ -251,7 +252,7 @@ def _compile_runtime_package(package_name_from_config, package_config, runtime_p
     logger.info(f"    - Running pip install: {' '.join(pip_install_cmd)}")
     stdout, stderr, returncode = run_shell_command(pip_install_cmd, env=pip_env, cwd=runtime_package_source_path)
     if returncode != 0:
-        logger.error(f"Pip install failed for runtime package {package_name} (Exit Code: {returncode}):")
+        logger.error(f"Pip install failed for runtime package {??_} (Exit Code: {returncode}):")
         if stdout:
             logger.error(f"Stdout:\n{stdout}")
         if stderr:
@@ -259,20 +260,19 @@ def _compile_runtime_package(package_name_from_config, package_config, runtime_p
         logger.info("Please check the runtime packages and cross-compilation environment.")
         return False
 
-    logger.success(f"    - Successfully compiled and installed {package_name} for {arch}.")
+    logger.success(f"    - Successfully compiled and installed {??_} for {arch}.")
     return True
 
-def _compile_buildtime_package(package_name_from_config, package_config, buildtime_package_source_path, arch, ndk_version, ndk_api, build_path, cflags, ldflags, cc_path, cxx_path, ar_path, strip_path, as_path, ld_path, ranlib_path, readelf_path, nm_path, ndk_root, sysroot, env, toolchain_bin, extra_configure_args=[]):
+def _compile_buildtime_package(package_name, package_config, buildtime_package_source_path, arch, ndk_version, ndk_api, build_path, cflags, ldflags, cc_path, cxx_path, ar_path, strip_path, as_path, ld_path, ranlib_path, readelf_path, nm_path, ndk_root, sysroot, env, toolchain_bin, extra_configure_args=[]):
     """Compiles and installs a buildtime package for a specific Android architecture."""
-    package_name = package_name_from_config
     logger.info(f"  - Compiling buildtime package {package_name} for {arch}...")
 
     # Apply patches if specified in config
-    if not patch_resolver.apply_patches(package_name_from_config, buildtime_package_source_path):
+    if not patch_resolver.apply_patches(package_name, buildtime_package_source_path):
         return False
 
     commands = resolve_config_type(
-        package_name=package_name_from_config,
+        package_name=package_name,
         package_config=package_config,
         package_source_path=buildtime_package_source_path,
         arch=arch,
@@ -303,7 +303,7 @@ def _compile_buildtime_package(package_name_from_config, package_config, buildti
         logger.info(f"  - Cleaning buildtime package: {' '.join(clean_cmd)}")
         stdout, stderr, returncode = run_shell_command(clean_cmd, env=env, cwd=buildtime_package_source_path)
         if returncode != 0:
-            logger.warning(f"Clean command failed for {package_name} (Exit Code: {returncode}). Continuing anyway.")
+            logger.warning(f"Clean command failed for {??_} (Exit Code: {returncode}). Continuing anyway.")
             if stdout:
                 logger.warning(f"Stdout:\n{stdout}")
             if stderr:
@@ -313,7 +313,7 @@ def _compile_buildtime_package(package_name_from_config, package_config, buildti
         logger.info(f"  - Running configure: {' '.join(configure_cmd)}")
         stdout, stderr, returncode = run_shell_command(configure_cmd, env=env, cwd=buildtime_package_source_path)
         if returncode != 0:
-            logger.error(f"Configure failed for {package_name} (Exit Code: {returncode}):")
+            logger.error(f"Configure failed for {??_} (Exit Code: {returncode}):")
             if stdout:
                 logger.info(f"Stdout:\n{stdout}")
             if stderr:
@@ -323,7 +323,7 @@ def _compile_buildtime_package(package_name_from_config, package_config, buildti
     logger.info(f"  - Running build: {' '.join(build_cmd)}")
     stdout, stderr, returncode = run_shell_command(build_cmd, env=env, cwd=buildtime_package_source_path)
     if returncode != 0:
-        logger.error(f"Build failed for {package_name} (Exit Code: {returncode}):")
+        logger.error(f"Build failed for {??_} (Exit Code: {returncode}):")
         if stdout:
             logger.error(f"Stdout:\n{stdout}")
         if stderr:
@@ -333,14 +333,14 @@ def _compile_buildtime_package(package_name_from_config, package_config, buildti
     logger.info(f"  - Running install: {' '.join(install_cmd)}")
     stdout, stderr, returncode = run_shell_command(install_cmd, env=env, cwd=buildtime_package_source_path)
     if returncode != 0:
-        logger.error(f"Install failed for {package_name} (Exit Code: {returncode}):")
+        logger.error(f"Install failed for {??_} (Exit Code: {returncode}):")
         if stdout:
             logger.error(f"Stdout:\n{stdout}")
         if stderr:
             logger.error(f"Stderr:\n{stderr}")
         return False
 
-    logger.success(f"  - Successfully compiled and installed {package_name} for {arch}.")
+    logger.success(f"  - Successfully compiled and installed {??_} for {arch}.")
     return True
 
 def _create_android_app(app_name, package_domain, build_path):
@@ -496,7 +496,6 @@ def build_android(config, verbose):
     app_version = config.get("app", {}).get("version", "0.1")
     main_file = config.get("app", {}).get("main_file", "main.py")
     target_platforms = config.get("app", {}).get("target_platforms", [])
-    runtime_packages, buildtime_packages, dependency_mapping = get_explicit_dependencies(config)
     
     sdk_version = config.get("android", {}).get("sdk_version", "36")
     ndk_version = config.get("android", {}).get("ndk_version", "28.2.13676358")
@@ -513,6 +512,8 @@ def build_android(config, verbose):
     used_apt_fallback = False
     if verbose:
         logger.info(f"Configuration: {config}")
+
+    runtime_packages, buildtime_packages, dependency_mapping = get_explicit_dependencies(config)
 
     # Build path
     build_path = os.path.join(BUILD_DIR, app_name)
@@ -579,18 +580,22 @@ def build_android(config, verbose):
             compiler_prefix_map[arch] = compiler_prefix
             env_map[arch] = env
 
-        if buildtime_packages:
-            url, resolved_version = resolve_package(name, version, dependency_mapping)
-            buildtime_package_source_dir = os.path.join(INSTALL_DIR, "buildtime_packages_src", f"{name}")
-            buildtime_package_source_path = install(url, buildtime_package_source_dir, f"{name}", verbose=False)
+        for package_name, package_version in buildtime_packages:
+            name, url, resolved_version = resolve_package(package_name, package_version, dependency_mapping)
+            if not url:
+                logger.error(f"Could not resolve buildtime package {name}. Aborting.")
+                return False
+
+            buildtime_package_source_dir = os.path.join(INSTALL_DIR, "buildtime_packages_src", f"{name}-{resolved_version or ''}")
+            buildtime_package_source_path = install(url, buildtime_package_source_dir, f"{name}-{resolved_version or ''}", verbose=False)
             if not buildtime_package_source_path:
                 logger.error(f"Failed to download buildtime package {name}. Aborting.")
                 return False
                 
-        for arch in archs:
-            if not _compile_buildtime_package(name, {}, buildtime_package_source_path, arch, ndk_version, ndk_api, build_path, cflags_map[arch], ldflags_map[arch], cc_path_map[arch], cxx_path_map[arch], ar_path_map[arch], strip_path_map[arch], as_path_map[arch], ld_path_map[arch], ranlib_path_map[arch], readelf_path_map[arch], nm_path_map[arch], ndk_root_map[arch], sysroot_map[arch], env_map[arch], toolchain_bin_map[arch]):
-                logger.error(f"Failed to compile buildtime package {name} for {arch}. Aborting.")
-                return False
+            for arch in archs:
+                if not _compile_buildtime_package(name, {}, buildtime_package_source_path, arch, ndk_version, ndk_api, build_path, cflags_map[arch], ldflags_map[arch], cc_path_map[arch], cxx_path_map[arch], ar_path_map[arch], strip_path_map[arch], as_path_map[arch], ld_path_map[arch], ranlib_path_map[arch], readelf_path_map[arch], nm_path_map[arch], ndk_root_map[arch], sysroot_map[arch], env_map[arch], toolchain_bin_map[arch]):
+                    logger.error(f"Failed to compile buildtime package {name} for {arch}. Aborting.")
+                    return False
 
         python_url = f"https://www.python.org/ftp/python/{python_version}/Python-{python_version}.tgz"
         source_dir = os.path.join(INSTALL_DIR, "python-source", f"Python-{python_version}")
@@ -609,23 +614,27 @@ def build_android(config, verbose):
 
         # Set up environment for each architecture and build Python
         for arch in archs:
-            if not _build_python_for_android(python_version, python_host, python_source_dir, ndk_version, ndk_api, arch, build_path, toolchain_bin_map[arch], sysroot_map[arch], cc_path_map[arch], cxx_path_map[arch], ar_path_map[arch], strip_path_map[arch], as_path_map[arch], ld_path_map[arch], ranlib_path_map[arch], readelf_path_map[arch], nm_path_map[arch], compiler_prefix_map[arch], env_map[arch]):
+            if not _build_python_for_android(python_version, {}, python_host, python_source_dir, ndk_version, ndk_api, arch, build_path, toolchain_bin_map[arch], sysroot_map[arch], cc_path_map[arch], cxx_path_map[arch], ar_path_map[arch], strip_path_map[arch], as_path_map[arch], ld_path_map[arch], ranlib_path_map[arch], readelf_path_map[arch], nm_path_map[arch], compiler_prefix_map[arch], env_map[arch]):
                 logger.error(f"Failed to build Python for {arch}. Aborting.")
                 return False
 
-        if runtime_packages:
-            url, resolved_version = resolve_package(name, version, dependency_mapping)
-            runtime_package_source_dir = os.path.join(INSTALL_DIR, "runtime_packages_src", f"{name}")
-            runtime_package_source_path = install(url, runtime_package_source_dir, f"{name}", verbose=False)
+        for package_name, package_version in runtime_packages:
+            name, url, resolved_version = resolve_package(package_name, package_version, dependency_mapping)
+            if not url:
+                logger.error(f"Could not resolve runtime package {name}. Aborting.")
+                return False
+
+            runtime_package_source_dir = os.path.join(INSTALL_DIR, "runtime_packages_src", f"{name}-{resolved_version or ''}")
+            runtime_package_source_path = install(url, runtime_package_source_dir, f"{name}-{resolved_version or ''}", verbose=False)
             if not runtime_package_source_path:
                 logger.error(f"Failed to download runtime package {name}. Aborting.")
                 return False
         
-        for arch in archs:
-            python_install_dir = os.path.join(build_path, "python-install", arch)
-            if not _compile_runtime_package(name, {}, runtime_package_source_path, python_install_dir, arch, ndk_version, ndk_api, build_path, ndk_dir_path):
-                logger.error(f"Failed to compile runtime package {name} for {arch}. Aborting.")
-                return False
+            for arch in archs:
+                python_install_dir = os.path.join(build_path, "python-install", arch)
+                if not _compile_runtime_package(name, {}, runtime_package_source_path, python_install_dir, arch, ndk_version, ndk_api, build_path, ndk_dir_path):
+                    logger.error(f"Failed to compile runtime package {name} for {arch}. Aborting.")
+                    return False
 
         # Create Android app structure
         if not _create_android_app(app_name, package_domain, build_path):

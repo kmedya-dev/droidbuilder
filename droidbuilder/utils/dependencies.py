@@ -6,25 +6,18 @@ def get_explicit_dependencies(conf):
     dependency = app_config.get("dependency", {})
     dependency_mapping = app_config.get("dependency_mapping", {})
 
-    runtime_packages = []
-    buildtime_packages = []
+    runtime_packages_str = dependency.get("runtime_packages", [])
+    buildtime_packages_str = dependency.get("buildtime_packages", [])
 
-    if isinstance(dependency, dict):
-        runtime_packages_raw = dependency.get("runtime_packages", [])
-        buildtime_packages_raw = dependency.get("buildtime_packages", [])
-
-        for pkg_str in runtime_packages_raw:
-            name, version = _parse_package_string(pkg_str)
-            runtime_packages.append({"name": name, "version": version})
-
-        for pkg_str in buildtime_packages_raw:
-            name, version = _parse_package_string(pkg_str)
-            buildtime_packages.append({"name": name, "version": version})
+    runtime_packages = [_parse_package_string(pkg) for pkg in runtime_packages_str]
+    buildtime_packages = [_parse_package_string(pkg) for pkg in buildtime_packages_str]
 
     return runtime_packages, buildtime_packages, dependency_mapping
 
 def _parse_package_string(pkg_str):
-    parts = pkg_str.split("==", 1)
-    name = parts[0].strip()
-    version = parts[1].strip() if len(parts) > 1 else None
-    return name, version
+    """Parses a package string like 'name==version' or 'name'."""
+    if "==" in pkg_str:
+        name, version = pkg_str.split("==", 1)
+        return name, version
+    return pkg_str, None
+
