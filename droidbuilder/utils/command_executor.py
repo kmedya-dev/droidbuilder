@@ -22,9 +22,6 @@ def run_shell_command(command, description=None, stream_output=False, env=None, 
         logger.info(description)
 
     try:
-        if isinstance(command, str):
-            command = shlex.split(command)
-
         if stream_output:
             process = subprocess.Popen(
                 command,
@@ -34,6 +31,7 @@ def run_shell_command(command, description=None, stream_output=False, env=None, 
                 universal_newlines=True,
                 env=env,
                 cwd=cwd,
+                shell=True if isinstance(command, str) else False,
             )
 
             def _generator():
@@ -52,6 +50,7 @@ def run_shell_command(command, description=None, stream_output=False, env=None, 
                 input=input_data,
                 check=False,
                 cwd=cwd,
+                shell=True if isinstance(command, str) else False,
             )
             return {
                 "stdout": result.stdout,

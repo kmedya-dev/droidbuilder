@@ -284,9 +284,11 @@ def _accept_sdk_licenses(sdk_install_dir, jdk_install_dir):
         result = run_shell_command(
             [sdk_manager, "--licenses"],
             description="  - Attempting to automatically accept SDK licenses...",
-            input_data="y\n" * 20, # Send multiple 'y' responses
-            env=env
-        )
+            input_data="y\n" * 100, # Send multiple 'y' responses
+            env=env)
+        if result['stdout']:
+            print(result['stdout'])
+            sys.stdout.flush()
 
         if result['returncode'] != 0:
             logger.warning(f"sdkmanager --licenses exited with a non-zero code ({result['returncode']}), which may be normal.")

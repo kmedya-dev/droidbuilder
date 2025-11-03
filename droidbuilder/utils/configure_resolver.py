@@ -1,11 +1,10 @@
 import os
 import sys
-import shlex
 
 from ..cli_logger import logger
 from ..utils import run_shell_command
+from .triplet import get_triplet
 
-# This map is needed for configuration.
 ARCH_MAP = {
     "arm64-v8a": ["aarch64-linux-android", "aarch64", "aarch64", "android-arm64"],
     "armeabi-v7a": ["armv7a-linux-androideabi", "arm", "armv7a", "android-arm"],
@@ -33,36 +32,6 @@ def _autodetect_config_type(package_source_path: str, package_name: str) -> str:
     logger.warning(f"  - Could not auto-detect build system for {package_name}.")
     return ""
 
-def _generate_meson_cross_file(
-    package_source_path: str,
-    arch: str,
-    cc: str,
-    cxx: str,
-    ar: str,
-    strip: str,
-    sysroot: str,
-) -> str:
-    meson_cpu_family = ARCH_MAP[arch][1]
-    meson_cpu = ARCH_MAP[arch][2]
-    cross_file_path = os.path.join(package_source_path, f"meson-cross-{arch}.ini")
-
-    with open(cross_file_path, "w") as f:
-        f.write("[binaries]\n")
-        f.write(f"c = '{cc}'\n")
-        f.write(f"cpp = '{cxx}'\n")
-        f.write(f"ar = '{ar}'\n")
-        f.write(f"strip = '{strip}'\n")
-        f.write("\n")
-        f.write("[host_machine]\n")
-        f.write("system = 'android'\n")
-        f.write(f"cpu_family = '{meson_cpu_family}'\n")
-        f.write(f"cpu = '{meson_cpu}'\n")
-        f.write("endian = 'little'\n")
-        f.write("\n")
-        f.write("[properties]\n")
-        f.write(f"sys_root = '{sysroot}'\n")
-    return cross_file_path
-
 def _get_build_arch(package_source_path: str) -> str:
     """
     Determines the build architecture triple by running config.guess or uname.
@@ -78,27 +47,21 @@ def _get_build_arch(package_source_path: str) -> str:
             os.chmod(config_guess_path, 0o755)
         except OSError as e:
             logger.error(f"Error setting executable permission for {config_guess_path}: {e}")
-        stdout, stderr, returncode = run_shell_command([config_guess_path], description=f"Determining build host using {config_guess_path}", cwd=package_source_path)
-        if returncode == 0:
-            build_arch = stdout.strip()
+        result = run_shell_command([config_guess_path], description=f"Determining build host using {config_guess_path}", cwd=package_source_path)
+        if result["returncode"] == 0:
+            build_arch = result["stdout"].strip()
             logger.info(f"  - Detected build host: {build_arch}")
             return build_arch
         else:
-            logger.warning(f"  - config.guess failed with error: {stderr.strip()}")
+            logger.warning(f"  - config.guess failed with error: {result['stderr'].strip()}")
 
-    logger.info("  - Could not determine build host from config.guess, falling back to uname.")
+    logger.info("  - Could not determine build host from config.guess, falling back to triplet detection.")
     try:
-        stdout_m, stderr_m, returncode_m = run_shell_command(["uname", "-m"], description="Determining machine architecture using 'uname -m'")
-        stdout_s, stderr_s, returncode_s = run_shell_command(["uname", "-s"], description="Determining OS name using 'uname -s'")
-
-        if returncode_m == 0 and returncode_s == 0:
-            build_arch = f"{stdout_m.strip()}-{stdout_s.strip()}"
-            logger.info(f"  - Detected build host from uname: {build_arch}")
-            return build_arch
-        else:
-            logger.error(f"  - Could not determine build host using uname. uname -m error: {stderr_m.strip()}, uname -s error: {stderr_s.strip()}")
+        build_arch = get_triplet()
+        logger.info(f"  - Detected build host: {build_arch}")
+        return build_arch
     except Exception as e:
-        logger.error(f"An unexpected error occurred while determining build host using uname: {e}")
+        logger.error(f"An unexpected error occurred while determining build host using triplet detection: {e}")
         logger.exception(*sys.exc_info())
     return ""
 
@@ -163,7 +126,7 @@ def _generate_autotools_commands(
     build_cmd = ["make", "-j", str(os.cpu_count())]
     install_cmd = ["make", "install"]
     clean_cmd = ["make", "clean"]
-    return clean_cmd, pre_configure_cmd, configure_cmd, build_cmd, install_cmd
+    return clean_cmd, configure_cmd, build_cmd, install_cmd
 
 def _generate_cmake_commands(
     package_name: str,
@@ -205,7 +168,37 @@ def _generate_cmake_commands(
     build_cmd = ["cmake", "--build", build_dir, "--", "-j", str(os.cpu_count())]
     install_cmd = ["cmake", "--install", build_dir]
     clean_cmd = ["rm", "-rf", build_dir]
-    return clean_cmd, [], configure_cmd, build_cmd, install_cmd
+    return clean_cmd, configure_cmd, build_cmd, install_cmd
+
+def _generate_meson_cross_file(
+    package_source_path: str,
+    arch: str,
+    cc: str,
+    cxx: str,
+    ar: str,
+    strip: str,
+    sysroot: str,
+) -> str:
+    meson_cpu_family = ARCH_MAP[arch][1]
+    meson_cpu = ARCH_MAP[arch][2]
+    cross_file_path = os.path.join(package_source_path, f"meson-cross-{arch}.ini")
+
+    with open(cross_file_path, "w") as f:
+        f.write("[binaries]\n")
+        f.write(f"c = '{cc}'\n")
+        f.write(f"cpp = '{cxx}'\n")
+        f.write(f"ar = '{ar}'\n")
+        f.write(f"strip = '{strip}'\n")
+        f.write("\n")
+        f.write("[host_machine]\n")
+        f.write("system = 'android'\n")
+        f.write(f"cpu_family = '{meson_cpu_family}'\n")
+        f.write(f"cpu = '{meson_cpu}'\n")
+        f.write("endian = 'little'\n")
+        f.write("\n")
+        f.write("[properties]\n")
+        f.write(f"sys_root = '{sysroot}'\n")
+    return cross_file_path
 
 def _generate_meson_commands(
     package_name: str,
@@ -247,7 +240,7 @@ def _generate_meson_commands(
     build_cmd = ["meson", "compile", "-C", build_dir]
     install_cmd = ["meson", "install", "-C", build_dir]
     clean_cmd = ["rm", "-rf", build_dir, cross_file_path]
-    return clean_cmd, [], configure_cmd, build_cmd, install_cmd
+    return clean_cmd, configure_cmd, build_cmd, install_cmd
 
 def _generate_Configure_commands(
     package_name: str,
@@ -293,7 +286,7 @@ def _generate_Configure_commands(
     # Clean command
     clean_cmd = ["make", "clean"]
 
-    return clean_cmd, pre_configure_cmd, configure_cmd, build_cmd, install_cmd
+    return clean_cmd, configure_cmd, build_cmd, install_cmd
 
 
 def _generate_pip_commands(
@@ -330,7 +323,7 @@ def _generate_pip_commands(
         package_source_path,
     ] + extra_configure_args
     clean_cmd = []
-    return clean_cmd, [], configure_cmd, build_cmd, install_cmd
+    return clean_cmd, configure_cmd, build_cmd, install_cmd
 
 
 def resolve_config_type(

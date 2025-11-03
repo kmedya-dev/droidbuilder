@@ -4,70 +4,12 @@ import shutil
 from . import config
 from . import toolchain
 from .cli_logger import logger
-from .utils import ARCH_MAP, resolve_config_type, patch_resolver, run_shell_command, get_explicit_dependencies, resolve_package
+from .utils import BuildEnvironment, resolve_config_type, patch_resolver, run_shell_command, get_explicit_dependencies, resolve_package
 from .tools.installer import install
 
 INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
 BUILD_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder", "build")
 
-
-# build_environment for python_source, runtime_packages, buildtime_packages
-def _setup_build_environment(ndk_version, ndk_api, arch, ndk_dir_path, build_path):
-    """Set up environment variables for cross-compiling."""
-    logger.info(f"  - Setting up build environment for {arch} (NDK {ndk_version}, API {ndk_api})...")
-
-    ndk_root = ndk_dir_path
-    if not os.path.exists(ndk_root):
-        logger.error(f"Error: NDK root directory not found at {ndk_root}. Please ensure NDK {ndk_version} is installed.")
-        return False
-
-    toolchain_bin = os.path.join(ndk_root, "toolchains", "llvm", "prebuilt", "linux-x86_64", "bin")
-    if not os.path.exists(toolchain_bin):
-        logger.error(f"Error: NDK toolchain binary directory not found at {toolchain_bin}. Please check your NDK installation.")
-        return False
-
-    sysroot = os.path.join(toolchain_bin, f"../sysroot") # sysroot is usually relative to toolchain bin
-    if not os.path.exists(sysroot):
-        logger.error(f"Error: NDK sysroot not found at {sysroot}. Please check your NDK installation.")
-        return False
-
-    compiler_prefix = ARCH_MAP[arch][0]
-    if not compiler_prefix:
-        logger.error(f"Error: Unsupported architecture for Python build: {arch}")
-        return False
-
-    cc_path = f"{toolchain_bin}/{compiler_prefix}{ndk_api}-clang"
-    cxx_path = f"{toolchain_bin}/{compiler_prefix}{ndk_api}-clang++"
-    ar_path = f"{toolchain_bin}/llvm-ar"
-    strip_path = f"{toolchain_bin}/llvm-strip"
-    as_path = f"{toolchain_bin}/llvm-as"
-    ld_path = f"{toolchain_bin}/ld"
-    ranlib_path = f"{toolchain_bin}/llvm-ranlib"
-    readelf_path = f"{toolchain_bin}/llvm-readelf"
-    nm_path = f"{toolchain_bin}/llvm-nm"
-
-    # Initialize cflags and ldflags with base values
-    cflags = f"-fPIC -DANDROID -D__ANDROID_API__={ndk_api} -I{sysroot}/usr/include"
-    ldflags = f"-L{sysroot}/usr/lib/{compiler_prefix}/{ndk_api} -lm -ldl --sysroot={sysroot}"
-
-    # Prepare environment variables for subprocesses
-    env = os.environ.copy()
-    env["AR"] = ar_path
-    env["AS"] = as_path
-    env["CC"] = cc_path
-    env["CXX"] = cxx_path
-    env["LD"] = ld_path
-    env["RANLIB"] = ranlib_path
-    env["READELF"] = readelf_path
-    env["NM"] = nm_path
-    env["STRIP"] = strip_path
-    env["sysROOT"] = sysroot
-    env["PATH"] = f"{toolchain_bin}:{env['PATH']}"
-    env["CFLAGS"] = cflags
-    env["LDFLAGS"] = ldflags
-
-    logger.info("  - Build environment set up.")
-    return True, toolchain_bin, sysroot, cc_path, cxx_path, ar_path, strip_path, as_path, ld_path, ranlib_path, readelf_path, nm_path, cflags, ldflags, ndk_root, compiler_prefix, env
 
 def _disable_unnecessary_python_modules(python_source_dir):
     """Disables unnecessary Python modules to reduce final binary size."""
@@ -113,16 +55,11 @@ def _disable_unnecessary_python_modules(python_source_dir):
         return False
 
 
-def _build_python_for_android(python_version, package_config, python_host, python_source_dir, ndk_version, ndk_api, arch, build_path, toolchain_bin, sysroot, cc_path, cxx_path, ar_path, strip_path, as_path, ld_path, ranlib_path, readelf_path, nm_path, compiler_prefix, env):
+def _build_python_for_android(python_version, package_config, python_host, python_source_dir, env_obj):
     """Build Python for a specific Android architecture."""
-    logger.info(f"  - Building Python {python_version} for {arch}...")
+    logger.info(f"  - Building Python {python_version} for {env_obj.arch}...")
 
-    host = ARCH_MAP[arch][0]
-    if not host:
-        logger.error(f"Error: Unsupported architecture for Python build: {arch}")
-        return False
-
-    install_dir = os.path.join(build_path, "python-install", arch)
+    install_dir = os.path.join(env_obj.build_path, "python-install", env_obj.arch)
     os.makedirs(install_dir, exist_ok=True)
 
     extra_configure_args = [
@@ -135,22 +72,22 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
         package_name=f"python-{python_version}",
         package_config=package_config,
         package_source_path=python_source_dir,
-        arch=arch,
-        ndk_api=ndk_api,
+        arch=env_obj.arch,
+        ndk_api=env_obj.ndk_api,
         install_dir=install_dir,
-        cflags=env["CFLAGS"],
-        ldflags=env["LDFLAGS"],
-        ar=ar_path,
-        as_=as_path,
-        cc=cc_path,
-        cxx=cxx_path,
-        ld=ld_path,
-        ranlib=ranlib_path,
-        readelf=readelf_path,
-        nm=nm_path,
-        strip=strip_path,
-        ndk_root=ndk_root,
-        sysroot=sysroot,
+        cflags=env_obj.cflags,
+        ldflags=env_obj.ldflags,
+        ar=env_obj.ar_path,
+        as_=env_obj.as_path,
+        cc=env_obj.cc_path,
+        cxx=env_obj.cxx_path,
+        ld=env_obj.ld_path,
+        ranlib=env_obj.ranlib_path,
+        readelf=env_obj.readelf_path,
+        nm=env_obj.nm_path,
+        strip=env_obj.strip_path,
+        ndk_root=env_obj.ndk_root,
+        sysroot=env_obj.sysroot,
         extra_configure_args=extra_configure_args,
     )
 
@@ -160,12 +97,12 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
     install_cmd = commands["install_command"]
 
     if clean_cmd:
-        stdout, stderr, returncode = run_shell_command(clean_cmd, description=f"  - Cleaning Python build for {arch}", env=env, cwd=python_source_dir)
+        stdout, stderr, returncode = run_shell_command(clean_cmd, description=f"  - Cleaning Python build for {env_obj.arch}", env=env_obj.env, cwd=python_source_dir)
         if returncode != 0:
             logger.warning(f"Clean command failed for Python (Exit Code: {returncode}). Continuing anyway.")
 
     if configure_cmd:
-        stdout, stderr, returncode = run_shell_command(configure_cmd, description=f"  - Running Python configure for {arch}", env=env, cwd=python_source_dir)
+        stdout, stderr, returncode = run_shell_command(configure_cmd, description=f"  - Running Python configure for {env_obj.arch}", env=env_obj.env, cwd=python_source_dir)
         if returncode != 0:
             logger.error(f"Configure failed for Python (Exit Code: {returncode}):")
             if stdout:
@@ -174,7 +111,7 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
                 logger.error(f"Stderr:\n{stderr}")
             return False
 
-    stdout, stderr, returncode = run_shell_command(build_cmd, description=f"  - Running Python build for {arch}", env=env, cwd=python_source_dir)
+    stdout, stderr, returncode = run_shell_command(build_cmd, description=f"  - Running Python build for {env_obj.arch}", env=env_obj.env, cwd=python_source_dir)
     if returncode != 0:
         logger.error(f"Build failed for Python (Exit Code: {returncode}):")
         if stdout:
@@ -183,7 +120,7 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
             logger.error(f"Stderr:\n{stderr}")
         return False
 
-    stdout, stderr, returncode = run_shell_command(install_cmd, description=f"  - Running Python install for {arch}", env=env, cwd=python_source_dir)
+    stdout, stderr, returncode = run_shell_command(install_cmd, description=f"  - Running Python install for {env_obj.arch}", env=env_obj.env, cwd=python_source_dir)
     if returncode != 0:
         logger.error(f"Install failed for Python (Exit Code: {returncode}):")
         if stdout:
@@ -192,23 +129,18 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
             logger.error(f"Stderr:\n{stderr}")
         return False
 
-    logger.success(f"  - Python {python_version} built and installed for {arch}.")
+    logger.success(f"  - Python {python_version} built and installed for {env_obj.arch}.")
     return True
 
-def _compile_runtime_package(package_name, package_config, runtime_package_source_path, python_install_dir, arch, ndk_version, ndk_api, build_path, ndk_dir_path, config):
+def _compile_runtime_package(package_name, package_config, runtime_package_source_path, python_install_dir, env_obj, config):
     """Compiles and installs a runtime package for a specific Android architecture."""
-    logger.info(f"  - Compiling runtime package {package_name} for {arch}...")
+    logger.info(f"  - Compiling runtime package {package_name} for {env_obj.arch}...")
 
     # Apply patches if specified in config
     if not patch_resolver.apply_patches(package_name, runtime_package_source_path, config):
         return False
 
     # Set up environment for cross-compilation
-    success, toolchain_bin, sysroot, cc_path, cxx_path, ar_path, strip_path, as_path, ld_path, ranlib_path, readelf_path, nm_path, cflags, ldflags, ndk_root, compiler_prefix, env = _setup_build_environment(ndk_version, ndk_api, arch, ndk_dir_path, build_path)
-    if not success:
-        logger.error(f"Failed to set up build environment for {arch} for runtime package {package_name}. Aborting.")
-        return False
-
     # Attempt to install using pip (preferred for runtime packages)
     # Ensure pip is available in the cross-compiled Python environment
     python_bin = os.path.join(python_install_dir, "bin", "python3")
@@ -217,9 +149,9 @@ def _compile_runtime_package(package_name, package_config, runtime_package_sourc
         return False
 
     # Create a new environment for pip install to include CFLAGS and LDFLAGS
-    pip_env = env.copy() # Use the env returned by _setup_build_environment
-    pip_env["CFLAGS"] = cflags
-    pip_env["LDFLAGS"] = ldflags
+    pip_env = env_obj.env.copy() # Use the env returned by _setup_build_environment
+    pip_env["CFLAGS"] = env_obj.cflags
+    pip_env["LDFLAGS"] = env_obj.ldflags
 
     # Get pip install command from configure_resolver
     # We need to pass a dummy package_config with config_type="pip"
@@ -229,17 +161,17 @@ def _compile_runtime_package(package_name, package_config, runtime_package_sourc
         package_name=package_name,
         package_config={"config_type": "pip"},
         package_source_path=runtime_package_source_path,
-        arch=arch,
-        ndk_api=ndk_api,
+        arch=env_obj.arch,
+        ndk_api=env_obj.ndk_api,
         install_dir=python_install_dir, # This is the target install dir
-        cflags=cflags,
-        ldflags=ldflags,
-        ar=ar_path,
-        cc=cc_path,
-        cxx=cxx_path,
-        strip=strip_path,
-        ndk_root=ndk_root,
-        sysroot=sysroot,
+        cflags=env_obj.cflags,
+        ldflags=env_obj.ldflags,
+        ar=env_obj.ar_path,
+        cc=env_obj.cc_path,
+        cxx=env_obj.cxx_path,
+        strip=env_obj.strip_path,
+        ndk_root=env_obj.ndk_root,
+        sysroot=env_obj.sysroot,
     )
     pip_install_cmd = pip_commands["install_command"]
 
@@ -253,12 +185,12 @@ def _compile_runtime_package(package_name, package_config, runtime_package_sourc
         logger.info("Please check the runtime packages and cross-compilation environment.")
         return False
 
-    logger.success(f"    - Successfully compiled and installed {package_name} for {arch}.")
+    logger.success(f"    - Successfully compiled and installed {package_name} for {env_obj.arch}.")
     return True
 
-def _compile_buildtime_package(package_name, package_config, buildtime_package_source_path, arch, ndk_version, ndk_api, build_path, cflags, ldflags, cc_path, cxx_path, ar_path, strip_path, as_path, ld_path, ranlib_path, readelf_path, nm_path, ndk_root, sysroot, env, toolchain_bin, config, extra_configure_args=[]):
+def _compile_buildtime_package(package_name, package_config, buildtime_package_source_path, env_obj, config, extra_configure_args=[]):
     """Compiles and installs a buildtime package for a specific Android architecture."""
-    logger.info(f"  - Compiling buildtime package {package_name} for {arch}...")
+    logger.info(f"  - Compiling buildtime package {package_name} for {env_obj.arch}...")
 
     # Apply patches if specified in config
     if not patch_resolver.apply_patches(package_name, buildtime_package_source_path, config):
@@ -268,22 +200,22 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
         package_name=package_name,
         package_config=package_config,
         package_source_path=buildtime_package_source_path,
-        arch=arch,
-        ndk_api=ndk_api,
-        install_dir=os.path.join(toolchain_bin, f"../sysroot"),
-        cflags=cflags,
-        ldflags=ldflags,
-        ar=ar_path,
-        as_=as_path,
-        cc=cc_path,
-        cxx=cxx_path,
-        ld=ld_path,
-        ranlib=ranlib_path,
-        readelf=readelf_path,
-        nm=nm_path,
-        strip=strip_path,
-        ndk_root=ndk_root,
-        sysroot=sysroot,
+        arch=env_obj.arch,
+        ndk_api=env_obj.ndk_api,
+        install_dir=env_obj.sysroot,
+        cflags=env_obj.cflags,
+        ldflags=env_obj.ldflags,
+        ar=env_obj.ar_path,
+        as_=env_obj.as_path,
+        cc=env_obj.cc_path,
+        cxx=env_obj.cxx_path,
+        ld=env_obj.ld_path,
+        ranlib=env_obj.ranlib_path,
+        readelf=env_obj.readelf_path,
+        nm=env_obj.nm_path,
+        strip=env_obj.strip_path,
+        ndk_root=env_obj.ndk_root,
+        sysroot=env_obj.sysroot,
         extra_configure_args=extra_configure_args,
     )
 
@@ -293,7 +225,7 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
     install_cmd = commands["install_command"]
 
     if clean_cmd:
-        stdout, stderr, returncode = run_shell_command(clean_cmd, description=f"  - Cleaning buildtime package {package_name} for {arch}", env=env, cwd=buildtime_package_source_path)
+        stdout, stderr, returncode = run_shell_command(clean_cmd, description=f"  - Cleaning buildtime package {package_name} for {env_obj.arch}", env=env_obj.env, cwd=buildtime_package_source_path)
         if returncode != 0:
             logger.warning(f"Clean command failed for {package_name} (Exit Code: {returncode}). Continuing anyway.")
             if stdout:
@@ -302,7 +234,7 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
                 logger.warning(f"Stderr:\n{stderr}")
 
     if configure_cmd:
-        stdout, stderr, returncode = run_shell_command(configure_cmd, description=f"  - Running configure for {package_name} on {arch}", env=env, cwd=buildtime_package_source_path)
+        stdout, stderr, returncode = run_shell_command(configure_cmd, description=f"  - Running configure for {package_name} on {env_obj.arch}", env=env_obj.env, cwd=buildtime_package_source_path)
         if returncode != 0:
             logger.error(f"Configure failed for {package_name} (Exit Code: {returncode}):")
             if stdout:
@@ -311,7 +243,7 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
                 logger.info(f"Stderr:\n{stderr}")
             return False
 
-    stdout, stderr, returncode = run_shell_command(build_cmd, description=f"  - Running build for {package_name} on {arch}", env=env, cwd=buildtime_package_source_path)
+    stdout, stderr, returncode = run_shell_command(build_cmd, description=f"  - Running build for {package_name} on {env_obj.arch}", env=env_obj.env, cwd=buildtime_package_source_path)
     if returncode != 0:
         logger.error(f"Build failed for {package_name} (Exit Code: {returncode}):")
         if stdout:
@@ -320,7 +252,7 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
             logger.error(f"Stderr:\n{stderr}")
         return False
 
-    stdout, stderr, returncode = run_shell_command(install_cmd, description=f"  - Running install for {package_name} on {arch}", env=env, cwd=buildtime_package_source_path)
+    stdout, stderr, returncode = run_shell_command(install_cmd, description=f"  - Running install for {package_name} on {env_obj.arch}", env=env_obj.env, cwd=buildtime_package_source_path)
     if returncode != 0:
         logger.error(f"Install failed for {package_name} (Exit Code: {returncode}):")
         if stdout:
@@ -329,7 +261,7 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
             logger.error(f"Stderr:\n{stderr}")
         return False
 
-    logger.success(f"  - Successfully compiled and installed {package_name} for {arch}.")
+    logger.success(f"  - Successfully compiled and installed {package_name} for {env_obj.arch}.")
     return True
 
 def _create_android_app(app_name, package_domain, build_path):
@@ -529,45 +461,13 @@ def build_android(config, verbose):
         if not ndk_dir_path or not os.path.exists(ndk_dir_path):
             logger.warning("NDK directory not found, build may fail.")
 
-        compiler_prefix_map = {}
-        toolchain_bin_map = {}
-        sysroot_map = {}
-        cc_path_map = {}
-        cxx_path_map = {}
-        ar_path_map = {}
-        strip_path_map = {}
-        as_path_map = {}
-        ld_path_map = {}
-        ranlib_path_map = {}
-        readelf_path_map = {}
-        nm_path_map = {}
-        cflags_map = {}
-        ldflags_map = {}
-        ndk_root_map = {}
         env_map = {}
-
         for arch in archs:
-            success, toolchain_bin, sysroot, cc_path, cxx_path, ar_path, strip_path, as_path, ld_path, ranlib_path, readelf_path, nm_path, cflags, ldflags, ndk_root, compiler_prefix, env = _setup_build_environment(ndk_version, ndk_api, arch, ndk_dir_path, build_path)
-            if not success:
-                logger.error(f"Failed to set up build environment for {arch}. Aborting.")
+            try:
+                env_map[arch] = BuildEnvironment(ndk_version, ndk_api, arch, ndk_dir_path, build_path)
+            except (FileNotFoundError, ValueError) as e:
+                logger.error(f"Failed to set up build environment for {arch}: {e}")
                 return False
-
-            toolchain_bin_map[arch] = toolchain_bin
-            sysroot_map[arch] = sysroot
-            cc_path_map[arch] = cc_path
-            cxx_path_map[arch] = cxx_path
-            ar_path_map[arch] = ar_path
-            strip_path_map[arch] = strip_path
-            as_path_map[arch] = as_path
-            ld_path_map[arch] = ld_path
-            ranlib_path_map[arch] = ranlib_path
-            readelf_path_map[arch] = readelf_path
-            nm_path_map[arch] = nm_path
-            cflags_map[arch] = cflags
-            ldflags_map[arch] = ldflags
-            ndk_root_map[arch] = ndk_root
-            compiler_prefix_map[arch] = compiler_prefix
-            env_map[arch] = env
 
         for package_name, package_version in buildtime_packages:
             name, url, resolved_version = resolve_package(package_name, package_version, dependency_mapping)
@@ -582,7 +482,7 @@ def build_android(config, verbose):
                 return False
                 
             for arch in archs:
-                if not _compile_buildtime_package(name, {}, buildtime_package_source_path, arch, ndk_version, ndk_api, build_path, cflags_map[arch], ldflags_map[arch], cc_path_map[arch], cxx_path_map[arch], ar_path_map[arch], strip_path_map[arch], as_path_map[arch], ld_path_map[arch], ranlib_path_map[arch], readelf_path_map[arch], nm_path_map[arch], ndk_root_map[arch], sysroot_map[arch], env_map[arch], toolchain_bin_map[arch], config):
+                if not _compile_buildtime_package(name, {}, buildtime_package_source_path, env_map[arch], config):
                     logger.error(f"Failed to compile buildtime package {name} for {arch}. Aborting.")
                     return False
 
@@ -603,7 +503,7 @@ def build_android(config, verbose):
 
         # Set up environment for each architecture and build Python
         for arch in archs:
-            if not _build_python_for_android(python_version, {}, python_host, python_source_dir, ndk_version, ndk_api, arch, build_path, toolchain_bin_map[arch], sysroot_map[arch], cc_path_map[arch], cxx_path_map[arch], ar_path_map[arch], strip_path_map[arch], as_path_map[arch], ld_path_map[arch], ranlib_path_map[arch], readelf_path_map[arch], nm_path_map[arch], compiler_prefix_map[arch], env_map[arch]):
+            if not _build_python_for_android(python_version, {}, python_host, python_source_dir, env_map[arch]):
                 logger.error(f"Failed to build Python for {arch}. Aborting.")
                 return False
 
@@ -621,7 +521,7 @@ def build_android(config, verbose):
         
             for arch in archs:
                 python_install_dir = os.path.join(build_path, "python-install", arch)
-                if not _compile_runtime_package(name, {}, runtime_package_source_path, python_install_dir, arch, ndk_version, ndk_api, build_path, ndk_dir_path, config):
+                if not _compile_runtime_package(name, {}, runtime_package_source_path, python_install_dir, env_map[arch], config):
                     logger.error(f"Failed to compile runtime package {name} for {arch}. Aborting.")
                     return False
 
@@ -635,7 +535,7 @@ def build_android(config, verbose):
             logger.error("Failed to configure Android app. Aborting.")
             return False
 
-        # Copy Python and buildtime assets
+        # Copy Python assets
         if not _copy_assets_to_android_app(build_path, archs):
             logger.error("Failed to copy assets to Android app. Aborting.")
             return False

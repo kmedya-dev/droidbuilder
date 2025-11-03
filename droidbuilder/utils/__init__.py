@@ -6,3 +6,5 @@ from .patch_resolver import *
 from .file_manager import *
 from .downloader import *
 from .extractor import *
+from .triplet import *
+from .environment import *
