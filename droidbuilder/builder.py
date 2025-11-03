@@ -238,9 +238,9 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
         if returncode != 0:
             logger.error(f"Configure failed for {package_name} (Exit Code: {returncode}):")
             if stdout:
-                logger.info(f"Stdout:\n{stdout}")
+                logger.error(f"Stdout:\n{stdout}")
             if stderr:
-                logger.info(f"Stderr:\n{stderr}")
+                logger.error(f"Stderr:\n{stderr}")
             return False
 
     stdout, stderr, returncode = run_shell_command(build_cmd, description=f"  - Running build for {package_name} on {env_obj.arch}", env=env_obj.env, cwd=buildtime_package_source_path)
