@@ -97,36 +97,36 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
     install_cmd = commands["install_command"]
 
     if clean_cmd:
-        stdout, stderr, returncode = run_shell_command(clean_cmd, description=f"  - Cleaning Python build for {env_obj.arch}", env=env_obj.env, cwd=python_source_dir)
-        if returncode != 0:
-            logger.warning(f"Clean command failed for Python (Exit Code: {returncode}). Continuing anyway.")
+        result = run_shell_command(clean_cmd, description=f"  - Cleaning Python build for {env_obj.arch}", env=env_obj.env, cwd=python_source_dir)
+        if result["returncode"] != 0:
+            logger.warning(f"Clean command failed for Python (Exit Code: {result['returncode']}). Continuing anyway.")
 
     if configure_cmd:
-        stdout, stderr, returncode = run_shell_command(configure_cmd, description=f"  - Running Python configure for {env_obj.arch}", env=env_obj.env, cwd=python_source_dir)
-        if returncode != 0:
-            logger.error(f"Configure failed for Python (Exit Code: {returncode}):")
-            if stdout:
-                logger.error(f"Stdout:\n{stdout}")
-            if stderr:
-                logger.error(f"Stderr:\n{stderr}")
+        result = run_shell_command(configure_cmd, description=f"  - Running Python configure for {env_obj.arch}", env=env_obj.env, cwd=python_source_dir)
+        if result["returncode"] != 0:
+            logger.error(f"Configure failed for Python (Exit Code: {result['returncode']}):")
+            if result["stdout"]:
+                logger.error(f"Stdout:\n{result['stdout']}")
+            if result["stderr"]:
+                logger.error(f"Stderr:\n{result['stderr']}")
             return False
 
-    stdout, stderr, returncode = run_shell_command(build_cmd, description=f"  - Running Python build for {env_obj.arch}", env=env_obj.env, cwd=python_source_dir)
-    if returncode != 0:
-        logger.error(f"Build failed for Python (Exit Code: {returncode}):")
-        if stdout:
-            logger.error(f"Stdout:\n{stdout}")
-        if stderr:
-            logger.error(f"Stderr:\n{stderr}")
+    result = run_shell_command(build_cmd, description=f"  - Running Python build for {env_obj.arch}", env=env_obj.env, cwd=python_source_dir)
+    if result["returncode"] != 0:
+        logger.error(f"Build failed for Python (Exit Code: {result['returncode']}):")
+        if result["stdout"]:
+            logger.error(f"Stdout:\n{result['stdout']}")
+        if result["stderr"]:
+            logger.error(f"Stderr:\n{result['stderr']}")
         return False
 
-    stdout, stderr, returncode = run_shell_command(install_cmd, description=f"  - Running Python install for {env_obj.arch}", env=env_obj.env, cwd=python_source_dir)
-    if returncode != 0:
-        logger.error(f"Install failed for Python (Exit Code: {returncode}):")
-        if stdout:
-            logger.error(f"Stdout:\n{stdout}")
-        if stderr:
-            logger.error(f"Stderr:\n{stderr}")
+    result = run_shell_command(install_cmd, description=f"  - Running Python install for {env_obj.arch}", env=env_obj.env, cwd=python_source_dir)
+    if result["returncode"] != 0:
+        logger.error(f"Install failed for Python (Exit Code: {result['returncode']}):")
+        if result["stdout"]:
+            logger.error(f"Stdout:\n{result['stdout']}")
+        if result["stderr"]:
+            logger.error(f"Stderr:\n{result['stderr']}")
         return False
 
     logger.success(f"  - Python {python_version} built and installed for {env_obj.arch}.")
@@ -175,13 +175,13 @@ def _compile_runtime_package(package_name, package_config, runtime_package_sourc
     )
     pip_install_cmd = pip_commands["install_command"]
 
-    stdout, stderr, returncode = run_shell_command(pip_install_cmd, description=f"    - Running pip install for {package_name}", env=pip_env, cwd=runtime_package_source_path)
-    if returncode != 0:
-        logger.error(f"Pip install failed for runtime package {package_name} (Exit Code: {returncode}):")
-        if stdout:
-            logger.error(f"Stdout:\n{stdout}")
-        if stderr:
-            logger.error(f"Stderr:\n{stderr}")
+    result = run_shell_command(pip_install_cmd, description=f"    - Running pip install for {package_name}", env=pip_env, cwd=runtime_package_source_path)
+    if result["returncode"] != 0:
+        logger.error(f"Pip install failed for runtime package {package_name} (Exit Code: {result['returncode']}):")
+        if result["stdout"]:
+            logger.error(f"Stdout:\n{result['stdout']}")
+        if result["stderr"]:
+            logger.error(f"Stderr:\n{result['stderr']}")
         logger.info("Please check the runtime packages and cross-compilation environment.")
         return False
 
@@ -225,40 +225,40 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
     install_cmd = commands["install_command"]
 
     if clean_cmd:
-        stdout, stderr, returncode = run_shell_command(clean_cmd, description=f"  - Cleaning buildtime package {package_name} for {env_obj.arch}", env=env_obj.env, cwd=buildtime_package_source_path)
-        if returncode != 0:
-            logger.warning(f"Clean command failed for {package_name} (Exit Code: {returncode}). Continuing anyway.")
-            if stdout:
-                logger.warning(f"Stdout:\n{stdout}")
-            if stderr:
-                logger.warning(f"Stderr:\n{stderr}")
+        result = run_shell_command(clean_cmd, description=f"  - Cleaning buildtime package {package_name} for {env_obj.arch}", env=env_obj.env, cwd=buildtime_package_source_path)
+        if result["returncode"] != 0:
+            logger.warning(f"Clean command failed for {package_name} (Exit Code: {result['returncode']}). Continuing anyway.")
+            if result["stdout"]:
+                logger.warning(f"Stdout:\n{result['stdout']}")
+            if result["stderr"]:
+                logger.warning(f"Stderr:\n{result['stderr']}")
 
     if configure_cmd:
-        stdout, stderr, returncode = run_shell_command(configure_cmd, description=f"  - Running configure for {package_name} on {env_obj.arch}", env=env_obj.env, cwd=buildtime_package_source_path)
-        if returncode != 0:
-            logger.error(f"Configure failed for {package_name} (Exit Code: {returncode}):")
-            if stdout:
-                logger.error(f"Stdout:\n{stdout}")
-            if stderr:
-                logger.error(f"Stderr:\n{stderr}")
+        result = run_shell_command(configure_cmd, description=f"  - Running configure for {package_name} on {env_obj.arch}", env=env_obj.env, cwd=buildtime_package_source_path)
+        if result["returncode"] != 0:
+            logger.error(f"Configure failed for {package_name} (Exit Code: {result['returncode']}):")
+            if result["stdout"]:
+                logger.error(f"Stdout:\n{result['stdout']}")
+            if result["stderr"]:
+                logger.error(f"Stderr:\n{result['stderr']}")
             return False
 
-    stdout, stderr, returncode = run_shell_command(build_cmd, description=f"  - Running build for {package_name} on {env_obj.arch}", env=env_obj.env, cwd=buildtime_package_source_path)
-    if returncode != 0:
-        logger.error(f"Build failed for {package_name} (Exit Code: {returncode}):")
-        if stdout:
-            logger.error(f"Stdout:\n{stdout}")
-        if stderr:
-            logger.error(f"Stderr:\n{stderr}")
+    result = run_shell_command(build_cmd, description=f"  - Running build for {package_name} on {env_obj.arch}", env=env_obj.env, cwd=buildtime_package_source_path)
+    if result["returncode"] != 0:
+        logger.error(f"Build failed for {package_name} (Exit Code: {result['returncode']}):")
+        if result["stdout"]:
+            logger.error(f"Stdout:\n{result['stdout']}")
+        if result["stderr"]:
+            logger.error(f"Stderr:\n{result['stderr']}")
         return False
 
-    stdout, stderr, returncode = run_shell_command(install_cmd, description=f"  - Running install for {package_name} on {env_obj.arch}", env=env_obj.env, cwd=buildtime_package_source_path)
-    if returncode != 0:
-        logger.error(f"Install failed for {package_name} (Exit Code: {returncode}):")
-        if stdout:
-            logger.error(f"Stdout:\n{stdout}")
-        if stderr:
-            logger.error(f"Stderr:\n{stderr}")
+    result = run_shell_command(install_cmd, description=f"  - Running install for {package_name} on {env_obj.arch}", env=env_obj.env, cwd=buildtime_package_source_path)
+    if result["returncode"] != 0:
+        logger.error(f"Install failed for {package_name} (Exit Code: {result['returncode']}):")
+        if result["stdout"]:
+            logger.error(f"Stdout:\n{result['stdout']}")
+        if result["stderr"]:
+            logger.error(f"Stderr:\n{result['stderr']}")
         return False
 
     logger.success(f"  - Successfully compiled and installed {package_name} for {env_obj.arch}.")
@@ -566,13 +566,13 @@ def build_android(config, verbose):
             build_task = "assembleRelease"
 
         gradle_build_cmd = [gradlew_path, build_task]
-        stdout, stderr, returncode = run_shell_command(gradle_build_cmd, description=f"  - Running Gradle build: {' '.join(gradle_build_cmd)}", cwd=build_path)
-        if returncode != 0:
-            logger.error(f"Gradle build failed (Exit Code: {returncode}):")
-            if stdout:
-                logger.error(f"Stdout:\n{stdout}")
-            if stderr:
-                logger.error(f"Stderr:\n{stderr}")
+        result = run_shell_command(gradle_build_cmd, description=f"  - Running Gradle build: {' '.join(gradle_build_cmd)}", cwd=build_path)
+        if result["returncode"] != 0:
+            logger.error(f"Gradle build failed (Exit Code: {result['returncode']}):")
+            if result["stdout"]:
+                logger.error(f"Stdout:\n{result['stdout']}")
+            if result["stderr"]:
+                logger.error(f"Stderr:\n{result['stderr']}")
             logger.info("Please review the Gradle output above for specific errors and ensure your Android SDK and NDK are correctly installed and configured.")
             return False
 
