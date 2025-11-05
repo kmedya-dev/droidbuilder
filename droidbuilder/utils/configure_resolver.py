@@ -264,17 +264,15 @@ def _generate_Configure_commands(
     extra_configure_args: list[str] = [],
 ) -> tuple:
     logger.info(f"  - Generating Configure build commands for {package_name}.")
-    build_arch = _get_build_arch(package_source_path)
 
     # Configure command
     configure_cmd = [
         os.path.join(package_source_path, "Configure"),
+        ARCH_MAP[arch][3],  # (openssl's arch)
         f"-D__ANDROID_API__={ndk_api}",
         f"--prefix={install_dir}",
-        f"--host={ARCH_MAP[arch][3]}", # (openssl's arch)
-        f"--build={build_arch}",
-        "-shared",
-        "--without-static",
+        "shared",
+        "no-static",
     ] + extra_configure_args
 
     # Build command
