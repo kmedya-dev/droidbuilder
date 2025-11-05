@@ -272,7 +272,6 @@ def _generate_Configure_commands(
         f"-D__ANDROID_API__={ndk_api}",
         f"--prefix={install_dir}",
         "shared",
-        "no-static",
     ] + extra_configure_args
 
     # Build command

@@ -232,6 +232,7 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
                 logger.warning(f"Stdout:\n{result['stdout']}")
             if result["stderr"]:
                 logger.warning(f"Stderr:\n{result['stderr']}")
+            return False
 
     if configure_cmd:
         result = run_shell_command(configure_cmd, description=f"  - Running configure for {package_name} on {env_obj.arch}", env=env_obj.env, cwd=buildtime_package_source_path)
