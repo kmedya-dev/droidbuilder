@@ -20,4 +20,5 @@ from .version import *
 from .search_code import *
 from .grep import *
 from .check_triplet import *
+from .search_pkg import *
 

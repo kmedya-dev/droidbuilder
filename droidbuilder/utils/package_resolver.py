@@ -1,7 +1,19 @@
 import os
+import re
 import requests
 from urllib.parse import quote_plus
 from ..cli_logger import logger
+
+def _resolve_redirect(url):
+    try:
+        response = requests.head(url, allow_redirects=True, timeout=10)
+        response.raise_for_status()
+        logger.info(f"Followed redirect to: {response.url}")
+        return response.url
+    except requests.exceptions.RequestException as e:
+        logger.warning(f"Could not follow redirect for {url}: {e}")
+        return url
+
 
 def resolve_package_url(name, version=None):
     search_query = f"{name}{f' {version}' if version else ''} download source tar.gz"
@@ -19,13 +31,40 @@ def resolve_package_url(name, version=None):
         response = requests.get(search_url)
         response.raise_for_status()
         search_results = response.json()
+        # logger.info(f"search_results:{search_results}")
 
-        if "items" in search_results:
-            for item in search_results["items"]:
-                if item["link"].endswith(".tar.gz"):
-                    logger.info(f"  - Found URL: {item['link']}")
-                    return item["link"]
-        
+        if 'items' in search_results:
+            for item in search_results['items']:
+                if 'pagemap' in item and 'softwaresourcecode' in item['pagemap']:
+                    for code in item['pagemap']['softwaresourcecode']:
+                        if code.get('name', '').lower() == name.lower():
+                            author = code.get('author')
+                            if author:
+                                logger.info(f"Found potential GitHub repository via softwaresourcecode: author='{author}', name='{name}'")
+                                try:
+                                    # Try to get from GitHub releases API
+                                    if version:
+                                        gh_api_url = f"https://api.github.com/repos/{author}/{name}/releases"
+                                        gh_response = requests.get(gh_api_url)
+                                        gh_response.raise_for_status()
+                                        all_releases = gh_response.json()
+
+                                        for release in all_releases:
+                                            if version in release['tag_name']: # Check if version string is in tag_name
+                                                if 'tarball_url' in release and release['tarball_url']:
+                                                    logger.info(f"Found tarball via GitHub API for release tag {release['tag_name']}: {release['tarball_url']}")
+                                                    return _resolve_redirect(release['tarball_url'])
+                                    else: # No version specified, get latest
+                                        gh_api_url = f"https://api.github.com/repos/{author}/{name}/releases/latest"
+                                        gh_response = requests.get(gh_api_url)
+                                        gh_response.raise_for_status()
+                                        gh_data = gh_response.json()
+                                        if 'tarball_url' in gh_data and gh_data['tarball_url']:
+                                            logger.info(f"Found tarball via GitHub API for latest release: {gh_data['tarball_url']}")
+                                            return _resolve_redirect(gh_data['tarball_url'])
+                                except requests.exceptions.RequestException as gh_e:
+                                    logger.warning(f"Could not fetch from GitHub API for {author}/{name}: {gh_e}")
+
         logger.warning(f"Could not find a .tar.gz download link for {name} via web search.")
         return None
 
@@ -34,7 +73,7 @@ def resolve_package_url(name, version=None):
         return None
 
 
-def _resolve_from_pypi(name, version=None):
+def resolve_from_pypi(name, version=None):
     """
     Resolves a package to a source URL using the PyPI API.
     """
@@ -69,17 +108,26 @@ def resolve_package(name, version, dependency_mapping):
     if name in dependency_mapping:
         logger.info(f"  - Found '{name}' in dependency_mapping.")
         url_template = dependency_mapping[name]
-        if version:
-            url = url_template.format(version=version)
+        if '{version}' in url_template:
+            if version:
+                url = url_template.format(version=version)
+            else:
+                logger.error(f"'{name}' requires a version in dependency_mapping, but none was provided.")
+                return name, None, None
         else:
-            # This might fail if version is required for the URL.
-            # Assuming if no version is specified, the URL is as-is.
             url = url_template
-        return name, url, version # Assuming version is correct
+
+        # Try to extract version from URL if not provided
+        if not version:
+            match = re.search(r'(\d+\.\d+\.\d+)', url)
+            if match:
+                version = match.group(1)
+        
+        return name, url, version
 
     # 2. Try to resolve from PyPI
     logger.info(f"  - Attempting to resolve '{name}' from PyPI...")
-    pypi_url, pypi_version = _resolve_from_pypi(name, version)
+    pypi_url, pypi_version = resolve_from_pypi(name, version)
     if pypi_url:
         return name, pypi_url, pypi_version
 

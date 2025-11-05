@@ -1,6 +1,9 @@
 import click
 from . import commands
 import inspect
+from dotenv import load_dotenv
+
+load_dotenv()
 
 @click.group()
 @click.option("--path", "-p", default=".", help="Path to the project directory.")
