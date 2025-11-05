@@ -269,7 +269,6 @@ def _generate_Configure_commands(
     configure_cmd = [
         os.path.join(package_source_path, "Configure"),
         ARCH_MAP[arch][3],  # (openssl's arch)
-        f"-D__ANDROID_API__={ndk_api}",
         f"--prefix={install_dir}",
         "shared",
     ] + extra_configure_args
