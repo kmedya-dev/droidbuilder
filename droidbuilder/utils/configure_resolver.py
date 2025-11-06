@@ -85,6 +85,7 @@ def _generate_autotools_commands(
     strip: str,
     ndk_root: str,
     sysroot: str,
+    pkg_config: str,
     extra_configure_args: list[str] = [],
 ) -> tuple:
     logger.info("  - Generating autotools build commands.")
@@ -122,7 +123,10 @@ def _generate_autotools_commands(
         f"STRIP={strip}",
         f"CFLAGS={cflags}",
         f"LDFLAGS={ldflags}",
-    ] + extra_configure_args
+        f"PKG_CONFIG={pkg_config}",
+    ]
+
+    configure_cmd.extend(extra_configure_args)
     build_cmd = ["make", "-j", str(os.cpu_count())]
     install_cmd = ["make", "install"]
     clean_cmd = ["make", "clean"]
@@ -147,6 +151,7 @@ def _generate_cmake_commands(
     strip: str,
     ndk_root: str,
     sysroot: str,
+    pkg_config: str,
     extra_configure_args: list[str] = [],
 ) -> tuple:
     logger.info(f"  - Generating CMake build commands for {package_name}.")
@@ -161,10 +166,12 @@ def _generate_cmake_commands(
         f"-DCMAKE_TOOLCHAIN_FILE={ndk_root}/build/cmake/android.toolchain.cmake",
         f"-DANDROID_ABI={arch}",
         f"-DANDROID_NATIVE_API_LEVEL={ndk_api}",
+        f"-DCMAKE_PKG_CONFIG_EXECUTABLE={pkg_config}",
         "-DBUILD_SHARED_LIBS=ON",
         "-DBUILD_STATIC_LIBS=OFF",
-    ] + extra_configure_args
+    ]
 
+    configure_cmd.extend(extra_configure_args)
     build_cmd = ["cmake", "--build", build_dir, "--", "-j", str(os.cpu_count())]
     install_cmd = ["cmake", "--install", build_dir]
     clean_cmd = ["rm", "-rf", build_dir]
@@ -178,6 +185,7 @@ def _generate_meson_cross_file(
     ar: str,
     strip: str,
     sysroot: str,
+    pkg_config: str,
 ) -> str:
     meson_cpu_family = ARCH_MAP[arch][1]
     meson_cpu = ARCH_MAP[arch][2]
@@ -189,6 +197,7 @@ def _generate_meson_cross_file(
         f.write(f"cpp = '{cxx}'\n")
         f.write(f"ar = '{ar}'\n")
         f.write(f"strip = '{strip}'\n")
+        f.write(f"pkg-config = '{pkg_config}'\n")
         f.write("\n")
         f.write("[host_machine]\n")
         f.write("system = 'android'\n")
@@ -219,13 +228,14 @@ def _generate_meson_commands(
     strip: str,
     ndk_root: str,
     sysroot: str,
+    pkg_config: str,
     extra_configure_args: list[str] = [],
 ) -> tuple:
     logger.info(f"  - Generating Meson build commands for {package_name}.")
 
     build_dir = os.path.join(package_source_path, "build")
     cross_file_path = _generate_meson_cross_file(
-        package_source_path, arch, cc, cxx, ar, strip, sysroot
+        package_source_path, arch, cc, cxx, ar, strip, sysroot, pkg_config
     )
 
     configure_cmd = [
@@ -235,8 +245,9 @@ def _generate_meson_commands(
         "--buildtype=release",
         "-Ddefault_library=shared",
         "-Db_staticpic=false",
-    ] + extra_configure_args
+    ]
 
+    configure_cmd.extend(extra_configure_args)
     build_cmd = ["meson", "compile", "-C", build_dir]
     install_cmd = ["meson", "install", "-C", build_dir]
     clean_cmd = ["rm", "-rf", build_dir, cross_file_path]
@@ -261,6 +272,7 @@ def _generate_Configure_commands(
     strip: str,
     ndk_root: str,
     sysroot: str,
+    pkg_config: str,
     extra_configure_args: list[str] = [],
 ) -> tuple:
     logger.info(f"  - Generating Configure build commands for {package_name}.")
@@ -270,8 +282,11 @@ def _generate_Configure_commands(
         os.path.join(package_source_path, "Configure"),
         ARCH_MAP[arch][3],  # (openssl's arch)
         f"--prefix={install_dir}",
+        f"PKG_CONFIG={pkg_config}",
         "shared",
-    ] + extra_configure_args
+    ]
+
+    configure_cmd.extend(extra_configure_args)
 
     # Build command
     build_cmd = ["make", "-j", str(os.cpu_count())]
@@ -304,6 +319,7 @@ def _generate_pip_commands(
     strip: str,
     ndk_root: str,
     sysroot: str,
+    pkg_config: str,
     extra_configure_args: list[str] = [],
 ) -> tuple:
     logger.info(f"  - Generating pip install command for {package_name}.")
@@ -317,7 +333,10 @@ def _generate_pip_commands(
         "--no-deps", # Do not install dependencies, they should be handled by droidbuilder
         "--prefix", install_dir,
         package_source_path,
-    ] + extra_configure_args
+    ]
+
+    configure_cmd.extend(extra_configure_args)
+
     clean_cmd = []
     return clean_cmd, configure_cmd, build_cmd, install_cmd
 
@@ -342,6 +361,7 @@ def resolve_config_type(
     strip: str = "",
     ndk_root: str = "",
     sysroot: str = "",
+    pkg_config: str = "",
     extra_configure_args: list[str] = [],
 ) -> dict:
     """
@@ -407,6 +427,7 @@ def resolve_config_type(
             strip,
             ndk_root,
             sysroot,
+            pkg_config,
             extra_configure_args,
         )
     elif config_type:

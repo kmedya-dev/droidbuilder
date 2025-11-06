@@ -62,12 +62,16 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
     install_dir = os.path.join(env_obj.build_path, "python-install", env_obj.arch)
     os.makedirs(install_dir, exist_ok=True)
 
+    # Create config.site file for cross-compilation
+    config_site_path = os.path.join(python_source_dir, "config.site")
+    with open(config_site_path, "w") as f:
+        f.write("ac_cv_file__dev_ptmx=yes\n")
+        f.write("ac_cv_file__dev_ptc=no\n")
+
     extra_configure_args = [
         "--disable-ipv6",
         "--without-ensurepip",
-        f"--with-build-python={python_host}",
-        f"--with-openssl={env_obj.sysroot}",
-        f"--with-libffi={env_obj.sysroot}",
+        f"--with-build-python={python_host}"
     ]
 
     commands = resolve_config_type(
@@ -90,6 +94,7 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
         strip=env_obj.strip_path,
         ndk_root=env_obj.ndk_root,
         sysroot=env_obj.sysroot,
+        pkg_config=env_obj.pkg_config_path,
         extra_configure_args=extra_configure_args,
     )
 
@@ -174,6 +179,7 @@ def _compile_runtime_package(package_name, package_config, runtime_package_sourc
         strip=env_obj.strip_path,
         ndk_root=env_obj.ndk_root,
         sysroot=env_obj.sysroot,
+        pkg_config=env_obj.pkg_config_path,
     )
     pip_install_cmd = pip_commands["install_command"]
 
@@ -204,7 +210,7 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
         package_source_path=buildtime_package_source_path,
         arch=env_obj.arch,
         ndk_api=env_obj.ndk_api,
-        install_dir=env_obj.sysroot,
+        install_dir=env_obj.sysroot, # as python_source's c_types modules, (not needed to bundled as jnilibs)
         cflags=env_obj.cflags,
         ldflags=env_obj.ldflags,
         ar=env_obj.ar_path,
@@ -218,6 +224,7 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
         strip=env_obj.strip_path,
         ndk_root=env_obj.ndk_root,
         sysroot=env_obj.sysroot,
+        pkg_config=env_obj.pkg_config_path,
         extra_configure_args=extra_configure_args,
     )
 

@@ -25,6 +25,7 @@ class BuildEnvironment:
         self.ndk_root = None
         self.compiler_prefix = None
         self.env = None
+        self.pkg_config_path = None
         self.setup()
 
     def setup(self):
@@ -60,6 +61,7 @@ class BuildEnvironment:
         self.ranlib_path = f"{self.toolchain_bin}/llvm-ranlib"
         self.readelf_path = f"{self.toolchain_bin}/llvm-readelf"
         self.strip_path = f"{self.toolchain_bin}/llvm-strip"
+        self.pkg_config_path = f"{self.toolchain_bin}/pkg-config"
 
         # Initialize cflags and ldflags with base values
         self.cflags = f"-fPIC -DANDROID -D__ANDROID_API__={self.ndk_api} -I{self.sysroot}/usr/include"
@@ -80,5 +82,7 @@ class BuildEnvironment:
         self.env["PATH"] = f"{self.toolchain_bin}:{self.env['PATH']}"
         self.env["CFLAGS"] = self.cflags
         self.env["LDFLAGS"] = self.ldflags
+        self.env["PKG_CONFIG"] = self.pkg_config_path
+        self.env["PKG_CONFIG_PATH"] = f"{self.sysroot}/usr/lib/pkgconfig"
 
         logger.info("  - Build environment set up.")
