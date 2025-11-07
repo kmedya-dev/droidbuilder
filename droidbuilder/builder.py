@@ -4,7 +4,7 @@ import shutil
 from . import config
 from . import toolchain
 from .cli_logger import logger
-from .utils import BuildEnvironment, resolve_config_type, patch_resolver, run_shell_command, get_explicit_dependencies, resolve_package
+from .utils import ARCH_MAP, BuildEnvironment, resolve_config_type, patch_resolver, run_shell_command, get_explicit_dependencies, resolve_package
 from .tools.installer import install
 
 INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
@@ -62,6 +62,8 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
     install_dir = os.path.join(env_obj.build_path, "python-install", env_obj.arch)
     os.makedirs(install_dir, exist_ok=True)
 
+    libdir_relative = os.path.join(install_dir, "lib")
+
     # Create config.site file for cross-compilation
     config_site_path = os.path.join(python_source_dir, "config.site")
     with open(config_site_path, "w") as f:
@@ -81,6 +83,7 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
         arch=env_obj.arch,
         ndk_api=env_obj.ndk_api,
         install_dir=install_dir,
+        libdir_relative=libdir_relative,
         cflags=env_obj.cflags,
         ldflags=env_obj.ldflags,
         ar=env_obj.ar_path,
@@ -171,6 +174,7 @@ def _compile_runtime_package(package_name, package_config, runtime_package_sourc
         arch=env_obj.arch,
         ndk_api=env_obj.ndk_api,
         install_dir=python_install_dir, # This is the target install dir
+        libdir_relative=None,
         cflags=env_obj.cflags,
         ldflags=env_obj.ldflags,
         ar=env_obj.ar_path,
@@ -204,13 +208,18 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
     if not patch_resolver.apply_patches(package_name, buildtime_package_source_path, config):
         return False
 
+    # as runtime_packages & python_source's c_types modules, (not needed to bundled as jnilibs)
+    install_dir = os.path.join(env_obj.sysroot, "usr")
+    libdir_relative =  os.path.join(install_dir, "lib", ARCH_MAP[env_obj.arch][0], env_obj.ndk_api)
+
     commands = resolve_config_type(
         package_name=package_name,
         package_config=package_config,
         package_source_path=buildtime_package_source_path,
         arch=env_obj.arch,
         ndk_api=env_obj.ndk_api,
-        install_dir=os.path.join(env_obj.sysroot, "usr", "lib", "ARCH_MAP[self.arch][0]", "self.ndk_api") # as python_source's c_types modules, (not needed to bundled as jnilibs)
+        install_dir=install_dir,
+        libdir_relative=libdir_relative,
         cflags=env_obj.cflags,
         ldflags=env_obj.ldflags,
         ar=env_obj.ar_path,

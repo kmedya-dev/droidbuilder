@@ -435,7 +435,7 @@ def uninstall_tool(tool_name):
         return True
 
     try:
-        os.rmdir(tool_path)
+        shutil.rmtree(tool_path)
         logger.success(f"{tool_name} has been successfully uninstalled.")
         return True
     except OSError as e:

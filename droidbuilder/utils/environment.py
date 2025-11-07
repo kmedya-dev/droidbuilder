@@ -1,4 +1,5 @@
 import os
+import shutil
 from ..cli_logger import logger
 from ..utils import ARCH_MAP
 
@@ -61,11 +62,14 @@ class BuildEnvironment:
         self.ranlib_path = f"{self.toolchain_bin}/llvm-ranlib"
         self.readelf_path = f"{self.toolchain_bin}/llvm-readelf"
         self.strip_path = f"{self.toolchain_bin}/llvm-strip"
-        self.pkg_config_path = f"{self.toolchain_bin}/pkg-config"
+        self.pkg_config_path = shutil.which("pkg-config")
+        if not self.pkg_config_path:
+            logger.warning("  - 'pkg-config' not found in PATH. Some packages may fail to build.")
+            self.pkg_config_path = "pkg-config"
 
         # Initialize cflags and ldflags with base values
-        self.cflags = f"-fPIC -DANDROID -D__ANDROID_API__={self.ndk_api} -I{self.sysroot}/usr/include"
-        self.ldflags = f"-L{self.sysroot}/usr/lib/{self.compiler_prefix}/{self.ndk_api} -lm -ldl --sysroot={self.sysroot}"
+        self.cflags = f"--sysroot={self.sysroot} -fPIC -DANDROID -D__ANDROID_API__={self.ndk_api}"
+        self.ldflags = f"-lm -ldl --sysroot={self.sysroot}"
 
         # Prepare environment variables for subprocesses
         self.env = os.environ.copy()
@@ -78,7 +82,7 @@ class BuildEnvironment:
         self.env["RANLIB"] = self.ranlib_path
         self.env["READELF"] = self.readelf_path
         self.env["STRIP"] = self.strip_path
-        self.env["sysROOT"] = self.sysroot
+        self.env["SYSROOT"] = self.sysroot
         self.env["PATH"] = f"{self.toolchain_bin}:{self.env['PATH']}"
         self.env["CFLAGS"] = self.cflags
         self.env["LDFLAGS"] = self.ldflags
