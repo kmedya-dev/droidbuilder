@@ -210,7 +210,7 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
         package_source_path=buildtime_package_source_path,
         arch=env_obj.arch,
         ndk_api=env_obj.ndk_api,
-        install_dir=env_obj.sysroot, # as python_source's c_types modules, (not needed to bundled as jnilibs)
+        install_dir=os.path.join(env_obj.sysroot, "usr", "lib", "ARCH_MAP[self.arch][0]", "self.ndk_api") # as python_source's c_types modules, (not needed to bundled as jnilibs)
         cflags=env_obj.cflags,
         ldflags=env_obj.ldflags,
         ar=env_obj.ar_path,
