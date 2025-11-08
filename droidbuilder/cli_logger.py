@@ -151,7 +151,10 @@ class Logger:
                 speed_unit, speed_divisor = ("it/s", 1)
 
             try:
-                eta_str = self.format_time(eta)
+                if current_val >= total:
+                    eta_str = self.format_time(elapsed)
+                else:
+                    eta_str = self.format_time(eta)
             except (ValueError, OverflowError, OSError):
                 eta_str = "∞"
 

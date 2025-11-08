@@ -215,7 +215,7 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
 
     # as runtime_packages & python_source's c_types modules, (not needed to bundled as jnilibs)
     install_dir = os.path.join(env_obj.sysroot, "usr")
-    libdir_relative =  os.path.join(install_dir, "lib", ARCH_MAP[env_obj.arch][0], env_obj.ndk_api)
+    libdir_relative =  os.path.join(install_dir, "lib", ARCH_MAP[env_obj.arch][4], env_obj.ndk_api)
 
     commands = resolve_config_type(
         package_name=package_name,

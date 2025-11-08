@@ -6,10 +6,10 @@ from ..utils import run_shell_command
 from .triplet import get_triplet
 
 ARCH_MAP = {
-    "arm64-v8a": ["aarch64-linux-android", "aarch64", "aarch64", "android-arm64"],
-    "armeabi-v7a": ["arm-linux-androideabi", "arm", "armv7a", "android-arm"],
-    "x86": ["i686-linux-android", "x86", "i686", "android-x86"],
-    "x86_64": ["x86_64-linux-android", "x86_64", "x86_64", "android-x86_64"],
+    "arm64-v8a": ["aarch64-linux-android", "aarch64", "aarch64", "android-arm64", "aarch64-linux-android"],
+    "armeabi-v7a": ["armv7a-linux-androideabi", "arm", "armv7a", "android-arm", "arm-linux-androideabi"],
+    "x86": ["i686-linux-android", "x86", "i686", "android-x86", "i686-linux-android"],
+    "x86_64": ["x86_64-linux-android", "x86_64", "x86_64", "android-x86_64", "x86_64-linux-android"],
 }
 
 def _autodetect_config_type(package_source_path: str, package_name: str) -> str:
@@ -113,7 +113,6 @@ def _generate_autotools_commands(
         f"--host={ARCH_MAP[arch][0]}",
         f"--build={build_arch}",
         "--enable-shared",
-        "--without-static",
         f"AS={as_}",
         f"CC={cc}",
         f"CXX={cxx}",
