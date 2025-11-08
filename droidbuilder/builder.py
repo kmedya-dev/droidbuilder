@@ -70,6 +70,9 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
         f.write("ac_cv_file__dev_ptmx=yes\n")
         f.write("ac_cv_file__dev_ptc=no\n")
 
+    # Set CONFIG_SITE environment variable to point to our config.site file
+    env_obj.env["CONFIG_SITE"] = config_site_path
+
     extra_configure_args = [
         "--disable-ipv6",
         "--without-ensurepip",
