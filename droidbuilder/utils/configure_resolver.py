@@ -7,7 +7,7 @@ from .triplet import get_triplet
 
 ARCH_MAP = {
     "arm64-v8a": ["aarch64-linux-android", "aarch64", "aarch64", "android-arm64"],
-    "armeabi-v7a": ["armv7a-linux-androideabi", "arm", "armv7a", "android-arm"],
+    "armeabi-v7a": ["arm-linux-androideabi", "arm", "armv7a", "android-arm"],
     "x86": ["i686-linux-android", "x86", "i686", "android-x86"],
     "x86_64": ["x86_64-linux-android", "x86_64", "x86_64", "android-x86_64"],
 }

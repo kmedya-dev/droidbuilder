@@ -76,6 +76,8 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
     extra_configure_args = [
         "--disable-ipv6",
         "--without-ensurepip",
+        "--with-lto",
+        f"--with-openssl={env_obj.sysroot}/usr"
         f"--with-build-python={python_host}"
     ]
 

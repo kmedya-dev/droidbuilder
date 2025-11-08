@@ -3,7 +3,7 @@ import shutil
 import os
 import sys
 import glob
-from ..import config
+from .. import config
 from ..cli_logger import logger
 from ..utils.downloader import DOWNLOAD_DIR
 from ..builder import BUILD_DIR
