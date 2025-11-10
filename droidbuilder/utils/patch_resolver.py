@@ -19,7 +19,11 @@ def apply_patches(package_name: str, package_source_path: str, config: dict) -> 
     
     if package_name in patches_config:
         logger.info(f"  - Applying patches for {package_name}...")
-        for patch_file_relative_path in patches_config[package_name]:
+        patch_files = patches_config[package_name]
+        if isinstance(patch_files, str):
+            patch_files = [patch_files]
+
+        for patch_file_relative_path in patch_files:
             # Assuming patch files are relative to the project root
             patch_path = os.path.join(os.getcwd(), patch_file_relative_path)
             
