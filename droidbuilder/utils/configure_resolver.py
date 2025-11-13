@@ -334,7 +334,7 @@ def _generate_pip_commands(
     configure_cmd = []
     build_cmd = []
     install_cmd = [
-        os.path.join(install_dir, "bin", "python3"), # Path to target Python interpreter
+        sys.executable, # Path to target Python interpreter
         "-m",
         "pip",
         "install",
