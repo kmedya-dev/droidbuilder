@@ -34,3 +34,6 @@ kivy = "https://github.com/kivy/kivy/archive/refs/tags/{version}.tar.gz"
 
 [build]
 type = "debug"
+
+[build.patches]
+kivy = ["kivy_android_build.patch"]

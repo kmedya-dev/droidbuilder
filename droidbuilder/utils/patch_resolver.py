@@ -29,8 +29,10 @@ def apply_patches(package_name: str, package_source_path: str, config: dict) -> 
             
             if os.path.exists(patch_path):
                 logger.info(f"    - Applying patch: {patch_file_relative_path}")
+                patch_command = ["patch", "-p1", "-i", patch_path]
+                logger.debug(f"      Executing patch command: {' '.join(patch_command)}")
                 result = run_shell_command(
-                    ["patch", "-p1", "-i", patch_path],
+                    patch_command,
                     description=f"    - Applying patch: {patch_file_relative_path}",
                     cwd=package_source_path
                 )
@@ -44,6 +46,11 @@ def apply_patches(package_name: str, package_source_path: str, config: dict) -> 
                     if stderr:
                         logger.error(f"      Patch Stderr:\n{stderr}")
                     return False
+                else:
+                    if stdout:
+                        logger.debug(f"      Patch Stdout:\n{stdout}")
+                    if stderr:
+                        logger.debug(f"      Patch Stderr:\n{stderr}")
                 logger.success(f"    - Successfully applied patch: {patch_file_relative_path}")
             else:
                 logger.warning(f"    - Patch file not found: {patch_file_relative_path}. Skipping.")
