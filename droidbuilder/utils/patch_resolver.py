@@ -46,12 +46,6 @@ def apply_patches(package_name: str, package_source_path: str, config: dict) -> 
                     if stderr:
                         logger.error(f"      Patch Stderr:\n{stderr}")
                     return False
-                else:
-                    if stdout:
-                        logger.debug(f"      Patch Stdout:\n{stdout}")
-                    if stderr:
-                        logger.debug(f"      Patch Stderr:\n{stderr}")
-                logger.success(f"    - Successfully applied patch: {patch_file_relative_path}")
             else:
                 logger.warning(f"    - Patch file not found: {patch_file_relative_path}. Skipping.")
     else:

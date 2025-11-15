@@ -159,6 +159,7 @@ def _generate_cmake_commands(
     logger.info(f"  - Generating CMake build commands for {package_name}.")
 
     build_dir = os.path.join(package_source_path, "build")
+    build_arch = _get_build_arch(package_source_path)
 
     configure_cmd = [
         "cmake",
@@ -167,11 +168,15 @@ def _generate_cmake_commands(
         f"-DCMAKE_INSTALL_PREFIX={install_dir}",
         f"-DCMAKE_INSTALL_LIBDIR={libdir_relative}",
         f"-DCMAKE_TOOLCHAIN_FILE={ndk_root}/build/cmake/android.toolchain.cmake",
+        f"-DCMAKE_SYSTEM_NAME=Android",
+        f"-DCMAKE_SYSTEM_PROCESSOR={ARCH_MAP[arch][1]}",
         f"-DANDROID_ABI={arch}",
         f"-DANDROID_NATIVE_API_LEVEL={ndk_api}",
         f"-DCMAKE_PKG_CONFIG_EXECUTABLE={pkg_config}",
         "-DBUILD_SHARED_LIBS=ON",
         "-DBUILD_STATIC_LIBS=OFF",
+        "-DBUILD_SAMPLES=OFF"
+        "-DBUILD_TESTS=OFF"
     ]
 
     configure_cmd.extend(extra_configure_args)
