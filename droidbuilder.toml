@@ -14,7 +14,7 @@ ndk_api = "24"
 archs = [ "arm64-v8a", "armeabi-v7a",]
 manifest_file = ""
 intent_filters_file = ""
-accept_sdk_license = "interactive"
+accept_sdk_license = "non-interactive"
 
 [java]
 jdk_version = "21"
@@ -25,15 +25,25 @@ python_version = "3.12.1"
 
 [app.dependency]
 runtime_packages = ["kivy==2.3.1", "pyjnius"]
-buildtime_packages = ["libffi==3.5.2", "openssl"]
+buildtime_packages = ["libffi==3.5.2", "openssl", "sdl2==2.32.2", "sdl2_ttf==2.24.0"]
 
 [app.dependency_mapping]
 libffi = "https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz"
 openssl = "https://github.com/openssl/openssl/releases/download/openssl-3.6.0/openssl-3.6.0.tar.gz"
 kivy = "https://github.com/kivy/kivy/archive/refs/tags/{version}.tar.gz"
+sdl2 = "https://github.com/libsdl-org/SDL/releases/download/release-2.32.2/SDL2-2.32.2.tar.gz"
+sdl2_ttf = "https://github.com/libsdl-org/SDL_ttf/releases/download/release-2.24.0/SDL2_ttf-2.24.0.tar.gz"
 
 [build]
 type = "debug"
 
 [build.patches]
 kivy = ["kivy_android_build.patch"]
+
+[build.configure.extra_configure_args]
+sdl2_ttf = [
+    "-DBUILD_TESTS=OFF",
+    "-DBUILD_EXAMPLES=OFF",
+    "-DSDL_TTF_SAMPLES=OFF",
+    "-DBUILD_DOC=OFF",
+]

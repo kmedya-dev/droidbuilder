@@ -1,27 +1,49 @@
 import click
 import os
+from urllib.parse import urlparse
 from ..cli_logger import logger
-from ..tools.installer import install
+from ..tools.installer import install as install_package
+from ..utils.package_resolver import resolve_package
+from ..config import load_config
 
 INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
 
+def is_url(path):
+    """Check if a given path is a URL."""
+    try:
+        result = urlparse(path)
+        return all([result.scheme, result.netloc])
+    except ValueError:
+        return False
+
 @click.command()
-@click.argument('url')
-@click.option('--name', default=None, help='Optional: Name to use for the extracted package directory.')
+@click.argument('package')
+@click.option('--version', default=None, help='Version of the package to install.')
 @click.option('--verbose', '-v', is_flag=True, help='Enable verbose output.')
-def install(url, name, source_dir, verbose):
+def install(package, version, verbose):
     """
-    Installs a package from a direct URL by downloading and extracting it.
+    Installs a package from a direct URL or by resolving a package name.
     """
-    base_filename = url.split('/')[-1].split('.')[0]
-    # Use provided package_name for extraction directory if available, otherwise use derived base_filename
-    final_extract_name = name if name else base_filename
+    config = load_config()
+    dependency_mapping = config.get('dependencies', {})
 
-    if not source_dir:
-        source_dir = os.path.join(INSTALL_DIR, "sources", final_extract_name)
-
-    logger.info(f"Installing from {url} to {source_dir}...")
-    if install(url, source_dir, final_extract_name, verbose=verbose):
-        logger.success("Installation complete.")
+    if is_url(package):
+        url = package
+        name = url.split('/')[-1].split('.')[0]
     else:
-        logger.error("Installation failed.")
+        name = package
+        _, url, version = resolve_package(name, version, dependency_mapping)
+
+    if not url:
+        logger.error(f"Could not resolve package: {name}")
+        return
+
+    logger.info(f"Installing {name} from {url}...")
+
+    dest_dir = os.path.join(INSTALL_DIR, "sources", name)
+    installed_path = install_package(url, dest_dir, verbose=verbose)
+
+    if installed_path:
+        logger.success(f"Successfully installed {name} to {installed_path}")
+    else:
+        logger.error(f"Failed to install {name}")

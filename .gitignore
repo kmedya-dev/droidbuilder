@@ -62,16 +62,16 @@ Thumbs.db
 desktop.ini
 
 # ===============================
+# Some files & folders
+# ===============================
+*.tar.gz
+*.zip
+.extracted_files/
+
+# ===============================
 # Extras
 # ===============================
-extras/
-deps/py2jib
-browser/
-droidbuilder/builder.py1
-droidbuilder/py2jib/
-droidbuilder/templates/
 *.swp
 package.json
 package-lock.json
 node_modules/*
-.env

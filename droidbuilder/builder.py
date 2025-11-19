@@ -1,9 +1,9 @@
 import os
 import sys
 import shutil
-from . import config
 from . import toolchain
 from .cli_logger import logger
+from .config import load_config
 from .utils import ARCH_MAP, BuildEnvironment, resolve_config_type, patch_resolver, run_shell_command, get_explicit_dependencies, resolve_package
 from .tools.installer import install
 
@@ -435,30 +435,6 @@ def _copy_user_python_code(build_path, main_file):
 def build_android(config, verbose):
     """Build the Android application."""
     logger.info("Building Android application...")
-
-    app_name = config.get("app", {}).get("name", "MyAwesomeApp")
-    package_domain = config.get("app", {}).get("package_domain", "org.test")
-    app_version = config.get("app", {}).get("version", "0.1")
-    main_file = config.get("app", {}).get("main_file", "main.py")
-    target_platforms = config.get("app", {}).get("target_platforms", [])
-    
-    sdk_version = config.get("android", {}).get("sdk_version", "36")
-    ndk_version = config.get("android", {}).get("ndk_version", "28.2.13676358")
-    min_sdk_version = config.get("android", {}).get("min_sdk_version", "24")
-    ndk_api = config.get("android", {}).get("ndk_api", "24")
-    archs = config.get("android", {}).get("archs", ["arm64-v8a", "armeabi-v7a"])
-    manifest_file = config.get("android", {}).get("manifest_file", "")
-    
-    python_version = config.get("python", {}).get("python_version", "3.12.1")
-    python_host = sys.executable
-
-    build_type = config.get("build", {}).get("type", "debug")
-
-    used_apt_fallback = False
-    if verbose:
-        logger.info(f"Configuration: {config}")
-
-    runtime_packages, buildtime_packages, dependency_mapping = get_explicit_dependencies(config)
 
     # Build path
     build_path = os.path.join(BUILD_DIR, app_name)

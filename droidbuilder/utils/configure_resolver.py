@@ -175,8 +175,6 @@ def _generate_cmake_commands(
         f"-DCMAKE_PKG_CONFIG_EXECUTABLE={pkg_config}",
         "-DBUILD_SHARED_LIBS=ON",
         "-DBUILD_STATIC_LIBS=OFF",
-        "-DBUILD_SAMPLES=OFF"
-        "-DBUILD_TESTS=OFF"
     ]
 
     configure_cmd.extend(extra_configure_args)
