@@ -1,9 +1,9 @@
 import os
 import sys
 import shutil
+from . import config
 from . import toolchain
 from .cli_logger import logger
-from .config import load_config
 from .utils import ARCH_MAP, BuildEnvironment, resolve_config_type, patch_resolver, run_shell_command, get_explicit_dependencies, resolve_package
 from .tools.installer import install
 
@@ -436,6 +436,40 @@ def build_android(config, verbose):
     """Build the Android application."""
     logger.info("Building Android application...")
 
+    # Extract configuration
+    # app configs
+    app_config = config.get("app", {})
+    app_name = app_config.get("name")
+    package_domain = app_config.get("package_domain")
+    app_version = app_config.get("version")
+    main_file = app_config.get("main_file")
+    target_platforms = app_config.get("target_platforms", [])
+
+    # Android configs
+    android_config = config.get("android", {})
+    sdk_version = android_config.get("sdk_version")
+    ndk_version = android_config.get("ndk_version")
+    min_sdk_version = android_config.get("min_sdk_version")
+    ndk_api = android_config.get("ndk_api")
+    archs = android_config.get("archs", [])
+    manifest_file = android_config.get("manifest_file")
+
+    # Python configs
+    python_config = config.get("python", {})
+    python_version = python_config.get("python_version")
+    python_host = sys.executable  # Assuming host python is the current interpreter
+
+    # Build configs
+    build_config = config.get("build", {})
+    build_type = build_config.get("type", "debug")
+
+    # Dependency configs
+    runtime_packages, buildtime_packages, dependency_mapping = get_explicit_dependencies(config)
+
+    extra_configure_args_config = config.get("build", {}).get("configure", {}).get("extra_configure_args", {})
+
+    used_apt_fallback = False
+
     # Build path
     build_path = os.path.join(BUILD_DIR, app_name)
     dist_dir = os.path.join(os.getcwd(), "dist")
@@ -480,9 +514,12 @@ def build_android(config, verbose):
             if not buildtime_package_source_path:
                 logger.error(f"Failed to download buildtime package {name}. Aborting.")
                 return False
-                
+
+            extra_args = extra_configure_args_config.get(name, [])
             for arch in archs:
-                if not _compile_buildtime_package(name, {}, buildtime_package_source_path, env_map[arch], config):
+                if not _compile_buildtime_package(
+                    name, {}, buildtime_package_source_path, env_map[arch], config, extra_configure_args=extra_args
+                ):
                     logger.error(f"Failed to compile buildtime package {name} for {arch}. Aborting.")
                     return False
 
