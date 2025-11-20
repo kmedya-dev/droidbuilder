@@ -56,11 +56,10 @@ def _get_default_config():
         "python": {
             "python_version": "3.9.13",
         },
-        "build": {
-            "type": "debug",
-            "patches": {}
-        }
-    }
+                    "build": {
+                        "type": "debug",
+                        "patches": "patches"
+                    }    }
 
 
 
@@ -143,7 +142,7 @@ def init(ctx, non_interactive, config_file):
                 },
                 "build": {
                     "type": build_type,
-                    "patches": {}
+                    "patches": "patches"
                 }
             }
         except click.Abort:

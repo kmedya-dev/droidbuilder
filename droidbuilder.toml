@@ -36,11 +36,9 @@ sdl2_ttf = "https://github.com/libsdl-org/SDL_ttf/releases/download/release-2.24
 
 [build]
 type = "debug"
+patches = "patches"
 
-[build.patches]
-kivy = ["kivy_android_build.patch"]
-
-[build.configure.extra_configure_args]
+[build.configure.arguments]
 sdl2_ttf = [
     "-DBUILD_TESTS=OFF",
     "-DBUILD_EXAMPLES=OFF",
