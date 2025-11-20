@@ -133,6 +133,40 @@ def _generate_autotools_commands(
     clean_cmd = ["make", "clean"]
     return clean_cmd, configure_cmd, build_cmd, install_cmd
 
+def _generate_cmake_toolchain_file(
+    package_source_path: str,
+    arch: str,
+    ndk_api: str,
+    cc: str,
+    cxx: str,
+    ar: str,
+    as_: str,
+    ld: str,
+    ranlib: str,
+    strip: str,
+    sysroot: str,
+) -> str:
+    toolchain_file_path = os.path.join(package_source_path, f"android.toolchain.cmake")
+    with open(toolchain_file_path, "w") as f:
+        f.write(f"set(CMAKE_SYSTEM_NAME Android)\n")
+        f.write(f"set(CMAKE_SYSTEM_VERSION {ndk_api})\n")
+        f.write(f"set(CMAKE_ANDROID_ARCH_ABI {arch})\n")
+
+        f.write(f"set(CMAKE_C_COMPILER {cc})\n")
+        f.write(f"set(CMAKE_CXX_COMPILER {cxx})\n")
+        f.write(f"set(CMAKE_AR {ar})\n")
+        f.write(f"set(CMAKE_AS {as_})\n")
+        f.write(f"set(CMAKE_LD {ld})\n")
+        f.write(f"set(CMAKE_RANLIB {ranlib})\n")
+        f.write(f"set(CMAKE_STRIP {strip})\n")
+
+        f.write(f"set(CMAKE_SYSROOT {sysroot})\n")
+        f.write(f"set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)\n")
+        f.write(f"set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)\n")
+        f.write(f"set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)\n")
+        f.write(f"set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)\n")
+    return toolchain_file_path
+
 def _generate_cmake_commands(
     package_name: str,
     package_source_path: str,
@@ -159,7 +193,19 @@ def _generate_cmake_commands(
     logger.info(f"  - Generating CMake build commands for {package_name}.")
 
     build_dir = os.path.join(package_source_path, "build")
-    build_arch = _get_build_arch(package_source_path)
+    toolchain_file = _generate_cmake_toolchain_file(
+        package_source_path,
+        arch,
+        ndk_api,
+        cc,
+        cxx,
+        ar,
+        as_,
+        ld,
+        ranlib,
+        strip,
+        sysroot,
+    )
 
     configure_cmd = [
         "cmake",
@@ -167,11 +213,7 @@ def _generate_cmake_commands(
         "-B", build_dir,
         f"-DCMAKE_INSTALL_PREFIX={install_dir}",
         f"-DCMAKE_INSTALL_LIBDIR={libdir_relative}",
-        f"-DCMAKE_TOOLCHAIN_FILE={ndk_root}/build/cmake/android.toolchain.cmake",
-        f"-DCMAKE_SYSTEM_NAME=Android",
-        f"-DCMAKE_SYSTEM_PROCESSOR={ARCH_MAP[arch][1]}",
-        f"-DANDROID_ABI={arch}",
-        f"-DANDROID_NATIVE_API_LEVEL={ndk_api}",
+        f"-DCMAKE_TOOLCHAIN_FILE={toolchain_file}",
         f"-DCMAKE_PKG_CONFIG_EXECUTABLE={pkg_config}",
         "-DBUILD_SHARED_LIBS=ON",
         "-DBUILD_STATIC_LIBS=OFF",
@@ -449,6 +491,7 @@ def resolve_config_type(
         logger.warning(f"  - No build system found for {package_name}. It will not be configured or built.")
 
     return {
+        "config_type": config_type,
         "clean_command": clean_cmd,
         "configure_command": configure_cmd,
         "build_command": build_cmd,
