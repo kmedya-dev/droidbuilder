@@ -133,6 +133,7 @@ def _generate_autotools_commands(
     clean_cmd = ["make", "clean"]
     return clean_cmd, configure_cmd, build_cmd, install_cmd
 
+
 def _generate_cmake_commands(
     package_name: str,
     package_source_path: str,
@@ -156,10 +157,7 @@ def _generate_cmake_commands(
     pkg_config: str,
     extra_configure_args: list[str] = [],
 ) -> tuple:
-    logger.info(f"  - Generating CMake build commands for {package_name}.")
-
     build_dir = os.path.join(package_source_path, "build")
-    build_arch = _get_build_arch(package_source_path)
 
     configure_cmd = [
         "cmake",
@@ -172,6 +170,7 @@ def _generate_cmake_commands(
         f"-DCMAKE_SYSTEM_PROCESSOR={ARCH_MAP[arch][1]}",
         f"-DANDROID_ABI={arch}",
         f"-DANDROID_NATIVE_API_LEVEL={ndk_api}",
+        f"-DCMAKE_ANDROID_STANDALONE_TOOLCHAIN=OFF",
         f"-DCMAKE_PKG_CONFIG_EXECUTABLE={pkg_config}",
         "-DBUILD_SHARED_LIBS=ON",
         "-DBUILD_STATIC_LIBS=OFF",
@@ -449,6 +448,7 @@ def resolve_config_type(
         logger.warning(f"  - No build system found for {package_name}. It will not be configured or built.")
 
     return {
+        "config_type": config_type,
         "clean_command": clean_cmd,
         "configure_command": configure_cmd,
         "build_command": build_cmd,
