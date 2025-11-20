@@ -105,9 +105,9 @@ def resolve_package(name, version, dependency_mapping):
     logger.info(f"Resolving package: {name}{f' version {version}' if version else ''}")
 
     # 1. Check dependency_mapping in droidbuilder.toml
-    if name in dependency_mapping:
+    if name.lower() in dependency_mapping:
         logger.info(f"  - Found '{name}' in dependency_mapping.")
-        url_template = dependency_mapping[name]
+        url_template = dependency_mapping[name.lower()]
         if '{version}' in url_template:
             if version:
                 url = url_template.format(version=version)

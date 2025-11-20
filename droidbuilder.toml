@@ -42,6 +42,6 @@ patches = "patches"
 sdl2_ttf = [
     "-DBUILD_TESTS=OFF",
     "-DBUILD_EXAMPLES=OFF",
-    "-DSDL_TTF_SAMPLES=OFF",
+    "-DSDL2TTF_SAMPLES=OFF",
     "-DBUILD_DOC=OFF",
 ]
