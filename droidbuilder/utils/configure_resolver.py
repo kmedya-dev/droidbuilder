@@ -99,8 +99,7 @@ def _generate_autotools_commands(
         if os.path.exists(os.path.join(package_source_path, "autogen.sh")):
             logger.info("  - 'configure' script not found, running 'autogen.sh'.")
             pre_configure_cmd = ["autogen.sh"]
-        elif any(os.path.exists(os.path.join(package_source_path, fname))
-                 for fname in ("configure.ac", "configure.in")):
+        elif any(os.path.exists(os.path.join(package_source_path, fname)) for fname in ("configure.ac", "configure.in")):
             logger.info("  - 'configure' script not found, running 'autoreconf -fi'.")
             pre_configure_cmd = ["autoreconf", "-fi"]
         else:
@@ -159,7 +158,6 @@ def _generate_cmake_commands(
     logger.info(f"  - Generating CMake build commands for {package_name}.")
 
     build_dir = os.path.join(package_source_path, "build")
-    build_arch = _get_build_arch(package_source_path)
 
     configure_cmd = [
         "cmake",
@@ -168,10 +166,6 @@ def _generate_cmake_commands(
         f"-DCMAKE_INSTALL_PREFIX={install_dir}",
         f"-DCMAKE_INSTALL_LIBDIR={libdir_relative}",
         f"-DCMAKE_TOOLCHAIN_FILE={ndk_root}/build/cmake/android.toolchain.cmake",
-        f"-DCMAKE_SYSTEM_NAME=Android",
-        f"-DCMAKE_SYSTEM_PROCESSOR={ARCH_MAP[arch][1]}",
-        f"-DANDROID_ABI={arch}",
-        f"-DANDROID_NATIVE_API_LEVEL={ndk_api}",
         f"-DCMAKE_PKG_CONFIG_EXECUTABLE={pkg_config}",
         "-DBUILD_SHARED_LIBS=ON",
         "-DBUILD_STATIC_LIBS=OFF",
@@ -182,38 +176,6 @@ def _generate_cmake_commands(
     install_cmd = ["cmake", "--install", build_dir]
     clean_cmd = ["rm", "-rf", build_dir]
     return clean_cmd, configure_cmd, build_cmd, install_cmd
-
-def _generate_meson_cross_file(
-    package_source_path: str,
-    arch: str,
-    cc: str,
-    cxx: str,
-    ar: str,
-    strip: str,
-    sysroot: str,
-    pkg_config: str,
-) -> str:
-    meson_cpu_family = ARCH_MAP[arch][1]
-    meson_cpu = ARCH_MAP[arch][2]
-    cross_file_path = os.path.join(package_source_path, f"meson-cross-{arch}.ini")
-
-    with open(cross_file_path, "w") as f:
-        f.write("[binaries]\n")
-        f.write(f"c = '{cc}'\n")
-        f.write(f"cpp = '{cxx}'\n")
-        f.write(f"ar = '{ar}'\n")
-        f.write(f"strip = '{strip}'\n")
-        f.write(f"pkg-config = '{pkg_config}'\n")
-        f.write("\n")
-        f.write("[host_machine]\n")
-        f.write("system = 'android'\n")
-        f.write(f"cpu_family = '{meson_cpu_family}'\n")
-        f.write(f"cpu = '{meson_cpu}'\n")
-        f.write("endian = 'little'\n")
-        f.write("\n")
-        f.write("[properties]\n")
-        f.write(f"sys_root = '{sysroot}'\n")
-    return cross_file_path
 
 def _generate_meson_commands(
     package_name: str,
@@ -241,14 +203,34 @@ def _generate_meson_commands(
     logger.info(f"  - Generating Meson build commands for {package_name}.")
 
     build_dir = os.path.join(package_source_path, "build")
-    cross_file_path = _generate_meson_cross_file(
-        package_source_path, arch, cc, cxx, ar, strip, sysroot, pkg_config
-    )
+
+    meson_cpu_family = ARCH_MAP[arch][1]
+    meson_cpu = ARCH_MAP[arch][2]
+
+    cross_file_path = os.path.join(package_source_path, f"meson-cross-{arch}.ini")
+
+    with open(cross_file_path, "w") as f:
+        f.write("[binaries]\n")
+        f.write(f"c = '{cc}'\n")
+        f.write(f"cpp = '{cxx}'\n")
+        f.write(f"ar = '{ar}'\n")
+        f.write(f"as = '{as_}'\n")
+        f.write(f"strip = '{strip}'\n")
+        f.write(f"pkg-config = '{pkg_config}'\n")
+        f.write("\n")
+        f.write("[host_machine]\n")
+        f.write("system = 'android'\n")
+        f.write(f"cpu_family = '{meson_cpu_family}'\n")
+        f.write(f"cpu = '{meson_cpu}'\n")
+        f.write("endian = 'little'\n")
+        f.write("\n")
+        f.write("[properties]\n")
+        f.write(f"sys_root = '{sysroot}'\n")
 
     configure_cmd = [
         "meson", "setup", build_dir,
-        "-Dprefix={install_dir}",
-        "-Dlibdir={libdir_relative}",
+        f"-Dprefix={install_dir}",
+        f"-Dlibdir={libdir_relative}",
         f"--cross-file={cross_file_path}",
         "--buildtype=release",
         "-Ddefault_library=shared",
