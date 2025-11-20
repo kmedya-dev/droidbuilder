@@ -466,7 +466,7 @@ def build_android(config, verbose):
     # Dependency configs
     runtime_packages, buildtime_packages, dependency_mapping = get_explicit_dependencies(config)
 
-    extra_configure_args_config = config.get("build", {}).get("configure", {}).get("extra_configure_args", {})
+    extra_configure_args_config = config.get("build", {}).get("configure", {}).get("arguments", {})
 
     used_apt_fallback = False
 
