@@ -216,7 +216,7 @@ def _compile_runtime_package(package_name, package_config, runtime_package_sourc
 
 def _compile_buildtime_package(package_name, package_config, buildtime_package_source_path, env_obj, config, extra_configure_args=[]):
     """Compiles and installs a buildtime package for a specific Android architecture."""
-    logger.info(f"  - Compiling buildtime package {package_name} for {env_obj.arch}...")
+    logger.info(f"  - Compiling buildtime package {package_name} for {env_obj.arch} with extra_configure_args: {extra_configure_args}...")
 
     # Apply patches if specified in config
     if not patch_resolver.apply_patches(package_name, buildtime_package_source_path, config):
