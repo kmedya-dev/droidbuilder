@@ -168,7 +168,7 @@ def _generate_cmake_commands(
         "-B", build_dir,
         f"-DCMAKE_TOOLCHAIN_FILE={ndk_root}/build/cmake/android.toolchain.cmake",
         f"-DANDROID_PLATFORM=android-{ndk_api}",
-        f"-DANDROID_ABI={ARCH_MAP[arch][4]}",
+        f"-DANDROID_ABI={arch}",
         "-DCMAKE_BUILD_TYPE=Release",
         f"-DCMAKE_INSTALL_PREFIX={install_dir}",
         f"-DCMAKE_INSTALL_LIBDIR={libdir_relative}",
