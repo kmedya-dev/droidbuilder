@@ -181,6 +181,7 @@ def _generate_cmake_commands(
         "-DBUILD_SHARED_LIBS=ON",
         "-DBUILD_TESTING=OFF",
         "-DBUILD_EXAMPLES=OFF", # Not all CMake projects support BUILD_EXAMPLES, but many do.
+        "-DBUILD_PROGRAMS=OFF",
         "-DCMAKE_POSITION_INDEPENDENT_CODE=ON",
         f"-DCMAKE_AR={ar}",
         f"-DCMAKE_ASM_COMPILER={as_}",

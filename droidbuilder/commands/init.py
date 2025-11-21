@@ -30,6 +30,7 @@ def _get_default_config():
             "name": "MyAwesomeApp",
             "package_domain": "org.test",
             "version": "0.1",
+            "project_root": ".",
             "main_file": "main.py",
             "target_platforms": ["android"],
             "dependency": {
@@ -86,11 +87,13 @@ def init(ctx, non_interactive, config_file):
         try:
             app_name = _prompt_for_input("App Name", "MyAwesomeApp")
             app_version = _prompt_for_input("App Version", "0.1")
-            main_file = _prompt_for_input("Main Python File (e.g., main.py)", "main.py")
+            project_root = _prompt_for_input("Project Root (e.g., . or dir_name)", ".")
+            main_file = _prompt_for_input("Main Python File (e.g., main.py)", "{project_root}/main.py".format(project_root=project_root))
 
             target_platforms = _prompt_for_list_input("Target Platforms (comma-separated: android, ios, desktop)", "android")
             package_domain = _prompt_for_input("Package Domain (e.g., org.example)", "org.test")
             build_type = _prompt_for_input("Build Type", "debug", type=click.Choice(['debug', 'release']))
+            patch_dir = _prompt_for_input("Patch Directory (e.g., patches)", "{project_root}/patches".format(project_root=project_root))
 
             archs = _prompt_for_list_input("Target Architectures (comma-separated: e.g., arm64-v8a,armeabi-v7a)", "arm64-v8a,armeabi-v7a")
             manifest_file = _prompt_for_input("Path to custom AndroidManifest.xml (leave empty for default)", "")
@@ -114,6 +117,7 @@ def init(ctx, non_interactive, config_file):
                     "name": app_name,
                     "package_domain": package_domain,
                     "version": app_version,
+                    "project_root": project_root,
                     "main_file": main_file,
                     "target_platforms": target_platforms,
                     "dependency": {
@@ -142,7 +146,7 @@ def init(ctx, non_interactive, config_file):
                 },
                 "build": {
                     "type": build_type,
-                    "patches": "patches"
+                    "patches": patch_dir
                 }
             }
         except click.Abort:
