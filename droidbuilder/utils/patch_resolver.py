@@ -45,6 +45,6 @@ def apply_patches(package_name: str, package_source_path: str, config: dict) -> 
         else:
             logger.info(f"  - No patches found for {package_name} in {patches_dir}.")
     else:
-        logger.info(f"  - 'build.patches' directory not specified or found. Skipping patches for {package_name}.")
+        logger.info(f"  - 'app.dependency.patch_dir' not specified or found. Skipping patches for {package_name}.")
 
     return True

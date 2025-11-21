@@ -218,9 +218,7 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
     """Compiles and installs a buildtime package for a specific Android architecture."""
     logger.info(f"  - Compiling buildtime package {package_name} for {env_obj.arch} with extra_configure_args: {extra_configure_args}...")
 
-    # Apply patches if specified in config
-    if not patch_resolver.apply_patches(package_name, buildtime_package_source_path, config):
-        return False
+
 
     # as runtime_packages & python_source's c_types modules, (not needed to bundled as jnilibs)
     install_dir = os.path.join(env_obj.sysroot, "usr")
@@ -523,6 +521,10 @@ def build_android(config, verbose):
             buildtime_package_source_path = install(url, buildtime_package_source_dir, f"{name}-{resolved_version or ''}", verbose=verbose)
             if not buildtime_package_source_path:
                 logger.error(f"Failed to download buildtime package {name}. Aborting.")
+                return False
+
+            # Apply patches if specified in config, once after extraction
+            if not patch_resolver.apply_patches(name, buildtime_package_source_path, config):
                 return False
 
             extra_args = extra_configure_args_config.get(name, [])
