@@ -2,7 +2,8 @@
 name = "MyAwesomeApp"
 package_domain = "org.test"
 version = "0.1"
-main_file = "main.py"
+root_dir = "."
+main_file = "./main.py"
 target_platforms = [ "android"]
 
 [android]
@@ -26,6 +27,8 @@ python_version = "3.12.1"
 [app.dependency]
 runtime_packages = ["kivy==2.3.1", "pyjnius"]
 buildtime_packages = ["libffi==3.5.2", "openssl", "sdl2==2.32.2", "sdl2_ttf==2.24.0"]
+patch_dir = "./patches"
+
 
 [app.dependency_mapping]
 libffi = "https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz"
@@ -36,6 +39,5 @@ sdl2_ttf = "https://github.com/libsdl-org/SDL_ttf/releases/download/release-2.24
 
 [build]
 type = "debug"
-patches = "patches"
 
 [build.configure.arguments]

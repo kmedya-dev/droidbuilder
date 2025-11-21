@@ -30,12 +30,13 @@ def _get_default_config():
             "name": "MyAwesomeApp",
             "package_domain": "org.test",
             "version": "0.1",
-            "project_root": ".",
+            "root_dir": ".",
             "main_file": "main.py",
             "target_platforms": ["android"],
             "dependency": {
                 "runtime_packages": [],
                 "buildtime_packages": ["libffi"],
+                "patch_dir": "patches",
             },
             "dependency_mapping": {},
         },
@@ -58,8 +59,7 @@ def _get_default_config():
             "python_version": "3.9.13",
         },
                     "build": {
-                        "type": "debug",
-                        "patches": "patches"
+                        "type": "debug"
                     }    }
 
 
@@ -87,13 +87,13 @@ def init(ctx, non_interactive, config_file):
         try:
             app_name = _prompt_for_input("App Name", "MyAwesomeApp")
             app_version = _prompt_for_input("App Version", "0.1")
-            project_root = _prompt_for_input("Project Root (e.g., . or dir_name)", ".")
-            main_file = _prompt_for_input("Main Python File (e.g., main.py)", "{project_root}/main.py".format(project_root=project_root))
+            root_dir = _prompt_for_input("Root Directory (e.g., . or dir_name)", ".")
+            main_file = _prompt_for_input("Main Python File (e.g., main.py)", "{root_dir}/main.py".format(root_dir=root_dir))
 
             target_platforms = _prompt_for_list_input("Target Platforms (comma-separated: android, ios, desktop)", "android")
             package_domain = _prompt_for_input("Package Domain (e.g., org.example)", "org.test")
             build_type = _prompt_for_input("Build Type", "debug", type=click.Choice(['debug', 'release']))
-            patch_dir = _prompt_for_input("Patch Directory (e.g., patches)", "{project_root}/patches".format(project_root=project_root))
+            patch_dir = _prompt_for_input("Patch Directory (e.g., patches)", "{root_dir}/patches".format(root_dir=root_dir))
 
             archs = _prompt_for_list_input("Target Architectures (comma-separated: e.g., arm64-v8a,armeabi-v7a)", "arm64-v8a,armeabi-v7a")
             manifest_file = _prompt_for_input("Path to custom AndroidManifest.xml (leave empty for default)", "")
@@ -117,12 +117,13 @@ def init(ctx, non_interactive, config_file):
                     "name": app_name,
                     "package_domain": package_domain,
                     "version": app_version,
-                    "project_root": project_root,
+                    "root_dir": root_dir,
                     "main_file": main_file,
                     "target_platforms": target_platforms,
                     "dependency": {
                         "runtime_packages": runtime_packages,
                         "buildtime_packages": buildtime_packages,
+                        "patch_dir": patch_dir,
                     },
                     "dependency_mapping": {},
                 },
@@ -145,8 +146,7 @@ def init(ctx, non_interactive, config_file):
                     "python_version": python_version,
                 },
                 "build": {
-                    "type": build_type,
-                    "patches": patch_dir
+                    "type": build_type
                 }
             }
         except click.Abort:

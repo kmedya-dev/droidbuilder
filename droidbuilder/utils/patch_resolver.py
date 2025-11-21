@@ -15,10 +15,13 @@ def apply_patches(package_name: str, package_source_path: str, config: dict) -> 
     Returns:
         True if all applicable patches were applied successfully or no patches were found, False otherwise.
     """
-    patches_dir = config.get("build", {}).get("patches")
+    patches_dir = config.get("app", {}).get("dependency", {}).get("patch_dir")
+    if patches_dir:
+        # Resolve patches_dir to an absolute path relative to the current working directory
+        patches_dir = os.path.abspath(os.path.join(os.getcwd(), patches_dir))
 
     if patches_dir and os.path.isdir(patches_dir):
-        patch_pattern = os.path.join(patches_dir, f"{package_name}*.patch")
+        patch_pattern = os.path.join(patches_dir, f"{package_name}-*.patch")
         patch_files = glob.glob(patch_pattern)
 
         if patch_files:
