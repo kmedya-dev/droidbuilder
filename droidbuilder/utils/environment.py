@@ -70,9 +70,9 @@ class BuildEnvironment:
             self.pkg_config_path = "pkg-config"
 
         # Initialize cflags, ldflags, asmflags, and cxxflags with base values
-        self.cflags = f"--sysroot={self.sysroot} -fPIC -DANDROID -D__ANDROID_API__={self.ndk_api}"
-        self.cxxflags = f"--sysroot={self.sysroot} -fPIC -DANDROID -D__ANDROID_API__={self.ndk_api}"
-        self.asmflags = f"--sysroot={self.sysroot} -fPIC -DANDROID -D__ANDROID_API__={self.ndk_api}"
+        self.cflags = f"--sysroot={self.sysroot} -fPIC -DANDROID"
+        self.cxxflags = f"--sysroot={self.sysroot} -fPIC -DANDROID"
+        self.asmflags = f"--sysroot={self.sysroot} -fPIC -DANDROID"
         self.ldflags = f"-lm -ldl --sysroot={self.sysroot}"
 
         # Prepare environment variables for subprocesses

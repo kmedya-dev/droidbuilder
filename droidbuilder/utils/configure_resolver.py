@@ -178,6 +178,10 @@ def _generate_cmake_commands(
         f"-DCMAKE_SHARED_LINKER_FLAGS={ldflags}",
         f"-DCMAKE_MODULE_LINKER_FLAGS={ldflags}",
         f"-DCMAKE_EXE_LINKER_FLAGS={ldflags}",
+        "-DBUILD_SHARED_LIBS=ON",
+        "-DBUILD_TESTING=OFF",
+        "-DBUILD_EXAMPLES=OFF", # Not all CMake projects support BUILD_EXAMPLES, but many do.
+        "-DCMAKE_POSITION_INDEPENDENT_CODE=ON",
         f"-DCMAKE_AR={ar}",
         f"-DCMAKE_ASM_COMPILER={as_}",
         f"-DCMAKE_C_COMPILER={cc}",
