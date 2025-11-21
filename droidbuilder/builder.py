@@ -91,6 +91,8 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
         install_dir=install_dir,
         libdir_relative=libdir_relative,
         cflags=env_obj.cflags,
+        cxxflags=env_obj.cxxflags, # ADDED
+        asmflags=env_obj.asmflags, # ADDED
         ldflags=env_obj.ldflags,
         ar=env_obj.ar_path,
         as_=env_obj.as_path,
@@ -132,8 +134,8 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
         logger.error(f"Build failed for Python (Exit Code: {result['returncode']}):")
         if result["stdout"]:
             logger.error(f"Stdout:\n{result['stdout']}")
-        if result["stderr"]:
-            logger.error(f"Stderr:\n{result['stderr']}")
+            if result["stderr"]:
+                logger.error(f"Stderr:\n{result['stderr']}")
         return False
 
     result = run_shell_command(install_cmd, description=f"  - Running Python install for {env_obj.arch}", env=env_obj.env, cwd=python_source_dir)
@@ -141,8 +143,8 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
         logger.error(f"Install failed for Python (Exit Code: {result['returncode']}):")
         if result["stdout"]:
             logger.error(f"Stdout:\n{result['stdout']}")
-        if result["stderr"]:
-            logger.error(f"Stderr:\n{result['stderr']}")
+            if result["stderr"]:
+                logger.error(f"Stderr:\n{result['stderr']}")
         return False
 
     logger.success(f"  - Python {python_version} built and installed for {env_obj.arch}.")
@@ -180,12 +182,18 @@ def _compile_runtime_package(package_name, package_config, runtime_package_sourc
         arch=env_obj.arch,
         ndk_api=env_obj.ndk_api,
         install_dir=python_install_dir, # This is the target install dir
-        libdir_relative=None,
+        libdir_relative="", # FIXED
         cflags=env_obj.cflags,
+        cxxflags=env_obj.cxxflags, # ADDED
+        asmflags=env_obj.asmflags, # ADDED
         ldflags=env_obj.ldflags,
         ar=env_obj.ar_path,
+        as_=env_obj.as_path,
         cc=env_obj.cc_path,
         cxx=env_obj.cxx_path,
+        ranlib=env_obj.ranlib_path,
+        readelf=env_obj.readelf_path,
+        nm=env_obj.nm_path,
         strip=env_obj.strip_path,
         ndk_root=env_obj.ndk_root,
         sysroot=env_obj.sysroot,
@@ -227,6 +235,8 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
         install_dir=install_dir,
         libdir_relative=libdir_relative,
         cflags=env_obj.cflags,
+        cxxflags=env_obj.cxxflags, # ADDED
+        asmflags=env_obj.asmflags, # ADDED
         ldflags=env_obj.ldflags,
         ar=env_obj.ar_path,
         as_=env_obj.as_path,
@@ -272,8 +282,8 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
         logger.error(f"Build failed for {package_name} (Exit Code: {result['returncode']}):")
         if result["stdout"]:
             logger.error(f"Stdout:\n{result['stdout']}")
-        if result["stderr"]:
-            logger.error(f"Stderr:\n{result['stderr']}")
+            if result["stderr"]:
+                logger.error(f"Stderr:\n{result['stderr']}")
         return False
 
     result = run_shell_command(install_cmd, description=f"  - Running install for {package_name} on {env_obj.arch}", env=env_obj.env, cwd=buildtime_package_source_path)
@@ -281,8 +291,8 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
         logger.error(f"Install failed for {package_name} (Exit Code: {result['returncode']}):")
         if result["stdout"]:
             logger.error(f"Stdout:\n{result['stdout']}")
-        if result["stderr"]:
-            logger.error(f"Stderr:\n{result['stderr']}")
+            if result["stderr"]:
+                logger.error(f"Stderr:\n{result['stderr']}")
         return False
 
     logger.success(f"  - Successfully compiled and installed {package_name} for {env_obj.arch}.")

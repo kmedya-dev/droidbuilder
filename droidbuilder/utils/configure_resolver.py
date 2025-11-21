@@ -74,6 +74,8 @@ def _generate_autotools_commands(
     install_dir: str,
     libdir_relative: str,
     cflags: str,
+    cxxflags: str,
+    asmflags: str,
     ldflags: str,
     cc: str,
     cxx: str,
@@ -99,8 +101,7 @@ def _generate_autotools_commands(
         if os.path.exists(os.path.join(package_source_path, "autogen.sh")):
             logger.info("  - 'configure' script not found, running 'autogen.sh'.")
             pre_configure_cmd = ["autogen.sh"]
-        elif any(os.path.exists(os.path.join(package_source_path, fname))
-                 for fname in ("configure.ac", "configure.in")):
+        elif any(os.path.exists(os.path.join(package_source_path, fname)) for fname in ("configure.ac", "configure.in")):
             logger.info("  - 'configure' script not found, running 'autoreconf -fi'.")
             pre_configure_cmd = ["autoreconf", "-fi"]
         else:
@@ -142,6 +143,8 @@ def _generate_cmake_commands(
     install_dir: str,
     libdir_relative: str,
     cflags: str,
+    cxxflags: str,
+    asmflags: str,
     ldflags: str,
     cc: str,
     cxx: str,
@@ -163,17 +166,28 @@ def _generate_cmake_commands(
         "cmake",
         "-S", package_source_path,
         "-B", build_dir,
+        f"-DCMAKE_TOOLCHAIN_FILE={ndk_root}/build/cmake/android.toolchain.cmake",
+        f"-DANDROID_PLATFORM=android-{ndk_api}",
+        f"-DANDROID_ABI={ARCH_MAP[arch][4]}",
+        "-DCMAKE_BUILD_TYPE=Release",
         f"-DCMAKE_INSTALL_PREFIX={install_dir}",
         f"-DCMAKE_INSTALL_LIBDIR={libdir_relative}",
-        f"-DCMAKE_TOOLCHAIN_FILE={ndk_root}/build/cmake/android.toolchain.cmake",
-        f"-DCMAKE_SYSTEM_NAME=Android",
-        f"-DCMAKE_SYSTEM_PROCESSOR={ARCH_MAP[arch][1]}",
-        f"-DANDROID_ABI={arch}",
-        f"-DANDROID_NATIVE_API_LEVEL={ndk_api}",
-        f"-DCMAKE_ANDROID_STANDALONE_TOOLCHAIN=OFF",
-        f"-DCMAKE_PKG_CONFIG_EXECUTABLE={pkg_config}",
-        "-DBUILD_SHARED_LIBS=ON",
-        "-DBUILD_STATIC_LIBS=OFF",
+        f"-DCMAKE_C_FLAGS={cflags}",
+        f"-DCMAKE_CXX_FLAGS={cxxflags}",
+        f"-DCMAKE_ASM_FLAGS={asmflags}",
+        f"-DCMAKE_SHARED_LINKER_FLAGS={ldflags}",
+        f"-DCMAKE_MODULE_LINKER_FLAGS={ldflags}",
+        f"-DCMAKE_EXE_LINKER_FLAGS={ldflags}",
+        f"-DCMAKE_AR={ar}",
+        f"-DCMAKE_ASM_COMPILER={as_}",
+        f"-DCMAKE_C_COMPILER={cc}",
+        f"-DCMAKE_CXX_COMPILER={cxx}",
+        f"-DCMAKE_LINKER={ld}",
+        f"-DCMAKE_RANLIB={ranlib}",
+        f"-DCMAKE_NM={nm}",
+        f"-DCMAKE_STRIP={strip}",
+        f"-DCMAKE_FIND_ROOT_PATH={sysroot}",
+        f"-DPKG_CONFIG_EXECUTABLE={pkg_config}",
     ]
 
     configure_cmd.extend(extra_configure_args)
@@ -181,38 +195,6 @@ def _generate_cmake_commands(
     install_cmd = ["cmake", "--install", build_dir]
     clean_cmd = ["rm", "-rf", build_dir]
     return clean_cmd, configure_cmd, build_cmd, install_cmd
-
-def _generate_meson_cross_file(
-    package_source_path: str,
-    arch: str,
-    cc: str,
-    cxx: str,
-    ar: str,
-    strip: str,
-    sysroot: str,
-    pkg_config: str,
-) -> str:
-    meson_cpu_family = ARCH_MAP[arch][1]
-    meson_cpu = ARCH_MAP[arch][2]
-    cross_file_path = os.path.join(package_source_path, f"meson-cross-{arch}.ini")
-
-    with open(cross_file_path, "w") as f:
-        f.write("[binaries]\n")
-        f.write(f"c = '{cc}'\n")
-        f.write(f"cpp = '{cxx}'\n")
-        f.write(f"ar = '{ar}'\n")
-        f.write(f"strip = '{strip}'\n")
-        f.write(f"pkg-config = '{pkg_config}'\n")
-        f.write("\n")
-        f.write("[host_machine]\n")
-        f.write("system = 'android'\n")
-        f.write(f"cpu_family = '{meson_cpu_family}'\n")
-        f.write(f"cpu = '{meson_cpu}'\n")
-        f.write("endian = 'little'\n")
-        f.write("\n")
-        f.write("[properties]\n")
-        f.write(f"sys_root = '{sysroot}'\n")
-    return cross_file_path
 
 def _generate_meson_commands(
     package_name: str,
@@ -222,6 +204,8 @@ def _generate_meson_commands(
     install_dir: str,
     libdir_relative: str,
     cflags: str,
+    cxxflags: str,
+    asmflags: str,
     ldflags: str,
     cc: str,
     cxx: str,
@@ -240,14 +224,34 @@ def _generate_meson_commands(
     logger.info(f"  - Generating Meson build commands for {package_name}.")
 
     build_dir = os.path.join(package_source_path, "build")
-    cross_file_path = _generate_meson_cross_file(
-        package_source_path, arch, cc, cxx, ar, strip, sysroot, pkg_config
-    )
+
+    meson_cpu_family = ARCH_MAP[arch][1]
+    meson_cpu = ARCH_MAP[arch][2]
+
+    cross_file_path = os.path.join(package_source_path, f"meson-cross-{arch}.ini")
+
+    with open(cross_file_path, "w") as f:
+        f.write("[binaries]\n")
+        f.write(f"c = '{cc}'\n")
+        f.write(f"cpp = '{cxx}'\n")
+        f.write(f"ar = '{ar}'\n")
+        f.write(f"as = '{as_}'\n")
+        f.write(f"strip = '{strip}'\n")
+        f.write(f"pkg-config = '{pkg_config}'\n")
+        f.write("\n")
+        f.write("[host_machine]\n")
+        f.write("system = 'android'\n")
+        f.write(f"cpu_family = '{meson_cpu_family}'\n")
+        f.write(f"cpu = '{meson_cpu}'\n")
+        f.write("endian = 'little'\n")
+        f.write("\n")
+        f.write("[properties]\n")
+        f.write(f"sys_root = '{sysroot}'\n")
 
     configure_cmd = [
         "meson", "setup", build_dir,
-        "-Dprefix={install_dir}",
-        "-Dlibdir={libdir_relative}",
+        f"-Dprefix={install_dir}",
+        f"-Dlibdir={libdir_relative}",
         f"--cross-file={cross_file_path}",
         "--buildtype=release",
         "-Ddefault_library=shared",
@@ -268,6 +272,8 @@ def _generate_Configure_commands(
     install_dir: str,
     libdir_relative: str,
     cflags: str,
+    cxxflags: str,
+    asmflags: str,
     ldflags: str,
     cc: str,
     cxx: str,
@@ -317,6 +323,8 @@ def _generate_pip_commands(
     install_dir: str,
     libdir_relative: str,
     cflags: str,
+    cxxflags: str,
+    asmflags: str,
     ldflags: str,
     cc: str,
     cxx: str,
@@ -360,6 +368,8 @@ def resolve_config_type(
     install_dir: str,
     libdir_relative: str = "",
     cflags: str = "",
+    cxxflags: str = "",
+    asmflags: str = "",
     ldflags: str = "",
     cc: str = "",
     cxx: str = "",
@@ -427,6 +437,8 @@ def resolve_config_type(
             install_dir,
             libdir_relative,
             cflags,
+            cxxflags,
+            asmflags,
             ldflags,
             cc,
             cxx,

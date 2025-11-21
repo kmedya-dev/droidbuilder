@@ -39,9 +39,3 @@ type = "debug"
 patches = "patches"
 
 [build.configure.arguments]
-sdl2_ttf = [
-    "-DBUILD_TESTS=OFF",
-    "-DBUILD_EXAMPLES=OFF",
-    "-DSDL2TTF_SAMPLES=OFF",
-    "-DBUILD_DOC=OFF",
-]

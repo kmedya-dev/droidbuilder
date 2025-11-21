@@ -22,6 +22,8 @@ class BuildEnvironment:
         self.readelf_path = None
         self.nm_path = None
         self.cflags = None
+        self.cxxflags = None
+        self.asmflags = None
         self.ldflags = None
         self.ndk_root = None
         self.compiler_prefix = None
@@ -67,8 +69,10 @@ class BuildEnvironment:
             logger.warning("  - 'pkg-config' not found in PATH. Some packages may fail to build.")
             self.pkg_config_path = "pkg-config"
 
-        # Initialize cflags and ldflags with base values
+        # Initialize cflags, ldflags, asmflags, and cxxflags with base values
         self.cflags = f"--sysroot={self.sysroot} -fPIC -DANDROID -D__ANDROID_API__={self.ndk_api}"
+        self.cxxflags = f"--sysroot={self.sysroot} -fPIC -DANDROID -D__ANDROID_API__={self.ndk_api}"
+        self.asmflags = f"--sysroot={self.sysroot} -fPIC -DANDROID -D__ANDROID_API__={self.ndk_api}"
         self.ldflags = f"-lm -ldl --sysroot={self.sysroot}"
 
         # Prepare environment variables for subprocesses
@@ -85,6 +89,8 @@ class BuildEnvironment:
         self.env["SYSROOT"] = self.sysroot
         self.env["PATH"] = f"{self.toolchain_bin}:{self.env['PATH']}"
         self.env["CFLAGS"] = self.cflags
+        self.env["CXXFLAGS"] = self.cxxflags # Added
+        self.env["ASMFLAGS"] = self.asmflags
         self.env["LDFLAGS"] = self.ldflags
         self.env["PKG_CONFIG"] = self.pkg_config_path
         self.env["PKG_CONFIG_PATH"] = f"{self.sysroot}/usr/lib/pkgconfig"
