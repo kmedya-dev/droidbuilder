@@ -1,9 +1,9 @@
 import os
 import sys
 
+from .system_info import get_triplet, ARCH_MAP
+from ..utils import run_shell_command
 from ..cli_logger import logger
-from ..utils.command_executor import run_shell_command
-from ..utils.system_info import get_triplet, ARCH_MAP
 
 def _autodetect_config_type(package_source_path: str, package_name: str) -> str:
     if os.path.exists(os.path.join(package_source_path, "meson.build")):
@@ -164,8 +164,8 @@ def _generate_cmake_commands(
         f"-DANDROID_PLATFORM=android-{ndk_api}",
         f"-DANDROID_ABI={arch}",
         "-DCMAKE_BUILD_TYPE=Release",
-        f"-DCMAKE_INSTALL_PREFIX={install_dir}",
-        f"-DCMAKE_INSTALL_LIBDIR={libdir_relative}",
+        f"-DCMAKE_PREFIX={install_dir}",
+        f"-DCMAKE_LIBDIR={libdir_relative}",
         f"-DCMAKE_C_FLAGS={cflags}",
         f"-DCMAKE_CXX_FLAGS={cxxflags}",
         f"-DCMAKE_ASM_FLAGS={asmflags}",
@@ -173,9 +173,6 @@ def _generate_cmake_commands(
         f"-DCMAKE_MODULE_LINKER_FLAGS={ldflags}",
         f"-DCMAKE_EXE_LINKER_FLAGS={ldflags}",
         "-DBUILD_SHARED_LIBS=ON",
-        "-DBUILD_TESTING=OFF",
-        "-DBUILD_EXAMPLES=OFF", # Not all CMake projects support BUILD_EXAMPLES, but many do.
-        "-DBUILD_PROGRAMS=OFF",
         "-DCMAKE_POSITION_INDEPENDENT_CODE=ON",
         f"-DCMAKE_AR={ar}",
         f"-DCMAKE_ASM_COMPILER={as_}",

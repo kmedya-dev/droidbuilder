@@ -1,7 +1,7 @@
 import os
 import shutil
 from ..cli_logger import logger
-from .system_info import get_system, get_arch, ARCH_MAP
+from ..utils import get_system, get_arch, ARCH_MAP
 
 def _get_host_tag():
     """Returns the host tag for the NDK toolchain."""
@@ -34,7 +34,7 @@ class BuildEnvironment:
         self.ndk_root = None
         self.compiler_prefix = None
         self.env = None
-        self.pkg_config_path = None
+        self.pkg_config = None
         self.setup()
 
     def setup(self):
@@ -71,19 +71,24 @@ class BuildEnvironment:
         self.ranlib_path = f"{self.toolchain_bin}/llvm-ranlib"
         self.readelf_path = f"{self.toolchain_bin}/llvm-readelf"
         self.strip_path = f"{self.toolchain_bin}/llvm-strip"
-        self.pkg_config_path = shutil.which("pkg-config")
-        if not self.pkg_config_path:
-            logger.warning("  - 'pkg-config' not found in PATH. Some packages may fail to build.")
-            self.pkg_config_path = "pkg-config"
 
         # Initialize cflags, ldflags, asmflags, and cxxflags with base values
-        self.cflags = f"--sysroot={self.sysroot} -fPIC -DANDROID"
-        self.cxxflags = f"--sysroot={self.sysroot} -fPIC -DANDROID"
-        self.asmflags = f"--sysroot={self.sysroot} -fPIC -DANDROID"
-        self.ldflags = f"-lm -ldl --sysroot={self.sysroot}"
+        self.cflags = f"-fPIC -DANDROID"
+        self.cxxflags = f"-fPIC -DANDROID"
+        self.asmflags = f"-fPIC -DANDROID"
+        self.ldflags = "-lm -ldl"
+        self.pkg_config = shutil.which("pkg-config")
 
         # Prepare environment variables for subprocesses
         self.env = os.environ.copy()
+        
+        # Append to existing flags if they exist
+        self.env["CFLAGS"] = f"{os.environ.get('CFLAGS', '')} {self.cflags}".strip()
+        self.env["CXXFLAGS"] = f"{os.environ.get('CXXFLAGS', '')} {self.cxxflags}".strip()
+        self.env["ASMFLAGS"] = f"{os.environ.get('ASMFLAGS', '')} {self.asmflags}".strip()
+        self.env["LDFLAGS"] = f"{os.environ.get('LDFLAGS', '')} {self.ldflags}".strip()
+        self.env["PKG_CONFIG"] = f"{os.environ.get('PKG_CONFIG', '')} {self.pkg_config}".strip()
+
         self.env["AR"] = self.ar_path
         self.env["AS"] = self.as_path
         self.env["CC"] = self.cc_path
@@ -95,11 +100,5 @@ class BuildEnvironment:
         self.env["STRIP"] = self.strip_path
         self.env["SYSROOT"] = self.sysroot
         self.env["PATH"] = f"{self.toolchain_bin}:{self.env['PATH']}"
-        self.env["CFLAGS"] = self.cflags
-        self.env["CXXFLAGS"] = self.cxxflags # Added
-        self.env["ASMFLAGS"] = self.asmflags
-        self.env["LDFLAGS"] = self.ldflags
-        self.env["PKG_CONFIG"] = self.pkg_config_path
-        self.env["PKG_CONFIG_PATH"] = f"{self.sysroot}/usr/lib/pkgconfig"
 
         logger.info("  - Build environment set up.")
