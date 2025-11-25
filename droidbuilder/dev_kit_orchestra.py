@@ -3,13 +3,13 @@ import sys
 import json
 import shutil
 import requests
-import platform
 import subprocess
 from . import config
 from .cli_logger import logger
-from .utils import download, extract_file, run_shell_command, move_files
+from .utils import download, extract_file, run_shell_command, move_files, get_system, get_arch
+from .constants import MWD
 
-INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
+
 
 
 # -------------------- JDK (Temurin) --------------------
@@ -29,16 +29,10 @@ def _get_available_jdk_versions():
 
 def _get_latest_temurin_jdk_url(version):
     """Get the latest Temurin JDK URL for a specific version."""
-    arch = platform.machine()
-    if arch == "x86_64":
-        arch = "x64"
-    elif arch == "aarch64":
-        arch = "aarch64"
-    else:
-        logger.error(f"Unsupported architecture for JDK download: {arch}")
-        return None
+    os_name = get_system()
+    arch_name = get_arch()
 
-    api_url = f"https://api.adoptium.net/v3/assets/latest/{version}/hotspot?vendor=eclipse&os=linux&architecture={arch}&image_type=jdk"
+    api_url = f"https://api.adoptium.net/v3/assets/latest/{version}/hotspot?vendor=eclipse&os={os_name}&architecture={arch_name}&image_type=jdk"
     try:
         response = requests.get(api_url)
         response.raise_for_status()
@@ -46,8 +40,9 @@ def _get_latest_temurin_jdk_url(version):
         if data and isinstance(data, list) and data[0].get("binary", {}).get("package", {}).get("link"):
             return data[0]["binary"]["package"]["link"]
         else:
-            logger.error(f"Could not find a download link for JDK {version} for architecture {arch}")
+            logger.error(f"Could not find a download link for JDK {version} for OS {os_name} and architecture {arch_name}")
             return None
+
     except requests.exceptions.RequestException as e:
         logger.error(f"Error fetching JDK download URL: {e}")
         return None
@@ -74,7 +69,7 @@ def _check_sdk_manager(sdk_install_dir):
 
 def install_cmdline_tools(cmdline_tools_version, verbose=False):
     """Install the Android command-line tools."""
-    sdk_install_dir = os.path.join(INSTALL_DIR, "android-sdk")
+    sdk_install_dir = os.path.join(MWD, "android-sdk")
     cmdline_tools_dir = os.path.join(sdk_install_dir, "cmdline-tools")
     latest_dir = os.path.join(cmdline_tools_dir, "latest")
 
@@ -86,7 +81,9 @@ def install_cmdline_tools(cmdline_tools_version, verbose=False):
         return True
 
     logger.info(f"  - Installing Android command-line tools version {cmdline_tools_version}...")
-    sdk_url = f"https://dl.google.com/android/repository/commandlinetools-linux-{cmdline_tools_version}_latest.zip"
+    os_name = get_system()
+
+    sdk_url = f"https://dl.google.com/android/repository/commandlinetools-{os_name}-{cmdline_tools_version}_latest.zip"
 
     try:
         archive_path = download(sdk_url, timeout=30)
@@ -188,7 +185,7 @@ def install_ndk(version, sdk_install_dir, jdk_install_dir, verbose=False):
 
 def install_jdk(version, verbose=False):
     """Install Java Development Kit (JDK)."""
-    jdk_install_dir = os.path.join(INSTALL_DIR, f"jdk-{version}")
+    jdk_install_dir = os.path.join(MWD, f"jdk-{version}")
     if os.path.exists(jdk_install_dir):
         logger.info(f"  - JDK version {version} is already installed. Skipping.")
         os.environ["JAVA_HOME"] = jdk_install_dir
@@ -239,7 +236,7 @@ def _get_gradle_download_url(version):
 
 def install_gradle(version, verbose=False):
     """Install Gradle."""
-    gradle_install_dir = os.path.join(INSTALL_DIR, f"gradle-{version}")
+    gradle_install_dir = os.path.join(MWD, f"gradle-{version}")
     if os.path.exists(gradle_install_dir):
         logger.info(f"  - Gradle version {version} is already installed. Skipping.")
         os.environ["GRADLE_HOME"] = gradle_install_dir
@@ -315,11 +312,11 @@ def setup_tools(conf, verbose=False):
     gradle_version = conf.get("java", {}).get("gradle_version")
     cmdline_tools_version = conf.get("android", {}).get("cmdline_tools_version")
     accept_sdk_license = conf.get("android", {}).get("accept_sdk_license", "non-interactive")
-    sdk_install_dir = os.path.join(INSTALL_DIR, "android-sdk")
+    sdk_install_dir = os.path.join(MWD, "android-sdk")
 
     all_successful = True
 
-    jdk_install_dir = os.path.join(INSTALL_DIR, f"jdk-{jdk_version}")
+    jdk_install_dir = os.path.join(MWD, f"jdk-{jdk_version}")
 
     if jdk_version:
         if not install_jdk(jdk_version, verbose=verbose):
@@ -362,7 +359,7 @@ def setup_tools(conf, verbose=False):
 
 def _create_env_file(sdk_install_dir, ndk_version, jdk_version, jdk_install_dir):
     """Create a shell script to set environment variables."""
-    env_file_path = os.path.join(INSTALL_DIR, "env.sh")
+    env_file_path = os.path.join(MWD, "env.sh")
     os.makedirs(os.path.dirname(env_file_path), exist_ok=True)
 
     with open(env_file_path, "w") as f:
@@ -388,12 +385,12 @@ def list_installed_tools():
         "android_cmdline_tools": False,
     }
 
-    if not os.path.exists(INSTALL_DIR):
+    if not os.path.exists(MWD):
         return installed
 
     try:
         # Android SDK
-        sdk_dir = os.path.join(INSTALL_DIR, "android-sdk", "platforms")
+        sdk_dir = os.path.join(MWD, "android-sdk", "platforms")
         if os.path.exists(sdk_dir):
             installed["android_sdk"] = [
                 p.replace("android-", "") for p in os.listdir(sdk_dir)
@@ -401,13 +398,13 @@ def list_installed_tools():
             ]
 
         # Android NDK
-        ndk_dir = os.path.join(INSTALL_DIR, "android-sdk", "ndk")
+        ndk_dir = os.path.join(MWD, "android-sdk", "ndk")
         if os.path.exists(ndk_dir):
             installed["android_ndk"] = [d for d in os.listdir(ndk_dir) if os.path.isdir(os.path.join(ndk_dir, d))]
 
         # Java JDK and Gradle
-        for item in os.listdir(INSTALL_DIR):
-            path = os.path.join(INSTALL_DIR, item)
+        for item in os.listdir(MWD):
+            path = os.path.join(MWD, item)
             if not os.path.isdir(path):
                 continue
             if item.startswith("jdk-"):
@@ -418,7 +415,7 @@ def list_installed_tools():
         logger.warning(f"Could not fully scan for installed tools: {e}")
 
     # Android Command-line Tools
-    cmdline_tools_path = os.path.join(INSTALL_DIR, "android-sdk", "cmdline-tools", "latest", "bin", "sdkmanager")
+    cmdline_tools_path = os.path.join(MWD, "android-sdk", "cmdline-tools", "latest", "bin", "sdkmanager")
     if os.path.exists(cmdline_tools_path):
         installed["android_cmdline_tools"] = True
 
@@ -429,7 +426,7 @@ def uninstall_tool(tool_name):
     """Uninstall a specified tool by removing its directory."""
     logger.info(f"Attempting to uninstall {tool_name}...")
 
-    tool_path = os.path.join(INSTALL_DIR, tool_name)
+    tool_path = os.path.join(MWD, tool_name)
     if not os.path.exists(tool_path):
         logger.info(f"{tool_name} is not installed at {tool_path}. Nothing to uninstall.")
         return True
@@ -495,7 +492,7 @@ def update_tool(tool_name):
 
         cmdline_tools_version = conf.get("android", {}).get("cmdline_tools_version")
         sdk_version = conf.get("android", {}).get("sdk_version")
-        sdk_install_dir = os.path.join(INSTALL_DIR, "android-sdk")
+        sdk_install_dir = os.path.join(MWD, "android-sdk")
 
         if installed_tools["android_cmdline_tools"] or cmdline_tools_version:
             logger.info("Updating Android command-line tools...")
@@ -507,14 +504,31 @@ def update_tool(tool_name):
 
         if installed_tools["android_sdk"] or sdk_version:
             logger.info("Updating Android SDK packages...")
-            jdk_install_dir = os.path.join(INSTALL_DIR, f"jdk-{conf.get('java',{}).get('jdk_version')}")
+            jdk_install_dir = os.path.join(MWD, f"jdk-{conf.get('java',{}).get('jdk_version')}")
             if not install_sdk_packages(sdk_version, sdk_install_dir, jdk_install_dir, verbose=True):
                 success = False
                 logger.error("Failed to update Android SDK packages.")
         else:
             logger.warning("Android SDK version not specified in droidbuilder.toml. Skipping update.")
+    elif tool_name.lower() == 'android-ndk':
+        conf = config.load_config()
+        if not conf:
+            logger.error("Error: droidbuilder.toml not found. Cannot update Android NDK.")
+            return False
+
+        ndk_version = conf.get("android", {}).get("ndk_version")
+        sdk_install_dir = os.path.join(MWD, "android-sdk")
+
+        if installed_tools["android_ndk"] or ndk_version:
+            logger.info("Updating Android NDK packages...")
+            jdk_install_dir = os.path.join(MWD, f"jdk-{conf.get('java',{}).get('jdk_version')}")
+            if not install_ndk(ndk_version, sdk_install_dir, jdk_install_dir, verbose=True):
+                success = False
+                logger.error("Failed to update Android NDK packages.")
+        else:
+            logger.warning("Android NDK version not specified in droidbuilder.toml. Skipping update.")
     else:
-        logger.error(f"Error: '{tool_name}' is not a valid tool to update. Supported tools are 'jdk', 'gradle', and 'android-sdk'.")
+        logger.error(f"Error: '{tool_name}' is not a valid tool to update. Supported tools are 'jdk', 'gradle', 'android-sdk', and 'android-ndk'.")
         return False
 
     if success:
@@ -608,13 +622,13 @@ def check_environment():
 
     # Environment variables
     if "ANDROID_HOME" not in os.environ:
-        logger.warning(f"ANDROID_HOME environment variable is not set. Run 'source {os.path.join(INSTALL_DIR, 'env.sh')}' or restart your shell.")
+        logger.warning(f"ANDROID_HOME environment variable is not set. Run 'source {os.path.join(MWD, 'env.sh')}' or restart your shell.")
         all_ok = False
     if "ANDROID_NDK_HOME" not in os.environ:
-        logger.warning(f"ANDROID_NDK_HOME environment variable is not set. Run 'source {os.path.join(INSTALL_DIR, 'env.sh')}' or restart your shell.")
+        logger.warning(f"ANDROID_NDK_HOME environment variable is not set. Run 'source {os.path.join(MWD, 'env.sh')}' or restart your shell.")
         all_ok = False
     if "JAVA_HOME" not in os.environ:
-        logger.warning(f"JAVA_HOME environment variable is not set. Run 'source {os.path.join(INSTALL_DIR, 'env.sh')}' or restart your shell.")
+        logger.warning(f"JAVA_HOME environment variable is not set. Run 'source {os.path.join(MWD, 'env.sh')}' or restart your shell.")
         all_ok = False
 
     if all_ok:

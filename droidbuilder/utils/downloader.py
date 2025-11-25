@@ -3,7 +3,7 @@ import requests
 import shutil
 from ..cli_logger import logger
 
-DOWNLOAD_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder", "downloads")
+from ..constants import DOWNLOAD_DIR
 
 def download(url, filename=None, timeout=60):
     """Download a file to a temporary directory and return the path."""

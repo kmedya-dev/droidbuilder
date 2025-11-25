@@ -3,9 +3,8 @@ from .check_deps import *
 from .clean import *
 from .config import *
 from .doctor import *
-from .install import *
+from .install import install # Explicitly import the install group
 from .init import *
-from .install_tools import *
 from .list_files import *
 from .list_templates import *
 from .list_tools import *
@@ -21,4 +20,3 @@ from .search_code import *
 from .grep import *
 from .check_triplet import *
 from .search_pkg import *
-

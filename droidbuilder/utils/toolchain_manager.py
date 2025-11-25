@@ -1,7 +1,13 @@
 import os
 import shutil
 from ..cli_logger import logger
-from ..utils import ARCH_MAP
+from .system_info import get_system, get_arch, ARCH_MAP
+
+def _get_host_tag():
+    """Returns the host tag for the NDK toolchain."""
+    system = get_system()
+    arch = get_arch()
+    return f"{system}-{arch}"
 
 class BuildEnvironment:
     def __init__(self, ndk_version, ndk_api, arch, ndk_dir_path, build_path):
@@ -40,7 +46,8 @@ class BuildEnvironment:
             logger.error(f"Error: NDK root directory not found at {self.ndk_root}. Please ensure NDK {self.ndk_version} is installed.")
             raise FileNotFoundError(f"NDK root directory not found at {self.ndk_root}")
 
-        self.toolchain_bin = os.path.join(self.ndk_root, "toolchains", "llvm", "prebuilt", "linux-x86_64", "bin")
+        host_tag = _get_host_tag()
+        self.toolchain_bin = os.path.join(self.ndk_root, "toolchains", "llvm", "prebuilt", host_tag, "bin")
         if not os.path.exists(self.toolchain_bin):
             logger.error(f"Error: NDK toolchain binary directory not found at {self.toolchain_bin}. Please check your NDK installation.")
             raise FileNotFoundError(f"NDK toolchain binary directory not found at {self.toolchain_bin}")
@@ -50,7 +57,7 @@ class BuildEnvironment:
             logger.error(f"Error: NDK sysroot not found at {self.sysroot}. Please check your NDK installation.")
             raise FileNotFoundError(f"NDK sysroot not found at {self.sysroot}")
 
-        self.compiler_prefix = ARCH_MAP[self.arch][0]
+        self.compiler_prefix = ARCH_MAP.get(self.arch, (None,))[0]
         if not self.compiler_prefix:
             logger.error(f"Error: Unsupported architecture for Python build: {self.arch}")
             raise ValueError(f"Unsupported architecture for Python build: {self.arch}")

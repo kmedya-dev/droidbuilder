@@ -1,12 +1,15 @@
 import click
 import os
 from urllib.parse import urlparse
-from ..cli_logger import logger
-from ..tools.installer import install as install_package
-from ..utils.package_resolver import resolve_package
-from ..config import load_config
+from ... import cli_logger as logger
+from ...utils.package_resolver import resolve_package
+from ... import config
+from ...constants import MWD
 
-INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
+from ...tools.installer import install as install_package
+
+
+
 
 def is_url(path):
     """Check if a given path is a URL."""
@@ -17,21 +20,21 @@ def is_url(path):
         return False
 
 @click.command()
-@click.argument('package')
-@click.option('--version', default=None, help='Version of the package to install.')
-@click.option('--verbose', '-v', is_flag=True, help='Enable verbose output.')
-def install(package, version, verbose):
+@click.argument('package_name')
+@click.option('--version', help='Specify the version of the package to install.')
+@click.option('--verbose', is_flag=True, help='Enable verbose output.')
+def package(package_name, version, verbose):
     """
     Installs a package from a direct URL or by resolving a package name.
     """
-    config = load_config()
-    dependency_mapping = config.get('app', {}).get('dependency_mapping', {})
+    conf = load_config()
+    dependency_mapping = conf.get('app', {}).get('dependency_mapping', {})
 
-    if is_url(package):
-        url = package
+    if is_url(package_name):
+        url = package_name
         name = url.split('/')[-1].split('.')[0]
     else:
-        name = package
+        name = package_name
         _, url, version = resolve_package(name, version, dependency_mapping)
 
     if not url:
@@ -40,7 +43,7 @@ def install(package, version, verbose):
 
     logger.info(f"Installing {name} from {url}...")
 
-    dest_dir = os.path.join(INSTALL_DIR, "sources", name)
+    dest_dir = os.path.join(MWD, "sources", name)
     installed_path = install_package(url, dest_dir, verbose=verbose)
 
     if installed_path:

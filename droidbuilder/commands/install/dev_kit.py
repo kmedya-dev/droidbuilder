@@ -1,14 +1,12 @@
 import click
-import sys
-import os
-from .. import config as config_module
-from ..toolchain import setup_tools
-from ..cli_logger import logger
+from ... import config as config_module
+from ...dev_kit_orchestra import setup_tools
+from ...cli_logger import logger
 
 @click.command()
-@click.option("--verbose", is_flag=True, help="Enable verbose output.")
+@click.option('--verbose', is_flag=True, help='Enable verbose output.')
 @click.pass_context
-def install_tools(ctx, verbose):
+def dev_kit(ctx, verbose):
     """Install required SDK, NDK, and JDK versions."""
     logger.info("Installing DroidBuilder tools...")
     conf = None

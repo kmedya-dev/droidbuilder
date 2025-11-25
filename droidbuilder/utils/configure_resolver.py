@@ -2,15 +2,8 @@ import os
 import sys
 
 from ..cli_logger import logger
-from ..utils import run_shell_command
-from .triplet import get_triplet
-
-ARCH_MAP = {
-    "arm64-v8a": ["aarch64-linux-android", "aarch64", "aarch64", "android-arm64", "aarch64-linux-android"],
-    "armeabi-v7a": ["armv7a-linux-androideabi", "arm", "armv7a", "android-arm", "arm-linux-androideabi"],
-    "x86": ["i686-linux-android", "x86", "i686", "android-x86", "i686-linux-android"],
-    "x86_64": ["x86_64-linux-android", "x86_64", "x86_64", "android-x86_64", "x86_64-linux-android"],
-}
+from ..utils.command_executor import run_shell_command
+from ..utils.system_info import get_triplet, ARCH_MAP
 
 def _autodetect_config_type(package_source_path: str, package_name: str) -> str:
     if os.path.exists(os.path.join(package_source_path, "meson.build")):
@@ -32,11 +25,11 @@ def _autodetect_config_type(package_source_path: str, package_name: str) -> str:
     logger.warning(f"  - Could not auto-detect build system for {package_name}.")
     return ""
 
-def _get_build_arch(package_source_path: str) -> str:
+def _get_triplet(package_source_path: str) -> str:
     """
     Determines the build architecture triple by running config.guess or uname.
     """
-    build_arch = ""
+    triplet = ""
     config_guess_path = os.path.join(package_source_path, "config.guess")
     if not os.path.exists(config_guess_path):
         config_guess_path = os.path.join(package_source_path, "build-aux", "config.guess")
@@ -49,17 +42,18 @@ def _get_build_arch(package_source_path: str) -> str:
             logger.error(f"Error setting executable permission for {config_guess_path}: {e}")
         result = run_shell_command([config_guess_path], description=f"Determining build host using {config_guess_path}", cwd=package_source_path)
         if result["returncode"] == 0:
-            build_arch = result["stdout"].strip()
-            logger.info(f"  - Detected build host: {build_arch}")
-            return build_arch
+            triplet = result["stdout"].strip()
+            logger.info(f"  - Detected build host: {triplet}")
+            return triplet
         else:
             logger.warning(f"  - config.guess failed with error: {result['stderr'].strip()}")
 
     logger.info("  - Could not determine build host from config.guess, falling back to triplet detection.")
     try:
-        build_arch = get_triplet()
-        logger.info(f"  - Detected build host: {build_arch}")
-        return build_arch
+        triplet = get_triplet()
+
+        logger.info(f"  - Detected build host: {triplet}")
+        return triplet
     except Exception as e:
         logger.error(f"An unexpected error occurred while determining build host using triplet detection: {e}")
         logger.exception(*sys.exc_info())
@@ -92,7 +86,7 @@ def _generate_autotools_commands(
     extra_configure_args: list[str] = [],
 ) -> tuple:
     logger.info("  - Generating autotools build commands.")
-    build_arch = _get_build_arch(package_source_path)
+    triplet = _get_triplet(package_source_path)
 
     pre_configure_cmd = []
     configure_script_path = os.path.join(package_source_path, "configure")
@@ -112,7 +106,7 @@ def _generate_autotools_commands(
         f"--prefix={install_dir}",
         f"--libdir={libdir_relative}",
         f"--host={ARCH_MAP[arch][0]}",
-        f"--build={build_arch}",
+        f"--build={triplet}",
         "--enable-shared",
         f"AS={as_}",
         f"CC={cc}",
@@ -299,7 +293,7 @@ def _generate_Configure_commands(
     # Configure command
     configure_cmd = [
         os.path.join(package_source_path, "Configure"),
-        ARCH_MAP[arch][3],  # (openssl's arch)
+        ARCH_MAP[arch][3],
         f"--prefix={install_dir}",
         f"--libdir={libdir_relative}",
         f"PKG_CONFIG={pkg_config}",

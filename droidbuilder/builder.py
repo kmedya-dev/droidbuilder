@@ -2,13 +2,14 @@ import os
 import sys
 import shutil
 from . import config
-from . import toolchain
+from . import dev_kit_orchestra
 from .cli_logger import logger
-from .utils import ARCH_MAP, BuildEnvironment, resolve_config_type, patch_resolver, run_shell_command, get_explicit_dependencies, resolve_package
+from .utils import BuildEnvironment, resolve_config_type, patch_resolver, run_shell_command, get_explicit_dependencies, resolve_package
 from .tools.installer import install
+from .constants import MWD
 
-INSTALL_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder")
-BUILD_DIR = os.path.join(os.path.expanduser("~"), ".droidbuilder", "build")
+
+from .constants import MWD, BUILD_DIR
 
 
 def _disable_unnecessary_python_modules(python_source_dir):
@@ -91,8 +92,8 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
         install_dir=install_dir,
         libdir_relative=libdir_relative,
         cflags=env_obj.cflags,
-        cxxflags=env_obj.cxxflags, # ADDED
-        asmflags=env_obj.asmflags, # ADDED
+        cxxflags=env_obj.cxxflags,
+        asmflags=env_obj.asmflags,
         ldflags=env_obj.ldflags,
         ar=env_obj.ar_path,
         as_=env_obj.as_path,
@@ -154,10 +155,6 @@ def _compile_runtime_package(package_name, package_config, runtime_package_sourc
     """Compiles and installs a runtime package for a specific Android architecture."""
     logger.info(f"  - Compiling runtime package {package_name} for {env_obj.arch}...")
 
-    # Apply patches if specified in config
-    if not patch_resolver.apply_patches(package_name, runtime_package_source_path, config):
-        return False
-
     # Set up environment for cross-compilation
     # Attempt to install using pip (preferred for runtime packages)
     # Ensure pip is available in the cross-compiled Python environment
@@ -182,10 +179,10 @@ def _compile_runtime_package(package_name, package_config, runtime_package_sourc
         arch=env_obj.arch,
         ndk_api=env_obj.ndk_api,
         install_dir=python_install_dir, # This is the target install dir
-        libdir_relative="", # FIXED
+        libdir_relative="",
         cflags=env_obj.cflags,
-        cxxflags=env_obj.cxxflags, # ADDED
-        asmflags=env_obj.asmflags, # ADDED
+        cxxflags=env_obj.cxxflags,
+        asmflags=env_obj.asmflags,
         ldflags=env_obj.ldflags,
         ar=env_obj.ar_path,
         as_=env_obj.as_path,
@@ -198,6 +195,7 @@ def _compile_runtime_package(package_name, package_config, runtime_package_sourc
         ndk_root=env_obj.ndk_root,
         sysroot=env_obj.sysroot,
         pkg_config=env_obj.pkg_config_path,
+        python_executable=python_bin,
     )
     pip_install_cmd = pip_commands["install_command"]
 
@@ -218,11 +216,10 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
     """Compiles and installs a buildtime package for a specific Android architecture."""
     logger.info(f"  - Compiling buildtime package {package_name} for {env_obj.arch} with extra_configure_args: {extra_configure_args}...")
 
-
-
     # as runtime_packages & python_source's c_types modules, (not needed to bundled as jnilibs)
-    install_dir = os.path.join(env_obj.sysroot, "usr")
-    libdir_relative =  os.path.join(install_dir, "lib", ARCH_MAP[env_obj.arch][4], env_obj.ndk_api)
+    install_dir = os.path.join(env_obj.build_path, "buildtime-install", env_obj.arch)
+    os.makedirs(install_dir, exist_ok=True)
+    libdir_relative = os.path.join(install_dir, "lib")
 
     commands = resolve_config_type(
         package_name=package_name,
@@ -233,8 +230,8 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
         install_dir=install_dir,
         libdir_relative=libdir_relative,
         cflags=env_obj.cflags,
-        cxxflags=env_obj.cxxflags, # ADDED
-        asmflags=env_obj.asmflags, # ADDED
+        cxxflags=env_obj.cxxflags,
+        asmflags=env_obj.asmflags,
         ldflags=env_obj.ldflags,
         ar=env_obj.ar_path,
         as_=env_obj.as_path,
@@ -473,7 +470,6 @@ def build_android(config, verbose):
 
     # Dependency configs
     runtime_packages, buildtime_packages, dependency_mapping = get_explicit_dependencies(config)
-
     extra_configure_args_config = config.get("build", {}).get("configure", {}).get("arguments", {})
 
     used_apt_fallback = False
@@ -482,7 +478,7 @@ def build_android(config, verbose):
     build_path = os.path.join(BUILD_DIR, app_name)
     dist_dir = os.path.join(os.getcwd(), "dist")
 
-    temp_bin_dir = os.path.join(INSTALL_DIR, "bin")
+    temp_bin_dir = os.path.join(MWD, "bin")
 
     try:
         # Ensure Android is a target
@@ -494,7 +490,7 @@ def build_android(config, verbose):
 
         # Construct NDK path if possible
         ndk_dir_path = (
-            os.path.join(INSTALL_DIR, "android-sdk", "ndk", ndk_version)
+            os.path.join(MWD, "android-sdk", "ndk", ndk_version)
             if ndk_version
             else None
         )
@@ -517,7 +513,7 @@ def build_android(config, verbose):
                 logger.error(f"Could not resolve buildtime package {name}. Aborting.")
                 return False
 
-            buildtime_package_source_dir = os.path.join(INSTALL_DIR, "buildtime_packages_src", f"{name}-{resolved_version or ''}")
+            buildtime_package_source_dir = os.path.join(MWD, "buildtime_packages_src", f"{name}-{resolved_version or ''}")
             buildtime_package_source_path = install(url, buildtime_package_source_dir, f"{name}-{resolved_version or ''}", verbose=verbose)
             if not buildtime_package_source_path:
                 logger.error(f"Failed to download buildtime package {name}. Aborting.")
@@ -528,6 +524,7 @@ def build_android(config, verbose):
                 return False
 
             extra_args = extra_configure_args_config.get(name, [])
+
             for arch in archs:
                 if not _compile_buildtime_package(
                     name, {}, buildtime_package_source_path, env_map[arch], config, extra_configure_args=extra_args
@@ -536,7 +533,7 @@ def build_android(config, verbose):
                     return False
 
         python_url = f"https://www.python.org/ftp/python/{python_version}/Python-{python_version}.tgz"
-        source_dir = os.path.join(INSTALL_DIR, "python-source", f"Python-{python_version}")
+        source_dir = os.path.join(MWD, "python-source", f"Python-{python_version}")
         if python_version:
             python_source_dir = install(python_url, source_dir, f"Python-{python_version}", verbose=verbose)
             if not python_source_dir:
@@ -562,7 +559,7 @@ def build_android(config, verbose):
                 logger.error(f"Could not resolve runtime package {name}. Aborting.")
                 return False
 
-            runtime_package_source_dir = os.path.join(INSTALL_DIR, "runtime_packages_src", f"{name}-{resolved_version or ''}")
+            runtime_package_source_dir = os.path.join(MWD, "runtime_packages_src", f"{name}-{resolved_version or ''}")
             runtime_package_source_path = install(url, runtime_package_source_dir, f"{name}-{resolved_version or ''}", verbose=verbose)
             if not runtime_package_source_path:
                 logger.error(f"Failed to download runtime package {name}. Aborting.")

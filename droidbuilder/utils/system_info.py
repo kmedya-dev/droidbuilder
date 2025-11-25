@@ -76,7 +76,7 @@ def get_vendor():
         vendor_info = run_shell_command("sysctl -n machdep.cpu.vendor")
         if vendor_info and vendor_info.get("stdout"):
             return vendor_info.get("stdout").strip()
-        return "apple"  # A reasonable default for macOS
+        return "??"
 
     return "unknown"
 
@@ -143,3 +143,10 @@ def get_triplet():
     libc = get_libc()
 
     return f"{arch}-{vendor}-{system}-{libc}"
+
+ARCH_MAP = {
+    "arm64-v8a": ("aarch64-linux-android", "aarch64", "armv8", "android-arm64"),
+    "armeabi-v7a": ("armv7a-linux-androideabi", "arm", "armv7", "android-arm"),
+    "x86_64": ("x86_64-linux-android", "x86_64", "x86_64", "android-x86_64"),
+    "x86": ("i686-linux-android", "x86", "i686", "android-x86"),
+}

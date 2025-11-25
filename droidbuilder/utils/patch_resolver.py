@@ -21,17 +21,25 @@ def apply_patches(package_name: str, package_source_path: str, config: dict) -> 
         patches_dir = os.path.abspath(os.path.join(os.getcwd(), patches_dir))
 
     if patches_dir and os.path.isdir(patches_dir):
-        patch_pattern = os.path.join(patches_dir, f"{package_name}-*.patch")
+        patch_pattern = os.path.join(patches_dir, f"{package_name}-*")
         patch_files = glob.glob(patch_pattern)
 
         if patch_files:
             logger.info(f"  - Applying patches for {package_name} from {patches_dir}...")
             for patch_path in patch_files:
                 logger.info(f"    - Applying patch: {os.path.basename(patch_path)}")
-                command = f"patch -p1 -i {patch_path}"
+                if os.path.isfile(patch_path) and os.access(patch_path, os.X_OK):
+                    # If the file is an executable script, run it directly
+                    command = [patch_path]
+                    description = f"Executing patch script {os.path.basename(patch_path)}"
+                else:
+                    # Otherwise, assume it's a traditional patch file
+                    command = ["patch", "-p1", "-i", patch_path]
+                    description = f"Applying patch {os.path.basename(patch_path)}"
+
                 result = run_shell_command(
                     command,
-                    description=f"Applying patch {os.path.basename(patch_path)}",
+                    description=description,
                     cwd=package_source_path
                 )
 

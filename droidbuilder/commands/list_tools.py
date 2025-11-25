@@ -1,5 +1,5 @@
 import click
-from .. import toolchain
+from ..dev_kit_orchestra import list_installed_tools
 from ..cli_logger import logger
 
 @click.command(name="list-tools")

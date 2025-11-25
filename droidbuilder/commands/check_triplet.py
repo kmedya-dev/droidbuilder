@@ -17,4 +17,5 @@ def check_triplet():
     Constructs and prints the system triplet.
     """
     triplet = get_triplet()
-    logger.info(triplet)
+    logger.info(f"System triplet: {triplet}")
+

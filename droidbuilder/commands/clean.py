@@ -5,9 +5,9 @@ import sys
 import glob
 from .. import config
 from ..cli_logger import logger
-from ..utils.downloader import DOWNLOAD_DIR
-from ..builder import BUILD_DIR
-from ..toolchain import INSTALL_DIR
+
+from ..constants import MWD, BUILD_DIR, DOWNLOAD_DIR
+
 
 EXCLUDE_PREFIXES = {"android-sdk", "gradle-", "jdk-"} #skip those, because those are handled by "droidbuilder/commands/uninstall.py"
 
@@ -84,11 +84,11 @@ def clean(ctx):
                     logger.error(f"An unexpected error occurred while removing {path}: {e}")
                     logger.exception(*sys.exc_info())
 
-    # New loop to clean contents of INSTALL_DIR, respecting EXCLUDE_DIRS
-    if os.path.exists(INSTALL_DIR) and os.path.isdir(INSTALL_DIR):
-        for item in os.listdir(INSTALL_DIR):
-            path = os.path.join(INSTALL_DIR, item)
-            if os.path.abspath(path) == os.path.join(INSTALL_DIR, "env.sh"):
+    # New loop to clean contents of MWD, respecting EXCLUDE_DIRS
+    if os.path.exists(MWD) and os.path.isdir(MWD):
+        for item in os.listdir(MWD):
+            path = os.path.join(MWD, item)
+            if os.path.abspath(path) == os.path.join(MWD, "env.sh"):
                 # logger.info(f"Skipping removal of env.sh: {path}")
                 continue
 

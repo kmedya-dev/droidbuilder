@@ -5,6 +5,7 @@ from .cli_logger import logger
 
 CONFIG_FILE = "droidbuilder.toml"
 
+
 def load_config(path="."):
     config_path = os.path.join(path, CONFIG_FILE)
     logger.info(f"Loading configuration from {config_path}")
