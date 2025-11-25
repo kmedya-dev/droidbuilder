@@ -80,7 +80,7 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
         "--without-static-libpython",
         "--with-lto",
         f"--with-build-python={python_host}",
-        f"--with-openssl={env_obj.pkg_config_path}"
+        f"--with-openssl={env_obj.pkg_config}"
     ]
 
     commands = resolve_config_type(
@@ -106,7 +106,7 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
         strip=env_obj.strip_path,
         ndk_root=env_obj.ndk_root,
         sysroot=env_obj.sysroot,
-        pkg_config=env_obj.pkg_config_path,
+        pkg_config=env_obj.pkg_config,
         extra_configure_args=extra_configure_args,
     )
 
@@ -194,7 +194,7 @@ def _compile_runtime_package(package_name, package_config, runtime_package_sourc
         strip=env_obj.strip_path,
         ndk_root=env_obj.ndk_root,
         sysroot=env_obj.sysroot,
-        pkg_config=env_obj.pkg_config_path,
+        pkg_config=env_obj.pkg_config,
         python_executable=python_bin,
     )
     pip_install_cmd = pip_commands["install_command"]
@@ -244,7 +244,7 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
         strip=env_obj.strip_path,
         ndk_root=env_obj.ndk_root,
         sysroot=env_obj.sysroot,
-        pkg_config=env_obj.pkg_config_path,
+        pkg_config=env_obj.pkg_config,
         extra_configure_args=extra_configure_args,
     )
 
