@@ -87,7 +87,7 @@ class BuildEnvironment:
         self.env["CXXFLAGS"] = f"{os.environ.get('CXXFLAGS', '')} {self.cxxflags}".strip()
         self.env["ASMFLAGS"] = f"{os.environ.get('ASMFLAGS', '')} {self.asmflags}".strip()
         self.env["LDFLAGS"] = f"{os.environ.get('LDFLAGS', '')} {self.ldflags}".strip()
-        self.env["PKG_CONFIG"] = f"{os.environ.get('PKG_CONFIG', '')} {self.pkg_config}".strip()
+        self.env["PKG_CONFIG"] = f"{os.environ.get('PKG_CONFIG_PATH', '')} {self.pkg_config}".strip()
 
         self.env["AR"] = self.ar_path
         self.env["AS"] = self.as_path
