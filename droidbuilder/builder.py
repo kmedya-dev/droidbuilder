@@ -63,8 +63,6 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
     install_dir = os.path.join(env_obj.build_path, "python-install", env_obj.arch)
     os.makedirs(install_dir, exist_ok=True)
 
-    libdir_relative = os.path.join(install_dir, "lib")
-
     # Create config.site file for cross-compilation
     config_site_path = os.path.join(python_source_dir, "config.site")
     with open(config_site_path, "w") as f:
@@ -90,7 +88,6 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
         arch=env_obj.arch,
         ndk_api=env_obj.ndk_api,
         install_dir=install_dir,
-        libdir_relative=libdir_relative,
         cflags=env_obj.cflags,
         cxxflags=env_obj.cxxflags,
         asmflags=env_obj.asmflags,
@@ -179,7 +176,6 @@ def _compile_runtime_package(package_name, package_config, runtime_package_sourc
         arch=env_obj.arch,
         ndk_api=env_obj.ndk_api,
         install_dir=python_install_dir, # This is the target install dir
-        libdir_relative="",
         cflags=env_obj.cflags,
         cxxflags=env_obj.cxxflags,
         asmflags=env_obj.asmflags,
@@ -219,7 +215,6 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
     # as runtime_packages & python_source's c_types modules, (not needed to bundled as jnilibs)
     install_dir = os.path.join(env_obj.build_path, "buildtime-install", env_obj.arch)
     os.makedirs(install_dir, exist_ok=True)
-    libdir_relative = os.path.join(install_dir, "lib")
 
     commands = resolve_config_type(
         package_name=package_name,
@@ -228,7 +223,6 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
         arch=env_obj.arch,
         ndk_api=env_obj.ndk_api,
         install_dir=install_dir,
-        libdir_relative=libdir_relative,
         cflags=env_obj.cflags,
         cxxflags=env_obj.cxxflags,
         asmflags=env_obj.asmflags,
