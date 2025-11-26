@@ -257,6 +257,7 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
                 logger.warning(f"Stderr:\n{result['stderr']}")
 
     if configure_cmd:
+        logger.debug(f"  - Using PKG_CONFIG_PATH: {env_obj.env.get('PKG_CONFIG_PATH')}")
         result = run_shell_command(configure_cmd, description=f"  - Running configure for {package_name} on {env_obj.arch}", env=env_obj.env, cwd=buildtime_package_source_path)
         if result["returncode"] != 0:
             logger.error(f"Configure failed for {package_name} (Exit Code: {result['returncode']}):")

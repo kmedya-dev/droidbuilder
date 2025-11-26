@@ -162,6 +162,7 @@ def _generate_cmake_commands(
         f"-DANDROID_PLATFORM=android-{ndk_api}",
         f"-DANDROID_ABI={arch}",
         "-DCMAKE_BUILD_TYPE=Release",
+        "-DCMAKE_FIND_DEBUG_MODE=ON",
         f"-DCMAKE_C_FLAGS={cflags}",
         f"-DCMAKE_CXX_FLAGS={cxxflags}",
         f"-DCMAKE_ASM_FLAGS={asmflags}",
