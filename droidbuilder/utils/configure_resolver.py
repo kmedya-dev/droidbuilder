@@ -180,6 +180,7 @@ def _generate_cmake_commands(
         f"-DCMAKE_NM={nm}",
         f"-DCMAKE_STRIP={strip}",
         f"-DPKG_CONFIG_EXECUTABLE={pkg_config}",
+        f"-DCMAKE_PREFIX_PATH={install_dir}",
     ]
 
     configure_cmd.extend(extra_configure_args)
