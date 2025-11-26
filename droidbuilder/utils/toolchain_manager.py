@@ -87,7 +87,19 @@ class BuildEnvironment:
         self.env["CXXFLAGS"] = f"{os.environ.get('CXXFLAGS', '')} {self.cxxflags}".strip()
         self.env["ASMFLAGS"] = f"{os.environ.get('ASMFLAGS', '')} {self.asmflags}".strip()
         self.env["LDFLAGS"] = f"{os.environ.get('LDFLAGS', '')} {self.ldflags}".strip()
-        self.env["PKG_CONFIG_PATH"] = f"{os.environ.get('PKG_CONFIG_PATH', '')} {self.pkg_config_path}".strip()
+        
+        # Configure PKG_CONFIG_PATH to include the buildtime install directory
+        buildtime_install_dir = os.path.join(self.build_path, "buildtime-install", self.arch)
+        pkg_config_lib = os.path.join(buildtime_install_dir, "lib", "pkgconfig")
+        pkg_config_share = os.path.join(buildtime_install_dir, "share", "pkgconfig")
+        
+        new_pkg_config_path = f"{pkg_config_lib}{os.pathsep}{pkg_config_share}"
+        current_pkg_config_path = os.environ.get('PKG_CONFIG_PATH', '')
+        
+        if current_pkg_config_path:
+             self.env["PKG_CONFIG_PATH"] = f"{new_pkg_config_path}{os.pathsep}{current_pkg_config_path}"
+        else:
+             self.env["PKG_CONFIG_PATH"] = new_pkg_config_path
 
         self.env["AR"] = self.ar_path
         self.env["AS"] = self.as_path
