@@ -34,6 +34,7 @@ class BuildEnvironment:
         self.ndk_root = None
         self.compiler_prefix = None
         self.env = None
+        self.pkg_config = None
         self.pkg_config_path = None
         self.setup()
 
@@ -77,6 +78,7 @@ class BuildEnvironment:
         self.cxxflags = f"-fPIC -DANDROID"
         self.asmflags = f"-fPIC -DANDROID"
         self.ldflags = "-lm -ldl"
+        self.pkg_config = os.path.join(self.build_path, "buildtime-install", self.arch, "lib", "pkgconfig")
         self.pkg_config_path = shutil.which("pkg-config")
 
         # Prepare environment variables for subprocesses
@@ -87,10 +89,10 @@ class BuildEnvironment:
         self.env["CXXFLAGS"] = f"{os.environ.get('CXXFLAGS', '')} {self.cxxflags}".strip()
         self.env["ASMFLAGS"] = f"{os.environ.get('ASMFLAGS', '')} {self.asmflags}".strip()
         self.env["LDFLAGS"] = f"{os.environ.get('LDFLAGS', '')} {self.ldflags}".strip()
+        self.env["PKG_CONFIG_PATH"] = f"{os.environ.get('PKG_CONFIG_PATH', '')} {self.pkg_config_path}".strip()
         
         # Configure PKG_CONFIG_PATH to include the buildtime install directory
-        buildtime_install_dir = os.path.join(self.build_path, "buildtime-install", self.arch)
-        pkg_config_lib = os.path.join(buildtime_install_dir, "lib", "pkgconfig")
+        """buildtime_install_dir = os.path.join(self.build_path, "buildtime-install", self.arch)
         pkg_config_share = os.path.join(buildtime_install_dir, "share", "pkgconfig")
         
         new_pkg_config_path = f"{pkg_config_lib}{os.pathsep}{pkg_config_share}"
@@ -99,16 +101,16 @@ class BuildEnvironment:
         if current_pkg_config_path:
              self.env["PKG_CONFIG_PATH"] = f"{new_pkg_config_path}{os.pathsep}{current_pkg_config_path}"
         else:
-             self.env["PKG_CONFIG_PATH"] = new_pkg_config_path
+             self.env["PKG_CONFIG_PATH"] = new_pkg_config_path"""
 
         # Configure CMAKE_PREFIX_PATH to include the buildtime install directory
-        new_cmake_prefix_path = buildtime_install_dir
+        """new_cmake_prefix_path = buildtime_install_dir
         current_cmake_prefix_path = os.environ.get('CMAKE_PREFIX_PATH', '')
 
         if current_cmake_prefix_path:
              self.env["CMAKE_PREFIX_PATH"] = f"{new_cmake_prefix_path}{os.pathsep}{current_cmake_prefix_path}"
         else:
-             self.env["CMAKE_PREFIX_PATH"] = new_cmake_prefix_path
+             self.env["CMAKE_PREFIX_PATH"] = new_cmake_prefix_path"""
 
         self.env["AR"] = self.ar_path
         self.env["AS"] = self.as_path
