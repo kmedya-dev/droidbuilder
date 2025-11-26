@@ -101,6 +101,15 @@ class BuildEnvironment:
         else:
              self.env["PKG_CONFIG_PATH"] = new_pkg_config_path
 
+        # Configure CMAKE_PREFIX_PATH to include the buildtime install directory
+        new_cmake_prefix_path = buildtime_install_dir
+        current_cmake_prefix_path = os.environ.get('CMAKE_PREFIX_PATH', '')
+
+        if current_cmake_prefix_path:
+             self.env["CMAKE_PREFIX_PATH"] = f"{new_cmake_prefix_path}{os.pathsep}{current_cmake_prefix_path}"
+        else:
+             self.env["CMAKE_PREFIX_PATH"] = new_cmake_prefix_path
+
         self.env["AR"] = self.ar_path
         self.env["AS"] = self.as_path
         self.env["CC"] = self.cc_path
