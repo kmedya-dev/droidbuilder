@@ -21,8 +21,11 @@ def apply_patches(package_name: str, package_source_path: str, config: dict) -> 
         patches_dir = os.path.abspath(os.path.join(os.getcwd(), patches_dir))
 
     if patches_dir and os.path.isdir(patches_dir):
+        logger.info(f"  - Resolved patches_dir: {patches_dir}")
         patch_pattern = os.path.join(patches_dir, f"{package_name}-*")
+        logger.info(f"  - Patch pattern: {patch_pattern}")
         patch_files = glob.glob(patch_pattern)
+        logger.info(f"  - Found patch files: {patch_files}")
 
         if patch_files:
             logger.info(f"  - Applying patches for {package_name} from {patches_dir}...")

@@ -4,12 +4,9 @@ import shutil
 from . import config
 from . import dev_kit_orchestra
 from .cli_logger import logger
+from .constants import MWD, BUILD_DIR
 from .utils import BuildEnvironment, resolve_config_type, patch_resolver, run_shell_command, get_explicit_dependencies, resolve_package
 from .tools.installer import install
-from .constants import MWD
-
-
-from .constants import MWD, BUILD_DIR
 
 
 def _disable_unnecessary_python_modules(python_source_dir):
@@ -210,7 +207,7 @@ def _compile_runtime_package(package_name, package_config, runtime_package_sourc
 
 def _compile_buildtime_package(package_name, package_config, buildtime_package_source_path, env_obj, config, extra_configure_args=[]):
     """Compiles and installs a buildtime package for a specific Android architecture."""
-    logger.info(f"  - Compiling buildtime package {package_name} for {env_obj.arch} with extra_configure_args: {extra_configure_args}...")
+    logger.info(f"  - Compiling buildtime package {package_name} for {env_obj.arch}...")
 
     # as runtime_packages & python_source's c_types modules, (not needed to bundled as jnilibs)
     install_dir = os.path.join(env_obj.build_path, "buildtime-install", env_obj.arch)
@@ -256,9 +253,12 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
             if result["stderr"]:
                 logger.warning(f"Stderr:\n{result['stderr']}")
 
-    if configure_cmd:
-        logger.debug(f"  - Using PKG_CONFIG_PATH: {env_obj.env.get('PKG_CONFIG_PATH')}")
+
         result = run_shell_command(configure_cmd, description=f"  - Running configure for {package_name} on {env_obj.arch}", env=env_obj.env, cwd=buildtime_package_source_path)
+        if result['stdout']:
+            print(result['stdout'])
+            sys.stdout.flush()
+
         if result["returncode"] != 0:
             logger.error(f"Configure failed for {package_name} (Exit Code: {result['returncode']}):")
             if result["stdout"]:
