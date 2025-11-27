@@ -1,5 +1,6 @@
 import os
 import sys
+import sys
 import shutil
 from . import config
 from . import dev_kit_orchestra
@@ -514,6 +515,8 @@ def build_android(config, verbose):
                 return False
 
             # Apply patches if specified in config, once after extraction
+            print(f"DEBUG: Calling apply_patches for {name}")
+            sys.stdout.flush()
             if not patch_resolver.apply_patches(name, buildtime_package_source_path, config):
                 return False
 
