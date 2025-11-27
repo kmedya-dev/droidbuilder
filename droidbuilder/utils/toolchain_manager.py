@@ -78,8 +78,11 @@ class BuildEnvironment:
         self.cxxflags = f"-fPIC -DANDROID"
         self.asmflags = f"-fPIC -DANDROID"
         self.ldflags = "-lm -ldl"
+
         self.pkg_config = os.path.join(self.build_path, "buildtime-install", self.arch, "lib", "pkgconfig")
-        self.pkg_config_path = shutil.which("pkg-config")
+        if not self.pkg_config:
+            logger.warning("  - 'pkg-config' not found in PATH. Some packages may fail to build.")
+            self.pkg_config = shutil.which("pkg-config")
 
         # Prepare environment variables for subprocesses
         self.env = os.environ.copy()

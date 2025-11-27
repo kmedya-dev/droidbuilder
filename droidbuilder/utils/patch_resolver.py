@@ -1,5 +1,6 @@
 import os
 import glob
+import sys
 from ..cli_logger import logger
 from ..utils.command_executor import run_shell_command
 
@@ -21,16 +22,21 @@ def apply_patches(package_name: str, package_source_path: str, config: dict) -> 
         patches_dir = os.path.abspath(os.path.join(os.getcwd(), patches_dir))
 
     if patches_dir and os.path.isdir(patches_dir):
-        logger.info(f"  - Resolved patches_dir: {patches_dir}")
+        print(f"  - Resolved patches_dir: {patches_dir}")
+        sys.stdout.flush()
         patch_pattern = os.path.join(patches_dir, f"{package_name}-*")
-        logger.info(f"  - Patch pattern: {patch_pattern}")
+        print(f"  - Patch pattern: {patch_pattern}")
+        sys.stdout.flush()
         patch_files = glob.glob(patch_pattern)
-        logger.info(f"  - Found patch files: {patch_files}")
+        print(f"  - Found patch files: {patch_files}")
+        sys.stdout.flush()
 
         if patch_files:
-            logger.info(f"  - Applying patches for {package_name} from {patches_dir}...")
+            print(f"  - Applying patches for {package_name} from {patches_dir}...")
+            sys.stdout.flush()
             for patch_path in patch_files:
-                logger.info(f"    - Applying patch: {os.path.basename(patch_path)}")
+                print(f"    - Applying patch: {os.path.basename(patch_path)}")
+                sys.stdout.flush()
                 if os.path.isfile(patch_path) and os.access(patch_path, os.X_OK):
                     # If the file is an executable script, run it directly
                     command = [patch_path]
@@ -46,6 +52,8 @@ def apply_patches(package_name: str, package_source_path: str, config: dict) -> 
                     cwd=package_source_path
                 )
 
+                if result['stdout']:
+                    logger.debug(result['stdout'])
                 if result['returncode'] != 0:
                     logger.error(f"    - Failed to apply patch {os.path.basename(patch_path)}: (Exit Code: {result['returncode']})")
                     if result.get('stdout'):
@@ -54,8 +62,10 @@ def apply_patches(package_name: str, package_source_path: str, config: dict) -> 
                         logger.error(f"      Patch Stderr:\n{result['stderr']}")
                     return False
         else:
-            logger.info(f"  - No patches found for {package_name} in {patches_dir}.")
+            print(f"  - No patches found for {package_name} in {patches_dir}.")
+            sys.stdout.flush()
     else:
-        logger.info(f"  - 'app.dependency.patch_dir' not specified or found. Skipping patches for {package_name}.")
+        print(f"  - 'app.dependency.patch_dir' not specified or found. Skipping patches for {package_name}.")
+        sys.stdout.flush()
 
     return True
