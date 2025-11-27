@@ -522,6 +522,21 @@ def build_android(config, verbose):
 
             extra_args = extra_configure_args_config.get(name, [])
 
+            if name == "sdl2_mixer":
+                logger.info(f"  - Manually applying patches for sdl2_mixer...")
+                result = run_shell_command(
+                    command=["./apply_temp_patches.sh", buildtime_package_source_path],
+                    description="Applying sdl2_mixer patches",
+                    cwd=os.getcwd() # Run from project root
+                )
+                if result['returncode'] != 0:
+                    logger.error(f"  - Failed to apply sdl2_mixer patches. Aborting.")
+                    if result.get('stdout'):
+                        logger.error(f"    Stdout:\n{result['stdout']}")
+                    if result.get('stderr'):
+                        logger.error(f"    Stderr:\n{result['stderr']}")
+                    return False
+
             for arch in archs:
                 if not _compile_buildtime_package(
                     name, {}, buildtime_package_source_path, env_map[arch], config, extra_configure_args=extra_args

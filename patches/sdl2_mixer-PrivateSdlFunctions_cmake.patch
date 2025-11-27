@@ -1,0 +1,15 @@
+--- sdl2_mixer/cmake/PrivateSdlFunctions.cmake	2024-12-15 02:12:24.000000000 +0530
++++ sdl2_mixer/cmake/PrivateSdlFunctions.cmake.mod	2025-11-27 03:44:35.467588050 +0530
+@@ -60,10 +60,10 @@
+     # or for those installations where no target is generated.
+     if(NOT TARGET ${TARGET})
+         message(STATUS "Using private SDL2 find module")
+-        find_package(PrivateSDL2 ${VERSION} REQUIRED)
++        find_package(SDL2 ${VERSION} REQUIRED)
+         add_library(${TARGET} INTERFACE IMPORTED)
+         set_target_properties(${TARGET} PROPERTIES
+-            INTERFACE_LINK_LIBRARIES "PrivateSDL2::PrivateSDL2"
++            INTERFACE_LINK_LIBRARIES "SDL2::SDL2"
+         )
+     endif()
+ endmacro()
