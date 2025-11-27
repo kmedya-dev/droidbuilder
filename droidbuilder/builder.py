@@ -115,6 +115,9 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
     if configure_cmd:
         logger.debug(configure_cmd)
         result = run_shell_command(configure_cmd, description=f"  - Running Python configure for {env_obj.arch}", env=env_obj.env, cwd=python_source_dir)
+        if result['stdout']:
+            logger.debug(result['stdout'])
+
         if result["returncode"] != 0:
             logger.error(f"Configure failed for Python (Exit Code: {result['returncode']}):")
             if result["stdout"]:
@@ -123,23 +126,34 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
                 logger.error(f"Stderr:\n{result['stderr']}")
             return False
 
-    result = run_shell_command(build_cmd, description=f"  - Running Python build for {env_obj.arch}", env=env_obj.env, cwd=python_source_dir)
-    if result["returncode"] != 0:
-        logger.error(f"Build failed for Python (Exit Code: {result['returncode']}):")
-        if result["stdout"]:
-            logger.error(f"Stdout:\n{result['stdout']}")
-            if result["stderr"]:
-                logger.error(f"Stderr:\n{result['stderr']}")
-        return False
+    if build_cmd:
+        logger.debug(build_cmd)
 
-    result = run_shell_command(install_cmd, description=f"  - Running Python install for {env_obj.arch}", env=env_obj.env, cwd=python_source_dir)
-    if result["returncode"] != 0:
-        logger.error(f"Install failed for Python (Exit Code: {result['returncode']}):")
-        if result["stdout"]:
-            logger.error(f"Stdout:\n{result['stdout']}")
+        result = run_shell_command(build_cmd, description=f"  - Running Python build for {env_obj.arch}", env=env_obj.env, cwd=python_source_dir)
+        if result['stdout']:
+            logger.debug(result['stdout'])
+
+        if result["returncode"] != 0:
+            logger.error(f"Build failed for Python (Exit Code: {result['returncode']}):")
+            if result["stdout"]:
+                logger.error(f"Stdout:\n{result['stdout']}")
             if result["stderr"]:
                 logger.error(f"Stderr:\n{result['stderr']}")
-        return False
+            return False
+
+    if install_cmd:
+        logger.debug(install_cmd)
+        result = run_shell_command(install_cmd, description=f"  - Running Python install for {env_obj.arch}", env=env_obj.env, cwd=python_source_dir)
+        if result['stdout']:
+            logger.debug(result['stdout'])
+
+        if result["returncode"] != 0:
+            logger.error(f"Install failed for Python (Exit Code: {result['returncode']}):")
+            if result["stdout"]:
+                logger.error(f"Stdout:\n{result['stdout']}")
+            if result["stderr"]:
+                logger.error(f"Stderr:\n{result['stderr']}")
+            return False
 
     logger.success(f"  - Python {python_version} built and installed for {env_obj.arch}.")
     return True
@@ -191,7 +205,12 @@ def _compile_runtime_package(package_name, package_config, runtime_package_sourc
     )
     pip_install_cmd = pip_commands["install_command"]
 
-    result = run_shell_command(pip_install_cmd, description=f"    - Running pip install for {package_name}", env=pip_env, cwd=runtime_package_source_path)
+    if pip_install_cmd:
+        logger.debug(pip_install_cmd)
+        result = run_shell_command(pip_install_cmd, description=f"    - Running pip install for {package_name}", env=pip_env, cwd=runtime_package_source_path)
+        if result['stdout']:
+            logger.debug(result['stdout'])
+
     if result["returncode"] != 0:
         logger.error(f"Pip install failed for runtime package {package_name} (Exit Code: {result['returncode']}):")
         if result["stdout"]:
