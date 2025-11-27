@@ -524,8 +524,14 @@ def build_android(config, verbose):
 
             if name == "sdl2_mixer":
                 logger.info(f"  - Manually applying patches for sdl2_mixer...")
+                print(f"DEBUG: Current working directory for apply_temp_patches.sh: {os.getcwd()}")
+                print(f"DEBUG: apply_temp_patches.sh exists: {os.path.exists('./apply_temp_patches.sh')}")
+                print(f"DEBUG: apply_temp_patches.sh is executable: {os.access('./apply_temp_patches.sh', os.X_OK)}")
+                command_to_run = ["./apply_temp_patches.sh", buildtime_package_source_path]
+                print(f"DEBUG: Command to execute: {' '.join(command_to_run)}")
+                sys.stdout.flush()
                 result = run_shell_command(
-                    command=["./apply_temp_patches.sh", buildtime_package_source_path],
+                    command=command_to_run,
                     description="Applying sdl2_mixer patches",
                     cwd=os.getcwd() # Run from project root
                 )
