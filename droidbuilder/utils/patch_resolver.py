@@ -28,7 +28,15 @@ def apply_patches(package_name: str, package_source_path: str, config: dict) -> 
         if patch_files:
             logger.info(f"  - Found patches for {package_name} in {patches_dir}...")
             for patch_path in patch_files:
-                if os.path.isfile(patch_path) and os.access(patch_path, os.X_OK):
+                if patch_path.endswith(".py"):
+                    # If the file is a Python script, run it with the current interpreter
+                    command = [sys.executable, patch_path]
+                    description = f"Executing patch script {os.path.basename(patch_path)}"
+                elif patch_path.endswith(".sh"):
+                    # If the file is a Shell script
+                    command = ["bash", patch_path]
+                    description = f"Executing patch script {os.path.basename(patch_path)}"
+                elif os.path.isfile(patch_path) and os.access(patch_path, os.X_OK):
                     # If the file is an executable script, run it directly
                     command = [patch_path]
                     description = f"Executing patch script {os.path.basename(patch_path)}"

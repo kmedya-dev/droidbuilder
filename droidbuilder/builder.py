@@ -68,13 +68,13 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
     # Set CONFIG_SITE environment variable to point to our config.site file
     env_obj.env["CONFIG_SITE"] = config_site_path
 
-    extra_configure_args = [
+    python_configure_args = [
         "--disable-ipv6",
         "--without-ensurepip",
         "--without-static-libpython",
         "--with-lto",
         f"--with-build-python={python_host}",
-        f"--with-openssl={env_obj.pkg_config}"
+        f"--with-openssl={pkg_config}"
     ]
 
     commands = resolve_config_type(
@@ -100,7 +100,7 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
         ndk_root=env_obj.ndk_root,
         sysroot=env_obj.sysroot,
         pkg_config=env_obj.pkg_config_path,
-        extra_configure_args=extra_configure_args,
+        extra_configure_args=python_configure_args,
     )
 
     clean_cmd = commands["clean_command"]
@@ -518,12 +518,8 @@ def build_android(config, verbose):
             if not patch_resolver.apply_patches(name, buildtime_package_source_path, config):
                 return False
 
-            extra_args = extra_configure_args_config.get(name, [])
-
             for arch in archs:
-                if not _compile_buildtime_package(
-                    name, {}, buildtime_package_source_path, env_map[arch], config, extra_configure_args=extra_args
-                ):
+                if not _compile_buildtime_package(name, {}, buildtime_package_source_path, env_map[arch], config, extra_configure_args=extra_configure_args_config.get(name, [])):
                     logger.error(f"Failed to compile buildtime package {name} for {arch}. Aborting.")
                     return False
 

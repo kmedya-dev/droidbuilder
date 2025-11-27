@@ -42,4 +42,4 @@ sdl2_mixer = "https://github.com/libsdl-org/SDL_mixer/releases/download/release-
 type = "debug"
 
 [build.configure.arguments]
-
+libffi = ["--disable-builddir",]
