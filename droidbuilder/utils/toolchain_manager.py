@@ -34,7 +34,6 @@ class BuildEnvironment:
         self.ndk_root = None
         self.compiler_prefix = None
         self.env = None
-        self.pkg_config = None
         self.pkg_config_path = None
         self.setup()
 
@@ -79,10 +78,10 @@ class BuildEnvironment:
         self.asmflags = f"-fPIC -DANDROID"
         self.ldflags = "-lm -ldl"
 
-        self.pkg_config = os.path.join(self.build_path, "buildtime-install", self.arch, "lib", "pkgconfig")
-        if not self.pkg_config:
-            logger.warning("  - 'pkg-config' not found in PATH. Some packages may fail to build.")
-            self.pkg_config = shutil.which("pkg-config")
+        self.pkg_config_path = os.path.join(self.build_path, "buildtime-install", self.arch, "lib", "pkgconfig")
+        if not self.pkg_config_path:
+            logger.warning("  - 'pkg-config_path' not found in PATH. Some packages may fail to build.")
+            self.pkg_config_path = shutil.which("pkg-config")
 
         # Prepare environment variables for subprocesses
         self.env = os.environ.copy()
@@ -92,7 +91,7 @@ class BuildEnvironment:
         self.env["CXXFLAGS"] = f"{os.environ.get('CXXFLAGS', '')} {self.cxxflags}".strip()
         self.env["ASMFLAGS"] = f"{os.environ.get('ASMFLAGS', '')} {self.asmflags}".strip()
         self.env["LDFLAGS"] = f"{os.environ.get('LDFLAGS', '')} {self.ldflags}".strip()
-        self.env["PKG_CONFIG_PATH"] = f"{os.environ.get('PKG_CONFIG_PATH', '')} {self.pkg_config}".strip()
+        self.env["PKG_CONFIG_PATH"] = f"{os.environ.get('PKG_CONFIG_PATH', '')} {self.pkg_config_path}".strip()
 
         self.env["AR"] = self.ar_path
         self.env["AS"] = self.as_path
