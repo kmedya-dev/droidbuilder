@@ -114,6 +114,7 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
             logger.warning(f"Clean command failed for Python (Exit Code: {result['returncode']}). Continuing anyway.")
 
     if configure_cmd:
+        logger.debug(configure_cmd)
         result = run_shell_command(configure_cmd, description=f"  - Running Python configure for {env_obj.arch}", env=env_obj.env, cwd=python_source_dir)
         if result["returncode"] != 0:
             logger.error(f"Configure failed for Python (Exit Code: {result['returncode']}):")
