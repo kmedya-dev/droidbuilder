@@ -81,7 +81,6 @@ def _generate_autotools_commands(
     sysroot: str,
     pkg_config: str,
     extra_configure_args: list[str] = [],
-    python_executable: str,
 ) -> tuple:
     logger.info("  - Generating autotools build commands.")
     triplet = _get_triplet(package_source_path)
@@ -149,7 +148,6 @@ def _generate_cmake_commands(
     sysroot: str,
     pkg_config: str,
     extra_configure_args: list[str] = [],
-    python_executable: str,
 ) -> tuple:
     build_dir = os.path.join(package_source_path, "build")
 
@@ -212,7 +210,6 @@ def _generate_meson_commands(
     sysroot: str,
     pkg_config: str,
     extra_configure_args: list[str] = [],
-    python_executable: str,
 ) -> tuple:
     logger.info(f"  - Generating Meson build commands for {package_name}.")
 
@@ -279,7 +276,6 @@ def _generate_Configure_commands(
     sysroot: str,
     pkg_config: str,
     extra_configure_args: list[str] = [],
-    python_executable: str,
 ) -> tuple:
     logger.info(f"  - Generating Configure build commands for {package_name}.")
 
@@ -305,51 +301,6 @@ def _generate_Configure_commands(
 
     return clean_cmd, configure_cmd, build_cmd, install_cmd
 
-
-def _generate_pip_commands(
-    package_name: str,
-    package_source_path: str,
-    arch: str,
-    ndk_api: str,
-    install_dir: str,
-    cflags: str,
-    cxxflags: str,
-    asmflags: str,
-    ldflags: str,
-    cc: str,
-    cxx: str,
-    ar: str,
-    as_: str,
-    ld: str,
-    ranlib: str,
-    readelf: str,
-    nm: str,
-    strip: str,
-    ndk_root: str,
-    sysroot: str,
-    pkg_config: str,
-    extra_configure_args: list[str] = [],
-    python_executable: str,
-) -> tuple:
-    logger.info(f"  - Generating pip install command for {package_name}.")
-    configure_cmd = []
-    build_cmd = []
-    install_cmd = [
-        python_executable or sys.executable, # Path to target Python interpreter
-        "-m",
-        "pip",
-        "install",
-        "--no-deps", # Do not install dependencies, they should be handled by droidbuilder
-        "--prefix", install_dir,
-        package_source_path,
-    ]
-
-    configure_cmd.extend(extra_configure_args)
-
-    clean_cmd = []
-    return clean_cmd, configure_cmd, build_cmd, install_cmd
-
-
 def resolve_config_type(
     package_name: str,
     package_config: dict,
@@ -374,7 +325,6 @@ def resolve_config_type(
     sysroot: str = "",
     pkg_config: str = "",
     extra_configure_args: list[str] = [],
-    python_executable: str = "",
 ) -> dict:
     """
     This module only resolves configuration type; build execution is elsewhere.
@@ -416,7 +366,6 @@ def resolve_config_type(
         "cmake": _generate_cmake_commands,
         "meson": _generate_meson_commands,
         "Configure": _generate_Configure_commands,
-        "pip": _generate_pip_commands,
     }
 
     if config_type in command_generators:
@@ -443,7 +392,6 @@ def resolve_config_type(
             sysroot,
             pkg_config,
             extra_configure_args,
-            python_executable,
         )
     elif config_type:
         logger.error(f"Unsupported config_type: {config_type} for package {package_name}.")

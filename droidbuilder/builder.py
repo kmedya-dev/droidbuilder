@@ -176,37 +176,17 @@ def _compile_runtime_package(package_name, package_config, runtime_package_sourc
     pip_env = env_obj.env.copy() # Use the env returned by _setup_build_environment
     pip_env["CFLAGS"] = env_obj.cflags
     pip_env["LDFLAGS"] = env_obj.ldflags
+    pip_env["PKG_CONFIG"] = env_obj.pkg_config_executable
 
-    # Get pip install command from configure_resolver
-    # We need to pass a dummy package_config with config_type="pip"
-    # The actual package_config for runtime packages is not directly available here,
-    # but resolve_config_type only cares about config_type for "pip"
-    pip_commands = resolve_config_type(
-        package_name=package_name,
-        package_config={"config_type": "pip"},
-        package_source_path=runtime_package_source_path,
-        arch=env_obj.arch,
-        ndk_api=env_obj.ndk_api,
-        install_dir=python_install_dir, # This is the target install dir
-        cflags=env_obj.cflags,
-        cxxflags=env_obj.cxxflags,
-        asmflags=env_obj.asmflags,
-        ldflags=env_obj.ldflags,
-        ar=env_obj.ar_path,
-        as_=env_obj.as_path,
-        cc=env_obj.cc_path,
-        cxx=env_obj.cxx_path,
-        ranlib=env_obj.ranlib_path,
-        readelf=env_obj.readelf_path,
-        nm=env_obj.nm_path,
-        strip=env_obj.strip_path,
-        ndk_root=env_obj.ndk_root,
-        sysroot=env_obj.sysroot,
-        pkg_config=env_obj.pkg_config_executable,
-        extra_configure_args=extra_configure_args,
-        python_executable=python_bin,
-    )
-    pip_install_cmd = pip_commands["install_command"]
+    pip_install_cmd = [
+        python_bin, # Path to target Python interpreter
+        "-m",
+        "pip",
+        "install",
+        "--no-deps", # Do not install dependencies, they should be handled by droidbuilder
+        "--prefix", python_install_dir, # Use python_install_dir as the prefix for pip
+        runtime_package_source_path,
+    ]
 
     if pip_install_cmd:
         logger.debug(pip_install_cmd)
