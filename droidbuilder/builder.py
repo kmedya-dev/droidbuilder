@@ -74,7 +74,6 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
         "--without-static-libpython",
         "--with-lto",
         f"--with-build-python={python_host}",
-        f"--with-openssl={env_obj.pkg_config}"
     ]
 
     commands = resolve_config_type(
