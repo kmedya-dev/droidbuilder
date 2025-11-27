@@ -81,6 +81,7 @@ def _generate_autotools_commands(
     sysroot: str,
     pkg_config: str,
     extra_configure_args: list[str] = [],
+    python_executable: str,
 ) -> tuple:
     logger.info("  - Generating autotools build commands.")
     triplet = _get_triplet(package_source_path)
@@ -148,7 +149,7 @@ def _generate_cmake_commands(
     sysroot: str,
     pkg_config: str,
     extra_configure_args: list[str] = [],
-    python_executable: str = None,
+    python_executable: str,
 ) -> tuple:
     build_dir = os.path.join(package_source_path, "build")
 
@@ -211,7 +212,7 @@ def _generate_meson_commands(
     sysroot: str,
     pkg_config: str,
     extra_configure_args: list[str] = [],
-    python_executable: str = None,
+    python_executable: str,
 ) -> tuple:
     logger.info(f"  - Generating Meson build commands for {package_name}.")
 
@@ -278,7 +279,7 @@ def _generate_Configure_commands(
     sysroot: str,
     pkg_config: str,
     extra_configure_args: list[str] = [],
-    python_executable: str = None,
+    python_executable: str,
 ) -> tuple:
     logger.info(f"  - Generating Configure build commands for {package_name}.")
 
@@ -327,8 +328,8 @@ def _generate_pip_commands(
     ndk_root: str,
     sysroot: str,
     pkg_config: str,
-    python_executable: str,
     extra_configure_args: list[str] = [],
+    python_executable: str,
 ) -> tuple:
     logger.info(f"  - Generating pip install command for {package_name}.")
     configure_cmd = []
@@ -372,8 +373,8 @@ def resolve_config_type(
     ndk_root: str = "",
     sysroot: str = "",
     pkg_config: str = "",
-    python_executable: str = "",
     extra_configure_args: list[str] = [],
+    python_executable: str = "",
 ) -> dict:
     """
     This module only resolves configuration type; build execution is elsewhere.
