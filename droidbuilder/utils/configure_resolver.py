@@ -18,12 +18,10 @@ def _autodetect_config_type(package_source_path: str, package_name: str) -> str:
     elif any(os.path.exists(os.path.join(package_source_path, fname)) for fname in ("configure", "configure.ac", "configure.in", "autogen.sh")):
         logger.info("  - Found autotools-related files, assuming autotools.")
         return "autotools"
-    logger.debug(f"  - Checking for autotools files in {package_source_path}:")
-    for fname in ("configure", "configure.ac", "configure.in", "autogen.sh"):
-        fpath = os.path.join(package_source_path, fname)
-        logger.debug(f"    - {fpath}: {os.path.exists(fpath)}")
+
     logger.warning(f"  - Could not auto-detect build system for {package_name}.")
     return ""
+
 
 def _get_triplet(package_source_path: str) -> str:
     """

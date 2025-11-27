@@ -1,9 +1,7 @@
 import os
 import sys
-import sys
 import shutil
-from . import config
-from . import dev_kit_orchestra
+from . import config, dev_kit_orchestra
 from .cli_logger import logger
 from .constants import MWD, BUILD_DIR
 from .utils import BuildEnvironment, resolve_config_type, patch_resolver, run_shell_command, get_explicit_dependencies, resolve_package
@@ -255,6 +253,8 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
                 logger.warning(f"Stderr:\n{result['stderr']}")
 
 
+    if configure_cmd:
+        logger.debug(configure_cmd)
         result = run_shell_command(configure_cmd, description=f"  - Running configure for {package_name} on {env_obj.arch}", env=env_obj.env, cwd=buildtime_package_source_path)
         if result['stdout']:
             logger.debug(result['stdout'])
@@ -515,33 +515,10 @@ def build_android(config, verbose):
                 return False
 
             # Apply patches if specified in config, once after extraction
-            print(f"DEBUG: Calling apply_patches for {name}")
-            sys.stdout.flush()
             if not patch_resolver.apply_patches(name, buildtime_package_source_path, config):
                 return False
 
             extra_args = extra_configure_args_config.get(name, [])
-
-            if name == "sdl2_mixer":
-                logger.info(f"  - Manually applying patches for sdl2_mixer...")
-                print(f"DEBUG: Current working directory for apply_temp_patches.sh: {os.getcwd()}")
-                print(f"DEBUG: apply_temp_patches.sh exists: {os.path.exists('./apply_temp_patches.sh')}")
-                print(f"DEBUG: apply_temp_patches.sh is executable: {os.access('./apply_temp_patches.sh', os.X_OK)}")
-                command_to_run = ["./apply_temp_patches.sh", buildtime_package_source_path]
-                print(f"DEBUG: Command to execute: {' '.join(command_to_run)}")
-                sys.stdout.flush()
-                result = run_shell_command(
-                    command=command_to_run,
-                    description="Applying sdl2_mixer patches",
-                    cwd=os.getcwd() # Run from project root
-                )
-                if result['returncode'] != 0:
-                    logger.error(f"  - Failed to apply sdl2_mixer patches. Aborting.")
-                    if result.get('stdout'):
-                        logger.error(f"    Stdout:\n{result['stdout']}")
-                    if result.get('stderr'):
-                        logger.error(f"    Stderr:\n{result['stderr']}")
-                    return False
 
             for arch in archs:
                 if not _compile_buildtime_package(

@@ -2,7 +2,7 @@ import os
 import glob
 import sys
 from ..cli_logger import logger
-from ..utils.command_executor import run_shell_command
+from ..utils import run_shell_command
 
 def apply_patches(package_name: str, package_source_path: str, config: dict) -> bool:
     """
@@ -22,21 +22,12 @@ def apply_patches(package_name: str, package_source_path: str, config: dict) -> 
         patches_dir = os.path.abspath(os.path.join(os.getcwd(), patches_dir))
 
     if patches_dir and os.path.isdir(patches_dir):
-        print(f"  - Resolved patches_dir: {patches_dir}")
-        sys.stdout.flush()
         patch_pattern = os.path.join(patches_dir, f"{package_name}-*")
-        print(f"  - Patch pattern: {patch_pattern}")
-        sys.stdout.flush()
         patch_files = glob.glob(patch_pattern)
-        print(f"  - Found patch files: {patch_files}")
-        sys.stdout.flush()
 
         if patch_files:
-            print(f"  - Applying patches for {package_name} from {patches_dir}...")
-            sys.stdout.flush()
+            logger.info(f"  - Found patches for {package_name} in {patches_dir}...")
             for patch_path in patch_files:
-                print(f"    - Applying patch: {os.path.basename(patch_path)}")
-                sys.stdout.flush()
                 if os.path.isfile(patch_path) and os.access(patch_path, os.X_OK):
                     # If the file is an executable script, run it directly
                     command = [patch_path]
@@ -44,7 +35,7 @@ def apply_patches(package_name: str, package_source_path: str, config: dict) -> 
                 else:
                     # Otherwise, assume it's a traditional patch file
                     command = ["patch", "-p1", "-i", patch_path]
-                    description = f"Applying patch {os.path.basename(patch_path)}"
+                    description = f"Applying patch: {os.path.basename(patch_path)}"
 
                 result = run_shell_command(
                     command,
@@ -62,10 +53,8 @@ def apply_patches(package_name: str, package_source_path: str, config: dict) -> 
                         logger.error(f"      Patch Stderr:\n{result['stderr']}")
                     return False
         else:
-            print(f"  - No patches found for {package_name} in {patches_dir}.")
-            sys.stdout.flush()
+            logger.info(f"  - No patches found for {package_name} in {patches_dir}.")
     else:
-        print(f"  - 'app.dependency.patch_dir' not specified or found. Skipping patches for {package_name}.")
-        sys.stdout.flush()
+        logger.info(f"  - 'app.dependency.patch_dir' not specified or found. Skipping patches for {package_name}.")
 
     return True
