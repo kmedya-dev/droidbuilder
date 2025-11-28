@@ -75,7 +75,7 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
         "--enable-optimizations",
         "--with-lto",
         f"--with-build-python={python_host}",
-        f"--with-openssl={env_obj.pkg_config_executable}",
+        f"--with-openssl={env_obj.pkg_config_path}",
     ]
 
     commands = resolve_config_type(
@@ -100,7 +100,7 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
         strip=env_obj.strip_path,
         ndk_root=env_obj.ndk_root,
         sysroot=env_obj.sysroot,
-        pkg_config=env_obj.pkg_config_executable,
+        pkg_config=env_obj.pkg_config_path,
         extra_configure_args=python_configure_args,
     )
 
@@ -176,7 +176,7 @@ def _compile_runtime_package(package_name, package_config, runtime_package_sourc
     pip_env = env_obj.env.copy() # Use the env returned by _setup_build_environment
     pip_env["CFLAGS"] = env_obj.cflags
     pip_env["LDFLAGS"] = env_obj.ldflags
-    pip_env["PKG_CONFIG"] = env_obj.pkg_config_executable
+    pip_env["PKG_CONFIG"] = env_obj.pkg_config_path
 
     pip_install_cmd = [
         python_bin, # Path to target Python interpreter
@@ -236,7 +236,7 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
         strip=env_obj.strip_path,
         ndk_root=env_obj.ndk_root,
         sysroot=env_obj.sysroot,
-        pkg_config=env_obj.pkg_config_executable,
+        pkg_config=env_obj.pkg_config_path,
         extra_configure_args=extra_configure_args,
     )
 
