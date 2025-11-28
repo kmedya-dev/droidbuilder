@@ -16,6 +16,7 @@ class BuildEnvironment:
         self.arch = arch
         self.ndk_dir_path = ndk_dir_path
         self.build_path = build_path
+        self.install_path = install_path
         self.toolchain_bin = None
         self.sysroot = None
         self.cc_path = None
@@ -79,7 +80,7 @@ class BuildEnvironment:
         self.cxxflags = f"-fPIC -DANDROID"
         self.asmflags = f"-fPIC -DANDROID"
         self.ldflags = "-lm -ldl"
-        self.pkg_config_libdir = os.path.join(self.build_path, "buildtime-install", self.arch, "lib", "pkgconfig")
+        self.pkg_config_libdir = os.path.join(self.install_path, self.arch, "lib", "pkgconfig")
 
         # Prepare environment variables for subprocesses
         self.env = os.environ.copy()

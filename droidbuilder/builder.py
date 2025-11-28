@@ -55,7 +55,7 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
     """Build Python for a specific Android architecture."""
     logger.info(f"  - Building Python {python_version} for {env_obj.arch}...")
 
-    install_dir = os.path.join(env_obj.build_path, "python-install", env_obj.arch)
+    install_dir = os.path.join(env_obj.install_path, env_obj.arch)
     os.makedirs(install_dir, exist_ok=True)
 
     # Create config.site file for cross-compilation
@@ -74,7 +74,7 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
         "--enable-optimizations",
         "--with-lto",
         f"--with-build-python={python_host}",
-        f"--with-openssl={pkg-config --define-prefix openssl}", # Dependent libraries. The others are found using pkg-config: see **/toolchain_manager.py
+        f"--with-openssl={prefix}", # Dependent libraries. The others are found using pkg-config: see **/toolchain_manager.py
     ]
 
     commands = resolve_config_type(
@@ -176,8 +176,7 @@ def _compile_runtime_package(package_name, package_config, runtime_package_sourc
     pip_env = env_obj.env.copy() # Use the env returned by _setup_build_environment
     pip_env["CFLAGS"] = env_obj.cflags
     pip_env["LDFLAGS"] = env_obj.ldflags
-    if env_obj.pkg_config_executable:
-        pip_env["PKG_CONFIG"] = env_obj.pkg_config_executable
+    pip_env["PKG_CONFIG"] = env_obj.pkg_config_executable
 
     pip_install_cmd = [
         python_bin, # Path to target Python interpreter
@@ -212,7 +211,7 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
     logger.info(f"  - Compiling buildtime package {package_name} for {env_obj.arch}...")
 
     # as runtime_packages & python_source's c_types modules, (not needed to bundled as jnilibs)
-    install_dir = os.path.join(env_obj.build_path, "buildtime-install", env_obj.arch)
+    install_dir = os.path.join(env_obj.install_path, env_obj.arch)
     os.makedirs(install_dir, exist_ok=True)
 
     commands = resolve_config_type(
@@ -475,6 +474,7 @@ def build_android(config, verbose):
 
     # Build path
     build_path = os.path.join(BUILD_DIR, app_name)
+    install_path = os.path.join(MWD, "local")
     dist_dir = os.path.join(os.getcwd(), "dist")
 
     temp_bin_dir = os.path.join(MWD, "bin")
