@@ -80,7 +80,7 @@ class BuildEnvironment:
 
         self.pkg_config_path = os.path.join(self.build_path, "buildtime-install", self.arch, "lib", "pkgconfig")
         if not self.pkg_config_path:
-		self.pkg_config_path = shutil.which("pkg-config")
+            self.pkg_config_path = shutil.which("pkg-config")
 
         # Prepare environment variables for subprocesses
         self.env = os.environ.copy()
