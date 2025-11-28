@@ -76,10 +76,10 @@ class BuildEnvironment:
         self.pkg_config_executable = shutil.which("pkg-config")
 
         # Initialize cflags, ldflags, asmflags, and cxxflags with base values
-        self.cflags = f"-fPIC -DANDROID"
-        self.cxxflags = f"-fPIC -DANDROID"
+        self.cflags = f"-fPIC -DANDROID -I{os.path.join(self.install_path, self.arch, 'include')}"
+        self.cxxflags = f"-fPIC -DANDROID -I{os.path.join(self.install_path, self.arch, 'include')}"
         self.asmflags = f"-fPIC -DANDROID"
-        self.ldflags = "-lm -ldl"
+        self.ldflags = f"-lm -ldl -L{os.path.join(self.install_path, self.arch, 'lib')}"
         self.pkg_config_libdir = os.path.join(self.install_path, self.arch, "lib", "pkgconfig")
 
         # Prepare environment variables for subprocesses
