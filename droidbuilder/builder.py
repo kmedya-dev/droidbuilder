@@ -74,7 +74,7 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
         "--enable-optimizations",
         "--with-lto",
         f"--with-build-python={python_host}",
-        f"--with-openssl={env_obj.pkg_config_libdir}", # Dependent libraries. The others are found using pkg-config: see **/toolchain_manager.py
+        f"--with-openssl={pkg-config --define-prefix openssl}", # Dependent libraries. The others are found using pkg-config: see **/toolchain_manager.py
     ]
 
     commands = resolve_config_type(
