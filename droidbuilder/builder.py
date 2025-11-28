@@ -389,7 +389,7 @@ def _copy_assets_to_android_app(build_path, archs):
 
     for arch in archs:
         # Copy Python assets
-        python_install_dir = os.path.join(build_path, "python-install", arch)
+        python_install_dir = os.path.join(install_path, arch)
         dest_python_dir = os.path.join(assets_dir, "python", arch)
         
         if not os.path.exists(python_install_dir):
@@ -561,7 +561,7 @@ def build_android(config, verbose):
                 return False
         
             for arch in archs:
-                python_install_dir = os.path.join(build_path, "python-install", arch)
+                python_install_dir = os.path.join(install_path, arch)
                 if not _compile_runtime_package(name, {}, runtime_package_source_path, python_install_dir, env_map[arch], config):
                     logger.error(f"Failed to compile runtime package {name} for {arch}. Aborting.")
                     return False
