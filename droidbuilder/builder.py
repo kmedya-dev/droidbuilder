@@ -574,6 +574,10 @@ def build_android(config, verbose):
                 logger.error(f"Failed to download runtime package {name}. Aborting.")
                 return False
         
+            # Apply patches if specified in config, once after extraction
+            if not patch_resolver.apply_patches(name, runtime_package_source_path, config):
+                return False
+
             for arch in archs:
                 python_install_dir = os.path.join(install_path, arch)
                 if not _compile_runtime_package(name, {}, runtime_package_source_path, python_install_dir, env_map[arch], config):
