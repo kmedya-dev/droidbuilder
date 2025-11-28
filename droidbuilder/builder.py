@@ -72,7 +72,6 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
         "--disable-ipv6",
         "--without-ensurepip",
         "--without-static-libpython",
-        "--enable-optimizations",
         "--with-lto",
         f"--with-build-python={python_host}",
         f"--with-openssl={prefix}", # Dependent libraries. The others are found using pkg-config: see **/toolchain_manager.py
