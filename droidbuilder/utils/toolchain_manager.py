@@ -10,7 +10,7 @@ def _get_host_tag():
     return f"{system}-{arch}"
 
 class BuildEnvironment:
-    def __init__(self, ndk_version, ndk_api, arch, ndk_dir_path, build_path):
+    def __init__(self, ndk_version, ndk_api, arch, ndk_dir_path, build_path, install_path):
         self.ndk_version = ndk_version
         self.ndk_api = ndk_api
         self.arch = arch

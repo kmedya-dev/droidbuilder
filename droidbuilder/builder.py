@@ -67,6 +67,7 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
     # Set CONFIG_SITE environment variable to point to our config.site file
     env_obj.env["CONFIG_SITE"] = config_site_path
 
+    prefix = install_dir
     python_configure_args = [
         "--disable-ipv6",
         "--without-ensurepip",
@@ -501,7 +502,7 @@ def build_android(config, verbose):
         env_map = {}
         for arch in archs:
             try:
-                env_map[arch] = BuildEnvironment(ndk_version, ndk_api, arch, ndk_dir_path, build_path)
+                env_map[arch] = BuildEnvironment(ndk_version, ndk_api, arch, ndk_dir_path, build_path, install_path)
             except (FileNotFoundError, ValueError) as e:
                 logger.error(f"Failed to set up build environment for {arch}: {e}")
                 return False
