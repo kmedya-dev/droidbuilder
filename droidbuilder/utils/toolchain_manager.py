@@ -34,7 +34,8 @@ class BuildEnvironment:
         self.ndk_root = None
         self.compiler_prefix = None
         self.env = None
-        self.pkg_config_path = None
+        self.pkg_config_libdir = None
+        self.pkg_config_executable = None
         self.setup()
 
     def setup(self):
@@ -71,16 +72,14 @@ class BuildEnvironment:
         self.ranlib_path = f"{self.toolchain_bin}/llvm-ranlib"
         self.readelf_path = f"{self.toolchain_bin}/llvm-readelf"
         self.strip_path = f"{self.toolchain_bin}/llvm-strip"
+        self.pkg_config_executable = shutil.which("pkg-config")
 
         # Initialize cflags, ldflags, asmflags, and cxxflags with base values
         self.cflags = f"-fPIC -DANDROID"
         self.cxxflags = f"-fPIC -DANDROID"
         self.asmflags = f"-fPIC -DANDROID"
         self.ldflags = "-lm -ldl"
-
-        self.pkg_config_path = os.path.join(self.build_path, "buildtime-install", self.arch, "lib", "pkgconfig")
-        if not self.pkg_config_path:
-            self.pkg_config_path = shutil.which("pkg-config")
+        self.pkg_config_libdir = os.path.join(self.build_path, "buildtime-install", self.arch, "lib", "pkgconfig")
 
         # Prepare environment variables for subprocesses
         self.env = os.environ.copy()
@@ -90,7 +89,7 @@ class BuildEnvironment:
         self.env["CXXFLAGS"] = f"{os.environ.get('CXXFLAGS', '')} {self.cxxflags}".strip()
         self.env["ASMFLAGS"] = f"{os.environ.get('ASMFLAGS', '')} {self.asmflags}".strip()
         self.env["LDFLAGS"] = f"{os.environ.get('LDFLAGS', '')} {self.ldflags}".strip()
-        self.env["PKG_CONFIG_PATH"] = f"{os.environ.get('PKG_CONFIG_PATH', '')} {self.pkg_config_path}".strip()
+        self.env["PKG_CONFIG_PATH"] = f"{os.environ.get('PKG_CONFIG_PATH', '')} {self.pkg_config_libdir}".strip()
 
         self.env["AR"] = self.ar_path
         self.env["AS"] = self.as_path
@@ -102,6 +101,7 @@ class BuildEnvironment:
         self.env["READELF"] = self.readelf_path
         self.env["STRIP"] = self.strip_path
         self.env["SYSROOT"] = self.sysroot
+        self.env["PKG_CONFIG"] = self.pkg_config_executable
         self.env["PATH"] = f"{self.toolchain_bin}:{self.env['PATH']}"
 
         logger.info("  - Build environment set up.")

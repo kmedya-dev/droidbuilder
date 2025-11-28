@@ -57,7 +57,6 @@ def _get_triplet(package_source_path: str) -> str:
         logger.exception(*sys.exc_info())
     return ""
 
-
 def _generate_autotools_commands(
     package_name: str,
     package_source_path: str,
@@ -79,10 +78,12 @@ def _generate_autotools_commands(
     strip: str,
     ndk_root: str,
     sysroot: str,
+    pkgconfig: str,
     pkg_config: str,
     extra_configure_args: list[str] = [],
 ) -> tuple:
     logger.info("  - Generating autotools build commands.")
+
     triplet = _get_triplet(package_source_path)
 
     pre_configure_cmd = []
@@ -146,6 +147,7 @@ def _generate_cmake_commands(
     strip: str,
     ndk_root: str,
     sysroot: str,
+    pkgconfig: str,
     pkg_config: str,
     extra_configure_args: list[str] = [],
 ) -> tuple:
@@ -208,6 +210,7 @@ def _generate_meson_commands(
     strip: str,
     ndk_root: str,
     sysroot: str,
+    pkgconfig: str,
     pkg_config: str,
     extra_configure_args: list[str] = [],
 ) -> tuple:
@@ -274,6 +277,7 @@ def _generate_Configure_commands(
     strip: str,
     ndk_root: str,
     sysroot: str,
+    pkgconfig: str,
     pkg_config: str,
     extra_configure_args: list[str] = [],
 ) -> tuple:
@@ -323,6 +327,7 @@ def resolve_config_type(
     strip: str = "",
     ndk_root: str = "",
     sysroot: str = "",
+    pkgconfig: str = "",
     pkg_config: str = "",
     extra_configure_args: list[str] = [],
 ) -> dict:
@@ -390,6 +395,7 @@ def resolve_config_type(
             strip,
             ndk_root,
             sysroot,
+            pkgconfig,
             pkg_config,
             extra_configure_args,
         )
