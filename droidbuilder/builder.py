@@ -172,19 +172,33 @@ def _compile_runtime_package(package_name, package_config, runtime_package_sourc
         logger.error(f"Error: Cross-compiled Python interpreter not found at {python_bin}. Cannot install runtime package {package_name}.")
         return False
 
+    # Get Python version from config to determine site-packages path
+    python_version = config.get("python", {}).get("python_version")
+    if not python_version:
+        logger.error("Python version not specified in config, cannot determine site-packages path.")
+        return False
+
+    major_minor = ".".join(python_version.split(".")[:2])
+    site_packages_dir = os.path.join(python_install_dir, "lib", f"python{major_minor}", "site-packages")
+    os.makedirs(site_packages_dir, exist_ok=True)
+
     # Create a new environment for pip install to include CFLAGS and LDFLAGS
     pip_env = env_obj.env.copy() # Use the env returned by _setup_build_environment
-    pip_env["CFLAGS"] = env_obj.cflags
+    
+    # Add python include dir to CFLAGS so cross-compilation finds Python headers
+    python_include_dir = os.path.join(python_install_dir, "include", f"python{major_minor}")
+    pip_env["CFLAGS"] = f"{env_obj.cflags} -I{python_include_dir}"
     pip_env["LDFLAGS"] = env_obj.ldflags
     pip_env["PKG_CONFIG"] = env_obj.pkg_config_executable
+    pip_env["PYTHONPATH"] = site_packages_dir
 
     pip_install_cmd = [
-        python_bin, # Path to target Python interpreter
+        sys.executable, # Use HOST Python interpreter
         "-m",
         "pip",
         "install",
         "--no-deps", # Do not install dependencies, they should be handled by droidbuilder
-        "--prefix", python_install_dir, # Use python_install_dir as the prefix for pip
+        "--target", site_packages_dir, # Use specific site-packages dir
         runtime_package_source_path,
     ]
 
