@@ -490,11 +490,6 @@ def build_android(config, verbose):
     archs = android_config.get("archs", [])
     manifest_file = android_config.get("manifest_file")
 
-    # Java configs
-    java_config = config.get("java", {})
-    jdk_version = java_config.get("jdk_version")
-    gradle_version = java_config.get("gradle_version")
-
     # Python configs
     python_config = config.get("python", {})
     python_version = python_config.get("python_version")
@@ -632,25 +627,21 @@ def build_android(config, verbose):
 
         # Build APK
         logger.info("  - Building Android APK...")
-        gradlew_path = os.path.join(MWD, f"gradle-{gradle_version}", "gradlew")
+
+        gradle_home = os.environ.get("GRADLE_HOME")
+        gradle_executable = os.path.join(gradle_home, "bin", "gradle")
         if sys.platform == "win32":
-            gradlew_path = os.path.join(MWD, f"gradle-{gradle_version}", "gradlew.bat")
-        if not os.path.exists(gradlew_path):
-            logger.error(f"Error: gradlew not found at {gradlew_path}. Android app setup failed.")
-            return False
-        
-        try:
-            os.chmod(gradlew_path, 0o755)
-        except OSError as e:
-            logger.error(f"Error making gradlew executable: {e}")
-            logger.info("Please check file permissions for gradlew.")
+            gradle_executable = os.path.join(gradle_home, "bin", "gradlew.bat")
+
+        if not os.path.exists(gradle_executable):
+            logger.error(f"Error: gradle not found at {gradle_executable}. Android app setup failed.")
             return False
 
         build_task = "assembleDebug"
         if build_type == "release":
             build_task = "assembleRelease"
 
-        gradle_build_cmd = [gradlew_path, build_task]
+        gradle_build_cmd = [gradle_executable, build_task]
         result = run_shell_command(gradle_build_cmd, description=f"  - Running Gradle build: {' '.join(gradle_build_cmd)}", cwd=build_path)
         if result["returncode"] != 0:
             logger.error(f"Gradle build failed (Exit Code: {result['returncode']}):")
