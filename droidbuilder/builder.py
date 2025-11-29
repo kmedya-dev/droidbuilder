@@ -487,6 +487,7 @@ def build_android(config, verbose):
     ndk_version = android_config.get("ndk_version")
     min_sdk_version = android_config.get("min_sdk_version")
     ndk_api = android_config.get("ndk_api")
+    gradle_version = android_config.get("gradle_version")
     archs = android_config.get("archs", [])
     manifest_file = android_config.get("manifest_file")
 
@@ -627,7 +628,9 @@ def build_android(config, verbose):
 
         # Build APK
         logger.info("  - Building Android APK...")
-        gradlew_path = os.path.join(GRADLE_HOME, "gradlew")
+        gradlew_path = os.path.join(MWD, f"gradle-{gradle_version}", "gradlew")
+        if sys.platform == "win32":
+            gradlew_path = os.path.join(MWD, f"gradle-{gradle_version}", "gradlew.bat")
         if not os.path.exists(gradlew_path):
             logger.error(f"Error: gradlew not found at {gradlew_path}. Android app setup failed.")
             return False
