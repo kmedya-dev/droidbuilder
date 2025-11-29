@@ -627,7 +627,7 @@ def build_android(config, verbose):
 
         # Build APK
         logger.info("  - Building Android APK...")
-        gradlew_path = os.path.join(build_path, "gradlew")
+        gradlew_path = os.path.join(GRADLE_HOME, "gradlew")
         if not os.path.exists(gradlew_path):
             logger.error(f"Error: gradlew not found at {gradlew_path}. Android app setup failed.")
             return False
