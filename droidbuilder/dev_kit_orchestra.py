@@ -188,6 +188,15 @@ def install_jdk(version, verbose=False):
     jdk_install_dir = os.path.join(MWD, f"jdk-{version}")
     if os.path.exists(jdk_install_dir):
         logger.info(f"  - JDK version {version} is already installed. Skipping.")
+        
+        # Ensure permissions are correct
+        java_bin = os.path.join(jdk_install_dir, "bin", "java")
+        if os.path.exists(java_bin):
+            try:
+                os.chmod(java_bin, 0o755)
+            except OSError as e:
+                logger.error(f"Error setting executable permissions for java at {java_bin}: {e}")
+
         os.environ["JAVA_HOME"] = jdk_install_dir
         os.environ["PATH"] += os.pathsep + os.path.join(jdk_install_dir, "bin")
         return True
@@ -204,6 +213,14 @@ def install_jdk(version, verbose=False):
         if not extract_file(archive_path, jdk_install_dir, verbose=verbose):
             return False
         os.remove(archive_path)
+
+        # Ensure permissions are correct
+        java_bin = os.path.join(jdk_install_dir, "bin", "java")
+        if os.path.exists(java_bin):
+            try:
+                os.chmod(java_bin, 0o755)
+            except OSError as e:
+                logger.error(f"Error setting executable permissions for java at {java_bin}: {e}")
 
     except Exception as e:
         logger.error(f"Error downloading and extracting JDK: {e}")
@@ -239,6 +256,15 @@ def install_gradle(version, verbose=False):
     gradle_install_dir = os.path.join(MWD, f"gradle-{version}")
     if os.path.exists(gradle_install_dir):
         logger.info(f"  - Gradle version {version} is already installed. Skipping.")
+        
+        # Ensure permissions are correct for existing installation
+        gradle_bin = os.path.join(gradle_install_dir, "bin", "gradle")
+        if os.path.exists(gradle_bin):
+            try:
+                os.chmod(gradle_bin, 0o755)
+            except OSError as e:
+                logger.error(f"Error setting executable permissions for gradle at {gradle_bin}: {e}")
+
         os.environ["GRADLE_HOME"] = gradle_install_dir
         os.environ["PATH"] += os.pathsep + os.path.join(gradle_install_dir, "bin")
         return True
@@ -253,6 +279,14 @@ def install_gradle(version, verbose=False):
         if not extract_file(archive_path, gradle_install_dir, verbose=verbose):
             return False
         os.remove(archive_path)
+
+        # Ensure the gradle binary is executable
+        gradle_bin = os.path.join(gradle_install_dir, "bin", "gradle")
+        if os.path.exists(gradle_bin):
+            try:
+                os.chmod(gradle_bin, 0o755)
+            except OSError as e:
+                logger.error(f"Error setting executable permissions for gradle at {gradle_bin}: {e}")
 
     except Exception as e:
         logger.error(f"Error downloading and extracting gradle: {e}")
