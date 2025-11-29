@@ -388,7 +388,7 @@ def _configure_android_app(build_path, app_name, package_domain, app_version, sd
     return True
 
 
-def _copy_assets_to_android_app(build_path, archs):
+def _copy_assets_to_android_app(build_path, archs, install_path):
     """Copy compiled Python interpreter, modules, and buildtime libraries to Android app assets/jniLibs."""
     logger.info("  - Copying Python and buildtime assets to Android app...")
 
@@ -595,7 +595,7 @@ def build_android(config, verbose):
             return False
 
         # Copy Python assets
-        if not _copy_assets_to_android_app(build_path, archs):
+        if not _copy_assets_to_android_app(build_path, archs, install_path):
             logger.error("Failed to copy assets to Android app. Aborting.")
             return False
 
