@@ -487,9 +487,13 @@ def build_android(config, verbose):
     ndk_version = android_config.get("ndk_version")
     min_sdk_version = android_config.get("min_sdk_version")
     ndk_api = android_config.get("ndk_api")
-    gradle_version = android_config.get("gradle_version")
     archs = android_config.get("archs", [])
     manifest_file = android_config.get("manifest_file")
+
+    # Java configs
+    java_config = config.get("java", {})
+    jdk_version = java_config.get("jdk_version")
+    gradle_version = java_config.get("gradle_version")
 
     # Python configs
     python_config = config.get("python", {})
