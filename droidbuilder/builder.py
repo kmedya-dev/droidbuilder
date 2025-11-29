@@ -418,7 +418,7 @@ def _copy_assets_to_android_app(build_path, archs, install_path):
             logger.info("Please check directory permissions and ensure enough disk space is available.")
             return False
 
-def _copy_user_python_code(build_path, main_file):
+def _copy_user_python_code(build_path, root_dir):
     """Copy user's Python application code to Android app assets."""
     logger.info("  - Copying user's Python code to Android app...")
 
@@ -429,22 +429,38 @@ def _copy_user_python_code(build_path, main_file):
         logger.error(f"Error creating user Python assets directory {user_python_assets_dir}: {e}")
         return False
 
-    source_main_file_path = os.path.join(os.getcwd(), main_file)
-    dest_main_file_path = os.path.join(user_python_assets_dir, os.path.basename(main_file))
-
-    if not os.path.exists(source_main_file_path):
-        logger.error(f"Error: Main Python file not found at {source_main_file_path}. Please ensure '{main_file}' exists in your project root.")
+    source_dir = os.path.abspath(root_dir)
+    
+    if not os.path.exists(source_dir):
+        logger.error(f"Error: Project root directory not found at {source_dir}.")
         return False
-    if not os.path.isfile(source_main_file_path):
-        logger.error(f"Error: '{source_main_file_path}' is not a file. Please ensure 'main_file' in droidbuilder.toml points to a valid file.")
-        return False
+    
+    # Ignore patterns
+    ignore_patterns = shutil.ignore_patterns(
+        "build", "dist", ".git", "venv", ".env", "__pycache__", "*.pyc", "*.pyo",
+        "droidbuilder.toml", "poetry.lock", "Pipfile", "Pipfile.lock",
+        ".idea", ".vscode", "node_modules", ".DS_Store", "patches"
+    )
 
     try:
-        shutil.copyfile(source_main_file_path, dest_main_file_path)
-        logger.success(f"  - Copied user's main Python file to {dest_main_file_path}")
+        # Helper to copy contents recursively since copytree dest must not exist or we use dirs_exist_ok (Python 3.8+)
+        # But we want to ignore the build dir itself which is inside the source dir usually
+        
+        # We iterate and copy manually to have better control or use copytree with dirs_exist_ok=True and ignore
+        
+        # We need to be careful not to copy the build directory if it is inside the source_dir
+        # The build_path is typically droidbuilder/build/<app_name> or similar.
+        # If the user runs from source root, 'build' might be excluded by ignore_patterns if named 'build'.
+        # But our build_path is passed in. Let's make sure we don't recurse into it if it's in the source tree.
+        
+        # Actually, shutil.copytree with ignore callable is best.
+        
+        shutil.copytree(source_dir, user_python_assets_dir, dirs_exist_ok=True, ignore=ignore_patterns)
+        
+        logger.success(f"  - Copied user's project files from {source_dir} to {user_python_assets_dir}")
     except (shutil.Error, OSError) as e:
-        logger.error(f"Error copying user's main Python file from {source_main_file_path} to {dest_main_file_path}: {e}")
-        logger.info("Please check file permissions and ensure the source file exists and is readable.")
+        logger.error(f"Error copying user's project files: {e}")
+        logger.info("Please check file permissions and ensure source files are readable.")
         return False
 
     return True
@@ -460,6 +476,7 @@ def build_android(config, verbose):
     package_domain = app_config.get("package_domain")
     app_version = app_config.get("version")
     main_file = app_config.get("main_file")
+    root_dir = app_config.get("root_dir", ".")
     target_platforms = app_config.get("target_platforms", [])
 
     # Android configs
@@ -600,7 +617,7 @@ def build_android(config, verbose):
             return False
 
         # Copy user's Python code
-        if not _copy_user_python_code(build_path, main_file):
+        if not _copy_user_python_code(build_path, root_dir):
             logger.error("Failed to copy user's Python code. Aborting.")
             return False
 
