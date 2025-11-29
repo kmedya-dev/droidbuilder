@@ -29,3 +29,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["droidbuilder*"]
+
+[tool.setuptools.package-data]
+droidbuilder = ["target/**/*"]
