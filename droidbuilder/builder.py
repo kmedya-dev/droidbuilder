@@ -628,13 +628,23 @@ def build_android(config, verbose):
         # Build APK
         logger.info("  - Building Android APK...")
 
-        gradle_home = os.environ.get("GRADLE_HOME")
-        gradle_executable = os.path.join(gradle_home, "bin", "gradle")
-        if sys.platform == "win32":
-            gradle_executable = os.path.join(gradle_home, "bin", "gradlew.bat")
+        # Placeholder for future DRE implementation:
+        # "Additionally, we had a good discussion about Dynamic Rule Engines and meta-data driven logic,
+        # and how that could be applied to DroidBuilder for more flexible version management."
 
-        if not os.path.exists(gradle_executable):
-            logger.error(f"Error: gradle not found at {gradle_executable}. Android app setup failed.")
+        gradle_home = os.environ.get("GRADLE_HOME")
+        gradle_executable = None
+        if gradle_home:
+            gradle_executable = os.path.join(gradle_home, "bin", "gradle")
+            if sys.platform == "win32":
+                gradle_executable = os.path.join(gradle_home, "bin", "gradle.bat")
+        
+        if not gradle_executable or not os.path.exists(gradle_executable):
+            # Fallback to system path
+            gradle_executable = shutil.which("gradle")
+
+        if not gradle_executable:
+            logger.error(f"Error: gradle not found. Please set GRADLE_HOME or ensure gradle is in your PATH.")
             return False
 
         build_task = "assembleDebug"
