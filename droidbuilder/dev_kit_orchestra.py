@@ -353,11 +353,11 @@ def setup_tools(conf, verbose=False):
             all_successful = False
 
     if all_successful:
-        _create_env_file(sdk_install_dir, ndk_version, jdk_version, jdk_install_dir)
+        _create_env_file(sdk_install_dir, ndk_version, jdk_version, jdk_install_dir, gradle_version)
 
     return all_successful
 
-def _create_env_file(sdk_install_dir, ndk_version, jdk_version, jdk_install_dir):
+def _create_env_file(sdk_install_dir, ndk_version, jdk_version, jdk_install_dir, gradle_version):
     """Create a shell script to set environment variables."""
     env_file_path = os.path.join(MWD, "env.sh")
     os.makedirs(os.path.dirname(env_file_path), exist_ok=True)
@@ -370,6 +370,14 @@ def _create_env_file(sdk_install_dir, ndk_version, jdk_version, jdk_install_dir)
             f.write(f"export ANDROID_NDK_ROOT={os.path.join(sdk_install_dir, 'ndk', ndk_version)}\n")
         if jdk_install_dir and os.path.exists(jdk_install_dir):
             f.write(f"export JAVA_HOME={jdk_install_dir}\n")
+        
+        # Export GRADLE_HOME
+        if gradle_version:
+            gradle_install_dir = os.path.join(MWD, f"gradle-{gradle_version}")
+            if os.path.exists(gradle_install_dir):
+                f.write(f"export GRADLE_HOME={gradle_install_dir}\n")
+                f.write(f"export PATH=$GRADLE_HOME/bin:$PATH\n")
+
         f.write("export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_NDK_HOME:$JAVA_HOME/bin:$PATH\n")
 
     logger.info(f"Environment script created at {env_file_path}")
