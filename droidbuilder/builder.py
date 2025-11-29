@@ -417,6 +417,8 @@ def _copy_assets_to_android_app(build_path, archs, install_path):
             logger.error(f"Error copying Python assets for {arch} from {python_install_dir} to {dest_python_dir}: {e}")
             logger.info("Please check directory permissions and ensure enough disk space is available.")
             return False
+    
+    return True
 
 def _copy_user_python_code(build_path, root_dir):
     """Copy user's Python application code to Android app assets."""
