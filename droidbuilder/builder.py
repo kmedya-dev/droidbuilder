@@ -245,8 +245,6 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
 
     if clean_cmd:
         result = run_shell_command(clean_cmd, description=f"  - Cleaning buildtime package {package_name} for {env_obj.arch}", env=env_obj.env, cwd=buildtime_package_source_path)
-        if result['stdout']:
-            logger.debug(f"cleaning:\n{result['stdout']}")
         if result["returncode"] != 0:
             logger.warning(f"Clean command failed for {package_name} (Exit Code: {result['returncode']}). Continuing anyway.")
             if result["stdout"]:
