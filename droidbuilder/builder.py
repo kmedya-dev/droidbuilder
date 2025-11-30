@@ -115,11 +115,7 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
             logger.warning(f"Clean command failed for Python (Exit Code: {result['returncode']}). Continuing anyway.")
 
     if configure_cmd:
-        logger.debug(configure_cmd)
         result = run_shell_command(configure_cmd, description=f"  - Running Python configure for {env_obj.arch}", env=env_obj.env, cwd=python_source_dir)
-        if result['stdout']:
-            logger.debug(result['stdout'])
-
         if result["returncode"] != 0:
             logger.error(f"Configure failed for Python (Exit Code: {result['returncode']}):")
             if result["stdout"]:
@@ -129,12 +125,7 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
             return False
 
     if build_cmd:
-        logger.debug(build_cmd)
-
         result = run_shell_command(build_cmd, description=f"  - Running Python build for {env_obj.arch}", env=env_obj.env, cwd=python_source_dir)
-        if result['stdout']:
-            logger.debug(result['stdout'])
-
         if result["returncode"] != 0:
             logger.error(f"Build failed for Python (Exit Code: {result['returncode']}):")
             if result["stdout"]:
@@ -144,11 +135,7 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
             return False
 
     if install_cmd:
-        logger.debug(install_cmd)
         result = run_shell_command(install_cmd, description=f"  - Running Python install for {env_obj.arch}", env=env_obj.env, cwd=python_source_dir)
-        if result['stdout']:
-            logger.debug(result['stdout'])
-
         if result["returncode"] != 0:
             logger.error(f"Install failed for Python (Exit Code: {result['returncode']}):")
             if result["stdout"]:
@@ -203,19 +190,15 @@ def _compile_runtime_package(package_name, package_config, runtime_package_sourc
     ]
 
     if pip_install_cmd:
-        logger.debug(pip_install_cmd)
         result = run_shell_command(pip_install_cmd, description=f"    - Running pip install for {package_name}", env=pip_env, cwd=runtime_package_source_path)
-        if result['stdout']:
-            logger.debug(result['stdout'])
-
-    if result["returncode"] != 0:
-        logger.error(f"Pip install failed for runtime package {package_name} (Exit Code: {result['returncode']}):")
-        if result["stdout"]:
-            logger.error(f"Stdout:\n{result['stdout']}")
-        if result["stderr"]:
-            logger.error(f"Stderr:\n{result['stderr']}")
-        logger.info("Please check the runtime packages and cross-compilation environment.")
-        return False
+        if result["returncode"] != 0:
+            logger.error(f"Pip install failed for runtime package {package_name} (Exit Code: {result['returncode']}):")
+            if result["stdout"]:
+                logger.error(f"Stdout:\n{result['stdout']}")
+            if result["stderr"]:
+                logger.error(f"Stderr:\n{result['stderr']}")
+                logger.info("Please check the runtime packages and cross-compilation environment.")
+            return False
 
     logger.success(f"    - Successfully compiled and installed {package_name} for {env_obj.arch}.")
     return True
@@ -261,6 +244,9 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
     install_cmd = commands["install_command"]
 
     if clean_cmd:
+        if result['stdout']:
+            logger.debug(f"cleaning:\n{result['stdout']}")
+
         result = run_shell_command(clean_cmd, description=f"  - Cleaning buildtime package {package_name} for {env_obj.arch}", env=env_obj.env, cwd=buildtime_package_source_path)
         if result["returncode"] != 0:
             logger.warning(f"Clean command failed for {package_name} (Exit Code: {result['returncode']}). Continuing anyway.")
@@ -273,9 +259,6 @@ def _compile_buildtime_package(package_name, package_config, buildtime_package_s
     if configure_cmd:
         logger.debug(configure_cmd)
         result = run_shell_command(configure_cmd, description=f"  - Running configure for {package_name} on {env_obj.arch}", env=env_obj.env, cwd=buildtime_package_source_path)
-        if result['stdout']:
-            logger.debug(result['stdout'])
-
         if result["returncode"] != 0:
             logger.error(f"Configure failed for {package_name} (Exit Code: {result['returncode']}):")
             if result["stdout"]:
@@ -651,8 +634,11 @@ def build_android(config, verbose):
         if build_type == "release":
             build_task = "assembleRelease"
 
-        gradle_build_cmd = [gradle_executable, build_task]
+        gradle_build_cmd = [gradle_executable, build_task, "--debug"]
         result = run_shell_command(gradle_build_cmd, description=f"  - Running Gradle build: {' '.join(gradle_build_cmd)}", cwd=build_path)
+        if result["stdout"]:
+            logger.debug(f"Debug gradle build:\n{result['stdout']}")
+
         if result["returncode"] != 0:
             logger.error(f"Gradle build failed (Exit Code: {result['returncode']}):")
             if result["stdout"]:
