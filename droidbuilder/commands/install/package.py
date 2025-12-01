@@ -1,7 +1,7 @@
 import click
 import os
 from urllib.parse import urlparse
-from ... import cli_logger as logger
+from ...cli_logger import logger
 from ...utils.package_resolver import resolve_package
 from ... import config
 from ...constants import MWD
