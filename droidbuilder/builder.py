@@ -630,7 +630,7 @@ def build_android(config, verbose):
         if build_type == "release":
             build_task = "assembleRelease"
 
-        gradle_build_cmd = [gradle_executable, build_task]
+        gradle_build_cmd = [gradle_executable, build_task, "--info"]
         result = run_shell_command(gradle_build_cmd, description=f"  - Running Gradle build: {' '.join(gradle_build_cmd)}", cwd=build_path)
         """if result["stdout"]:
             logger.debug(f"Debug gradle build:\n{result['stdout']}")"""
