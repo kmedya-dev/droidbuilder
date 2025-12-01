@@ -147,14 +147,14 @@ def _build_python_for_android(python_version, package_config, python_host, pytho
     logger.success(f"  - Python {python_version} built and installed for {env_obj.arch}.")
     return True
 
-def _compile_runtime_package(package_name, package_config, runtime_package_source_path, install_dir, env_obj, config):
+def _compile_runtime_package(package_name, package_config, runtime_package_source_path, python_install_dir, env_obj, config):
     """Compiles and installs a runtime package for a specific Android architecture."""
     logger.info(f"  - Compiling runtime package {package_name} for {env_obj.arch}...")
 
     # Set up environment for cross-compilation
     # Attempt to install using pip (preferred for runtime packages)
     # Ensure pip is available in the cross-compiled Python environment
-    python_bin = os.path.join(install_dir, "bin", "python3")
+    python_bin = os.path.join(python_install_dir, "bin", "python3")
     if not os.path.exists(python_bin):
         logger.error(f"Error: Cross-compiled Python interpreter not found at {python_bin}. Cannot install runtime package {package_name}.")
         return False
@@ -166,14 +166,14 @@ def _compile_runtime_package(package_name, package_config, runtime_package_sourc
         return False
 
     major_minor = ".".join(python_version.split(".")[:2])
-    site_packages_dir = os.path.join(install_dir, "lib", f"python{major_minor}", "site-packages")
+    site_packages_dir = os.path.join(python_install_dir, "lib", f"python{major_minor}", "site-packages")
     os.makedirs(site_packages_dir, exist_ok=True)
 
     # Create a new environment for pip install to include CFLAGS and LDFLAGS
     pip_env = env_obj.env.copy() # Use the env returned by _setup_build_environment
     
     # Add python include dir to CFLAGS so cross-compilation finds Python headers
-    python_include_dir = os.path.join(install_dir, "include", f"python{major_minor}")
+    python_include_dir = os.path.join(python_install_dir, "include", f"python{major_minor}")
     pip_env["CFLAGS"] = f"{env_obj.cflags} -I{python_include_dir}"
     pip_env["LDFLAGS"] = env_obj.ldflags
     pip_env["PKG_CONFIG"] = env_obj.pkg_config_executable
@@ -382,32 +382,32 @@ def _copy_assets_to_android_app(build_path, archs, install_path):
 
     for arch in archs:
         # Copy Python assets
-        install_dir = os.path.join(install_path, arch)
-        dest_depend_dir = os.path.join(assets_dir,"local", arch)
+        python_install_dir = os.path.join(install_path, arch)
+        dest_python_dir = os.path.join(assets_dir, "python", arch)
         
-        if not os.path.exists(install_dir):
-            logger.error(f"Error: Compiled Python for {arch} not found at {install_dir}. Please ensure Python was built successfully for this architecture.")
+        if not os.path.exists(python_install_dir):
+            logger.error(f"Error: Compiled Python for {arch} not found at {python_install_dir}. Please ensure Python was built successfully for this architecture.")
             return False
 
         try:
-            shutil.copytree(install_dir, dest_depend_dir, dirs_exist_ok=True)
-            logger.info(f"    - Copied Python assets for {arch} to {dest_depend_dir}")
+            shutil.copytree(python_install_dir, dest_python_dir, dirs_exist_ok=True)
+            logger.info(f"    - Copied Python assets for {arch} to {dest_python_dir}")
         except (shutil.Error, OSError) as e:
-            logger.error(f"Error copying Python assets for {arch} from {install_dir} to {dest_depend_dir}: {e}")
+            logger.error(f"Error copying Python assets for {arch} from {python_install_dir} to {dest_python_dir}: {e}")
             logger.info("Please check directory permissions and ensure enough disk space is available.")
             return False
     
     return True
 
-def _copy_user_project_files(build_path, root_dir):
+def _copy_user_python_code(build_path, root_dir):
     """Copy user's Python application code to Android app assets."""
     logger.info("  - Copying user's Python code to Android app...")
 
-    user_project_files = os.path.join(build_path, "app", "src", "main", "assets", "source_code")
+    user_python_assets_dir = os.path.join(build_path, "app", "src", "main", "assets", "user_python")
     try:
-        os.makedirs(user_project_files, exist_ok=True)
+        os.makedirs(user_python_assets_dir, exist_ok=True)
     except OSError as e:
-        logger.error(f"Error creating user Python assets directory {user_project_files}: {e}")
+        logger.error(f"Error creating user Python assets directory {user_python_assets_dir}: {e}")
         return False
 
     source_dir = os.path.abspath(root_dir)
@@ -436,9 +436,9 @@ def _copy_user_project_files(build_path, root_dir):
         
         # Actually, shutil.copytree with ignore callable is best.
         
-        shutil.copytree(source_dir, user_project_files, dirs_exist_ok=True, ignore=ignore_patterns)
+        shutil.copytree(source_dir, user_python_assets_dir, dirs_exist_ok=True, ignore=ignore_patterns)
         
-        logger.success(f"  - Copied user's project files from {source_dir} to {user_project_files}")
+        logger.success(f"  - Copied user's project files from {source_dir} to {user_python_assets_dir}")
     except (shutil.Error, OSError) as e:
         logger.error(f"Error copying user's project files: {e}")
         logger.info("Please check file permissions and ensure source files are readable.")
@@ -507,7 +507,7 @@ def build_android(config, verbose):
         )
         logger.info(f"Constructed ndk_dir path: {ndk_dir_path or 'not available'}")
 
-        """if not ndk_dir_path or not os.path.exists(ndk_dir_path):
+        if not ndk_dir_path or not os.path.exists(ndk_dir_path):
             logger.warning("NDK directory not found, build may fail.")
 
         env_map = {}
@@ -577,10 +577,10 @@ def build_android(config, verbose):
                 return False
 
             for arch in archs:
-                install_dir = os.path.join(install_path, arch)
-                if not _compile_runtime_package(name, {}, runtime_package_source_path, install_dir, env_map[arch], config):
+                python_install_dir = os.path.join(install_path, arch)
+                if not _compile_runtime_package(name, {}, runtime_package_source_path, python_install_dir, env_map[arch], config):
                     logger.error(f"Failed to compile runtime package {name} for {arch}. Aborting.")
-                    return False"""
+                    return False
 
         # Create Android app structure
         if not _create_android_app(app_name, package_domain, build_path):
@@ -598,7 +598,7 @@ def build_android(config, verbose):
             return False
 
         # Copy user's Python code
-        if not _copy_user_project_files(build_path, root_dir):
+        if not _copy_user_python_code(build_path, root_dir):
             logger.error("Failed to copy user's Python code. Aborting.")
             return False
 
