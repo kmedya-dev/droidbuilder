@@ -1,0 +1,44 @@
+name: Release Local arm64-v8a
+
+on:
+  release:
+    types: [created]
+  workflow_dispatch:
+
+jobs:
+  build-and-release-arm64:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install DroidBuilder
+        run: |
+          pip install --upgrade pip
+          pip install git+https://github.com/kmedya-dev/droidbuilder.git@refactor-II
+
+      - name: Install Development Tools
+        run: droidbuilder install dev-kit
+
+      - name: Build Android
+        run: |
+          source "$HOME/.droidbuilder/env.sh"
+          droidbuilder build android || true
+
+      - name: Zip arm64-v8a artifact
+        run: |
+          cd ~/.droidbuilder/local
+          zip -r arm64-v8a.zip arm64-v8a
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: binary-v${{ github.run_number }}
+          files: /home/runner/.droidbuilder/local/arm64-v8a.zip
