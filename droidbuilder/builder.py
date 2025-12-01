@@ -630,10 +630,10 @@ def build_android(config, verbose):
         if build_type == "release":
             build_task = "assembleRelease"
 
-        gradle_build_cmd = [gradle_executable, build_task, "--debug"]
+        gradle_build_cmd = [gradle_executable, build_task]
         result = run_shell_command(gradle_build_cmd, description=f"  - Running Gradle build: {' '.join(gradle_build_cmd)}", cwd=build_path)
-        if result["stdout"]:
-            logger.debug(f"Debug gradle build:\n{result['stdout']}")
+        """if result["stdout"]:
+            logger.debug(f"Debug gradle build:\n{result['stdout']}")"""
 
         if result["returncode"] != 0:
             logger.error(f"Gradle build failed (Exit Code: {result['returncode']}):")
