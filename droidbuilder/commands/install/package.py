@@ -27,7 +27,7 @@ def package(package_name, version, verbose):
     """
     Installs a package from a direct URL or by resolving a package name.
     """
-    conf = load_config()
+    conf = config.load_config()
     dependency_mapping = conf.get('app', {}).get('dependency_mapping', {})
 
     if is_url(package_name):
